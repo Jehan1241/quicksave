@@ -12,8 +12,8 @@ function LibraryView(props) {
   };
 
   return (
-    <div className="relative w-[calc(100vw-104px)] h-screen overflow-scroll text-center bg-gameView ml-1 rounded-l-3xl p-8">
-      <div className="fixed top-0 left-1/2 z-10 h-12 drop-shadow-lg -translate-x-1/2">
+    <div className="overflow-scroll relative h-screen text-center bg-gameView">
+      {/* <div className="fixed top-0 left-1/2 z-10 h-12 drop-shadow-lg -translate-x-1/2">
         <input
           id="searchBar"
           onChange={searchBarHandler}
@@ -25,7 +25,7 @@ function LibraryView(props) {
         <button className="m-2 w-9 h-9 text-white rounded-lg border-2 border-gray-700 bg-primary">
           <FaFilter className="inline" />
         </button>
-      </div>
+      </div> */}
       {data.map((item) =>
         item.Name.toLowerCase().includes(searchText) ? (
           <GridMaker

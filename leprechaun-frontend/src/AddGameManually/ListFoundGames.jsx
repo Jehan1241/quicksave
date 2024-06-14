@@ -1,5 +1,11 @@
+import { useState } from "react";
+
 function ListFoundGames(props) {
+  const [commiting, setCommiting] = useState(false);
+
   const selectedGameClickHandler = async (appid) => {
+    setCommiting(true);
+    console.log(props.time);
     console.log(appid);
     console.log(props.SelectedPlatform);
     try {
@@ -8,11 +14,17 @@ function ListFoundGames(props) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ key: appid, platform: props.SelectedPlatform }),
+        body: JSON.stringify({
+          key: appid,
+          platform: props.SelectedPlatform,
+          time: props.time,
+        }),
       });
       props.onGameAdded();
+      setCommiting(false);
     } catch (error) {
       console.error("Error:", error);
+      setCommiting(false);
     }
   };
 
@@ -27,7 +39,11 @@ function ListFoundGames(props) {
         </div>
       );
     } else {
-      return (
+      return commiting ? (
+        <div className="mt-4 font-mono text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+          Adding Game...
+        </div>
+      ) : (
         <div className="mt-4 font-mono text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
           <ul className="w-11/12 text-white">
             {Object.values(data).map((game) => (

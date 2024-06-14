@@ -22,23 +22,24 @@ function GameView(props) {
   };
 
   return (
-    <div className="relative w-[calc(100vw-104px)] text-white font-mono h-screen overflow-scroll text-center bg-gameView ml-1 rounded-l-3xl">
-      <img
+    <div className="overflow-scroll relative h-screen font-mono text-center text-white bg-gameView bg-[src]">
+      {/* <img
         className="absolute z-0 w-full opacity-20"
-        src="https://i.redd.it/imjkslu7qjia1.jpg"
-      />
+        src={"/leprechaun-backend/" + screenshotsArray[0]}
+      /> */}
       {/* Horizontal FLEX Holder */}
       <div className="flex flex-row">
         {/* LOGO AND Description DIV */}
-        <div className=" m-2 w-1/3 h-[calc(100vh-15px)] opacity-75 rounded-3xl">
+        <div className=" m-2 w-1/3 h-[calc(100vh-15px)] rounded-3xl ">
           <div
-            className={`flex flex-col p-2 h-1/3 rounded-t-3xl border-2 border-gray-500 ${
+            className={`flex flex-col p-2 h-1/3 rounded-t-3xl border-2 border-gray-500 backdrop-blur-md bg-black/20 ${
               infoVisible ? "" : "rounded-3xl"
             }`}
           >
             <img
-              className="object-scale-down h-5/6"
+              className="object-scale-down m-2 h-5/6 text-5xl font-extrabold"
               src="https://cdn.cloudflare.steamstatic.com/steam/apps/292030/logo.png?t=1693590448"
+              alt={data.Name}
             />
             <div>
               <button className="mx-1 w-4/12 h-12 rounded-2xl border-2 border-gray-500 bg-primary">
@@ -61,18 +62,15 @@ function GameView(props) {
               </button>
             </div>
           </div>
-          {infoVisible ? (
-            <DisplayInfo
-              data={data}
-              tags={tagsArray}
-              companies={companiesArray}
-            />
-          ) : (
-            ""
-          )}
+          <DisplayInfo
+            data={data}
+            tags={tagsArray}
+            companies={companiesArray}
+            visible={infoVisible}
+          />
         </div>
         {/* Image Div */}
-        {imageVisible ? <DisplayImage screenshots={screenshotsArray} /> : ""}
+        <DisplayImage screenshots={screenshotsArray} visible={imageVisible} />
       </div>
     </div>
   );

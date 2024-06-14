@@ -18,14 +18,16 @@ function GridMaker(props) {
     >
       <div className="flex relative flex-col group hover:rounded-2xl">
         <img
-          src={
+          /* src={
             !imageError
-              ? `/leprechaun-backend/${props.cover}`
+              ? `http://localhost:8080/cover-art/${props.cover}`
               : "/leprechaun-backend/coverArt/default/default.jpg"
-          }
+          } */
+          src={`http://localhost:8080/cover-art/${props.cover}`}
           onError={() => setImageError(true)}
           className={`object-cover w-44 h-64 text-sm text-white group-hover:rounded-2xl`}
         />
+        <span className="text-white">{props.name}</span>
 
         <p className="hidden overflow-hidden text-xs text-center text-white truncate whitespace-nowrap group-hover:block">
           {props.platform === "PS5" && (

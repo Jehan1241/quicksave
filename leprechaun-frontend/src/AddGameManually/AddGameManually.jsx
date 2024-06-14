@@ -9,6 +9,7 @@ function AddGameManually(props) {
   const [clickCount, setClickCount] = useState(0);
   const [platforms, setPlatforms] = useState("");
   const [selectedPlatform, setSelectedPlatform] = useState("");
+  const [timePlayed, setTimePlayed] = useState(0);
 
   useEffect(() => {
     if (searchClicked) {
@@ -26,6 +27,8 @@ function AddGameManually(props) {
     setClickCount(clickCount + 1);
     setSearchClicked(true);
     const value = document.getElementById("SearchBar").value;
+    const time = document.getElementById("timePlayed").value;
+    setTimePlayed(time);
     setLoading(true);
     setToSearch(value);
   };
@@ -64,20 +67,20 @@ function AddGameManually(props) {
   }, []);
 
   return (
-    <div className="relative w-[calc(100vw-100px)] h-screen text-center text-white bg-gameView ml-1 rounded-l-3xl p-12 z-0 font-mono overflow-hidden ">
+    <div className="overflow-hidden relative z-0 p-12 ml-1 h-screen font-mono text-center text-white rounded-l-3xl bg-gameView">
       <div className="p-6 w-1/2 rounded-2xl border-2 border-gray-700 bg-primary hover:border-gray-500">
         <p className="text-2xl text-left text-white">Import Game Manually</p>
         <div className="m-6 text-left">
           <p className="inline m-2 text-white">Enter Game Title</p>
           <input
             id="SearchBar"
-            className="p-1 ml-7 w-72 rounded-xl border-2 border-gray-700 bg-gameView"
+            className="p-1 ml-9 w-72 rounded-xl border-2 border-gray-700 bg-gameView"
           />
           <br />
           <br />
           <p className="inline m-2">Platform</p>
           <select
-            className="p-2 ml-16 w-24 rounded-xl border-2 border-gray-700 bg-gameView"
+            className="p-2 ml-28 w-72 rounded-xl border-2 border-gray-700 bg-gameView"
             onChange={(e) => optionSelectHandler(e.target.value)}
           >
             {Object.values(platforms).map((platform) => (
@@ -90,8 +93,11 @@ function AddGameManually(props) {
           <br />
           <p className="inline m-2 text-white">Hours Played</p>
           <input
-            id="SearchBar"
-            className="p-1 ml-7 w-24 rounded-xl border-2 border-gray-700 bg-gameView"
+            id="timePlayed"
+            onChange={(e) => {
+              setTimePlayed(e.target.value);
+            }}
+            className="p-1 ml-20 w-24 rounded-xl border-2 border-gray-700 bg-gameView"
             onInput={(e) => {
               const value = e.target.value;
               const regex = /^[0-9]+$/;
@@ -122,6 +128,7 @@ function AddGameManually(props) {
             FoundGames={data}
             SelectedPlatform={selectedPlatform}
             onGameAdded={props.onGameAdded}
+            time={timePlayed}
           />
         )}
       </div>

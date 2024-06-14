@@ -657,7 +657,7 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string) {
 	screenshotStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
 	}
 }
-func insertMetaDataInDB(gameIndex int, platform string) {
+func insertMetaDataInDB(gameIndex int, platform string, time string) {
 	//gameID := gameIndex
 	releaseYear := strings.Split(releaseDateTime, " ")[2]
 	UID := GetMD5Hash(Name+releaseYear)
@@ -689,10 +689,10 @@ func insertMetaDataInDB(gameIndex int, platform string) {
 		pathLength := len(screenshotStruct)
 		ScreenshotPaths := make([]string, pathLength)
 		for i:= range len(ScreenshotPaths){
-			ScreenshotPaths[i] = fmt.Sprintf(`screenshots/%s/%s-%d.jpeg`, UID, UID, i)
+			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
 		} 
 
-		coverArtPath := fmt.Sprintf(`coverArt/%s/%s-0.jpeg`, UID, UID)
+		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
 	
 	
 	
@@ -702,7 +702,7 @@ func insertMetaDataInDB(gameIndex int, platform string) {
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, Name, releaseDateTime, coverArtPath, summary, 0, platform, 0, AggregatedRating)
+		preparedStatement.Exec(UID, Name, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
 	
 	
 		//Insert to Screenshots Table
@@ -1138,6 +1138,7 @@ func setupRouter() *gin.Engine {
 		var data struct{
 			Key int `json:"key"`
 			SelectedPlatform string `json:"platform"`
+			Time string `json:"time"`
 		}
 		if err:= c.BindJSON(&data); err!=nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
@@ -1145,15 +1146,16 @@ func setupRouter() *gin.Engine {
 		}
 		fmt.Println("Received", data.Key)
 		fmt.Println("Recieved", data.SelectedPlatform)
+		fmt.Println("Recieved", data.Time)
 		appID=data.Key
 		fmt.Println(appID)
 		getMetaData(appID, gameStruct, accessToken)
-		insertMetaDataInDB(appID,data.SelectedPlatform)
+		insertMetaDataInDB(appID,data.SelectedPlatform, data.Time)
 		MetaData := displayEntireDB()
 		m := MetaData["m"].(map[string]map[string]interface{})
 		tags := MetaData["tags"].(map[string]map[int]string)
 		companies := MetaData["companies"].(map[string]map[int]string)
-		screenshots :=MetaData["screenshots"].(map[string]map[int]string)
+		screenshots := MetaData["screenshots"].(map[string]map[int]string)
 		basicInfoHandler = func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"MetaData": m, "Tags": tags, "Companies": companies, "Screenshots":screenshots})
 		}
@@ -1183,5 +1185,7 @@ func setupRouter() *gin.Engine {
 
 func routing() {
 	r := setupRouter()
+	r.Static("/screenshots","./screenshots")
+	r.Static("/cover-art","./coverArt")
 	r.Run(":8080")
 }

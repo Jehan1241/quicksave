@@ -33,7 +33,7 @@ function App() {
   const DataArray = Object.values(metaData);
 
   return (
-    <div className="flex flex-row">
+    <div className="flex overflow-hidden flex-col w-screen h-screen bg-[url('leprechaun-backend/screenshots/a70700f55306ef99764b30c8de7dd78d/a70700f55306ef99764b30c8de7dd78d-0.jpeg')]">
       <NavBar />
       <Routes>
         <Route element={<LibraryView data={DataArray} />} path="LibraryView" />

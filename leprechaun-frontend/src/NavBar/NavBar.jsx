@@ -4,6 +4,7 @@ import { CiImport } from "react-icons/ci";
 import { FaPlaystation, FaSteam } from "react-icons/fa";
 import { SiEpicgames, SiGogdotcom } from "react-icons/si";
 import { useNavigate } from "react-router-dom";
+import AddGameManually from "../AddGameManually/AddGameManually";
 
 function NavBar() {
   const [importClicked, setImportClicked] = useState(false);
@@ -20,30 +21,25 @@ function NavBar() {
   };
 
   const libraryClickHandler = () => {
+    console.log("AA");
     setImportClicked(false);
-    if (libraryClicked) {
-      navigate("/");
-    } else {
-      navigate("/LibraryView");
-    }
-    setLibraryClicked(!libraryClicked);
-    console.log(libraryClicked);
+    navigate("/LibraryView");
   };
 
-  const addGameManuallyClickHandler = () => {
-    importClickHandler();
+  const addGameManuallyClickHandler = (event) => {
+    event.stopPropagation();
+    setImportClicked(false);
     navigate("/AddGameManually");
   };
 
   const fromSteamClickHandler = () => {
-    importClickHandler();
     navigate("/AddGameSteam");
   };
 
   return (
-    <div className="flex flex-row">
+    <>
       {/* Main BAR */}
-      <div className="flex z-20 flex-col p-2 w-24 h-screen rounded-r-3xl shadow-lg bg-zinc-950">
+      <div className="flex flex-row justify-between items-center px-20 py-2 w-screen shadow-lg bg-primary">
         <button
           onClick={libraryClickHandler}
           className={`text-gray-400 hover:text-xl text-left hover:text-white my-3 min-h-16 ${
@@ -57,50 +53,50 @@ function NavBar() {
             }`}
           />
         </button>
+        <input className="my-auto h-8"></input>
         <button
           onClick={importClickHandler}
-          className={`text-gray-400 hover:text-xl text-left hover:text-white my-3 min-h-16 ${
-            importClicked ? "border-r-4 border-white translate-x-3" : "pl-2"
-          }`}
+          className={`my-3 text-left text-gray-400 hover:text-xl hover:text-white min-h-16`}
         >
           <CiImport
-            className={`inline transition duration-75 hover:scale-125 ${
-              importClicked ? "text-white scale-125 translate-x-4" : ""
-            }`}
+            className={`inline transition duration-75 hover:scale-125`}
             size={50}
           />
         </button>
       </div>
-
       {/* POP BAR */}
-      <div
-        className={`bg-primary z-10 fixed flex flex-col h-screen w-64 p-5 rounded-3xl ml-1 ${
-          importClicked ? "translate-x-24" : "-translate-x-96"
-        } ease-in-out duration-300`}
-      >
-        <button
-          className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]"
-          onClick={fromSteamClickHandler}
+
+      {importClicked ? (
+        <div
+          onClick={libraryClickHandler}
+          className="flex overflow-hidden fixed z-20 w-screen h-screen bg-black/70"
         >
-          FROM STEAM <FaSteam className="inline" size={20} />
-        </button>
-        <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
-          FROM PLAYSTATION <FaPlaystation className="inline" size={20} />
-        </button>
-        <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
-          FROM EPIC <SiEpicgames className="inline" size={20} />
-        </button>
-        <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
-          FROM GOG <SiGogdotcom className="inline" size={20} />
-        </button>
-        <button
-          onClick={addGameManuallyClickHandler}
-          className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]"
-        >
-          ADD GAME MANUALLY <IoAddCircle className="inline" size={20} />
-        </button>
-      </div>
-    </div>
+          <div className={`flex flex-col p-5 m-auto bg-gray-900 shadow-lg`}>
+            <button
+              className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]"
+              onClick={fromSteamClickHandler}
+            >
+              FROM STEAM <FaSteam className="inline" size={20} />
+            </button>
+            <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
+              FROM PLAYSTATION <FaPlaystation className="inline" size={20} />
+            </button>
+            <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
+              FROM EPIC <SiEpicgames className="inline" size={20} />
+            </button>
+            <button className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]">
+              FROM GOG <SiGogdotcom className="inline" size={20} />
+            </button>
+            <button
+              onClick={addGameManuallyClickHandler}
+              className="text-gray-400 text-left text-m font-semibold font-mono hover:text-lg hover:text-white min-h-[30px]"
+            >
+              ADD GAME MANUALLY <IoAddCircle className="inline" size={20} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
