@@ -364,6 +364,164 @@ func addNewRecordOrAccessSB() int {
 	fmt.Scan(&choice)
 	return (choice)
 }
+
+
+func getGameDetails(UID string) map[string]interface{} {
+
+	//Inelegant Solution Why did a struct not work?
+	//Why did I have to use .(string)
+	//Why the double inititialization of a map?
+	/* 	var GameData [10]struct {
+		UID              int
+		Name             string
+		ReleaseDate      string
+		CoverArtPath     string
+		Description      string
+		isDLC            int
+		OwnedPlatform    string
+		TimePlayed       int
+		AggregatedRating int
+	} */
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData Where gameMetadata.UID = "%s"`,UID)
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	m := make(map[string]map[string]interface{})
+	for rows.Next() {
+		var UID string
+		var Name string
+		var ReleaseDate string
+		var CoverArtPath string
+		var Description string
+		var isDLC int
+		var OwnedPlatform string
+		var TimePlayed int
+		var AggregatedRating float32
+		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
+		//GameData[0].Name = Name
+		m[UID] = make(map[string]interface{})
+		m[UID]["Name"] = Name
+		m[UID]["UID"] = UID
+		m[UID]["ReleaseDate"] = ReleaseDate
+		m[UID]["CoverArtPath"] = CoverArtPath
+		m[UID]["Description"] = Description
+		m[UID]["isDLC"] = isDLC
+		m[UID]["OwnedPlatform"] = OwnedPlatform
+		m[UID]["TimePlayed"] = TimePlayed
+		m[UID]["AggregatedRating"] = AggregatedRating
+		//FIGURE OUT HOW TO MAKE(STRUCT)
+	}
+	db, err = sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	
+	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`,UID)
+	rows, err = db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	
+	tags := make(map[string]map[int]string)
+	varr:=0
+	prevUID :="-xxx"
+	for rows.Next() {
+		var UUID int
+		var UID string
+		var Tags string
+		rows.Scan(&UUID, &UID, &Tags)
+		if(prevUID!=UID){
+			prevUID=UID
+			varr=0
+			tags[UID]=make(map[int]string)
+		}
+		tags[UID][varr]=Tags
+		varr++
+	}
+
+	QueryString = fmt.Sprintf(`SELECT * FROM InvolvedCompanies Where InvolvedCompanies.UID = "%s"`,UID)
+	rows, err = db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	
+	companies := make(map[string]map[int]string)
+	varr=0
+	prevUID ="-xxx"
+	for rows.Next() {
+		var UUID int
+		var UID string
+		var Names string
+		rows.Scan(&UUID, &UID, &Names)
+		if(prevUID!=UID){
+			prevUID=UID
+			varr=0
+			companies[UID]=make(map[int]string)
+		}
+		companies[UID][varr]=Names
+		varr++
+	}
+
+	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`,UID)
+	rows, err = db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	
+	screenshots := make(map[string]map[int]string)
+	varr=0
+	prevUID ="-xxx"
+	for rows.Next() {
+		var UUID int
+		var UID string
+		var ScreenshotPath string
+		rows.Scan(&UUID, &UID, &ScreenshotPath)
+		if(prevUID!=UID){
+			prevUID=UID
+			varr=0
+			screenshots[UID]=make(map[int]string)
+		}
+		screenshots[UID][varr]=ScreenshotPath
+		varr++
+	}
+	
+	for i := range m {
+		println("Name : ", m[i]["Name"].(string))
+		println("UID : ", m[i]["UID"].(string))
+		println("Release Date : ", m[i]["ReleaseDate"].(string))
+		println("Description : ", m[i]["Description"].(string))
+		println("isDLC? : ", m[i]["isDLC"].(int))
+		println("Owned Platform : ", m[i]["OwnedPlatform"].(string))
+		println("Time Played : ", m[i]["TimePlayed"].(int))
+		println("Aggregated Rating : ", m[i]["AggregatedRating"].(float32))
+	}
+	for i:= range tags{
+		for j:= range tags[i]{
+			println("Tags :",i, tags[i][j], j)
+		}
+	}
+	MetaData := make(map[string]interface{})
+	MetaData["m"] = m
+    MetaData["tags"] = tags
+	MetaData["companies"]=companies
+	MetaData["screenshots"]=screenshots
+	return(MetaData)
+}
+
+
 func displayEntireDB() map[string]interface{} {
 
 	//Inelegant Solution Why did a struct not work?
@@ -409,113 +567,15 @@ func displayEntireDB() map[string]interface{} {
 		m[UID] = make(map[string]interface{})
 		m[UID]["Name"] = Name
 		m[UID]["UID"] = UID
-		m[UID]["ReleaseDate"] = ReleaseDate
 		m[UID]["CoverArtPath"] = CoverArtPath
-		m[UID]["Description"] = Description
 		m[UID]["isDLC"] = isDLC
 		m[UID]["OwnedPlatform"] = OwnedPlatform
 		m[UID]["TimePlayed"] = TimePlayed
 		m[UID]["AggregatedRating"] = AggregatedRating
 		//FIGURE OUT HOW TO MAKE(STRUCT)
 	}
-	db, err = sql.Open("sqlite", "IGDB_Database.db")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-	
-	QueryString = "SELECT * FROM Tags"
-	rows, err = db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-	
-	tags := make(map[string]map[int]string)
-	varr:=0
-	prevUID :="-xxx"
-	for rows.Next() {
-		var UUID int
-		var UID string
-		var Tags string
-		rows.Scan(&UUID, &UID, &Tags)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			tags[UID]=make(map[int]string)
-		}
-		tags[UID][varr]=Tags
-		varr++
-	}
-
-	QueryString = "SELECT * FROM InvolvedCompanies"
-	rows, err = db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-	
-	companies := make(map[string]map[int]string)
-	varr=0
-	prevUID ="-xxx"
-	for rows.Next() {
-		var UUID int
-		var UID string
-		var Names string
-		rows.Scan(&UUID, &UID, &Names)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			companies[UID]=make(map[int]string)
-		}
-		companies[UID][varr]=Names
-		varr++
-	}
-
-	QueryString = "SELECT * FROM ScreenShots"
-	rows, err = db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-	
-	screenshots := make(map[string]map[int]string)
-	varr=0
-	prevUID ="-xxx"
-	for rows.Next() {
-		var UUID int
-		var UID string
-		var ScreenshotPath string
-		rows.Scan(&UUID, &UID, &ScreenshotPath)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			screenshots[UID]=make(map[int]string)
-		}
-		screenshots[UID][varr]=ScreenshotPath
-		varr++
-	}
-	
-	for i := range m {
-		println("Name : ", m[i]["Name"].(string))
-		println("UID : ", m[i]["UID"].(string))
-		println("Release Date : ", m[i]["ReleaseDate"].(string))
-		println("Description : ", m[i]["Description"].(string))
-		println("isDLC? : ", m[i]["isDLC"].(int))
-		println("Owned Platform : ", m[i]["OwnedPlatform"].(string))
-		println("Time Played : ", m[i]["TimePlayed"].(int))
-		println("Aggregated Rating : ", m[i]["AggregatedRating"].(float32))
-	}
-	for i:= range tags{
-		for j:= range tags[i]{
-			println("Tags :",i, tags[i][j], j)
-		}
-	}
 	MetaData := make(map[string]interface{})
 	MetaData["m"] = m
-    MetaData["tags"] = tags
-	MetaData["companies"]=companies
-	MetaData["screenshots"]=screenshots
 	return(MetaData)
 }
 
@@ -1086,11 +1146,8 @@ func setupRouter() *gin.Engine {
 	basicInfoHandler := func(c *gin.Context) {
 		MetaData:=displayEntireDB()
 		m := MetaData["m"].(map[string]map[string]interface{})
-		tags := MetaData["tags"].(map[string]map[int]string)
-		companies := MetaData["companies"].(map[string]map[int]string)
-		screenshots :=MetaData["screenshots"].(map[string]map[int]string)
 
-		c.JSON(http.StatusOK, gin.H{"MetaData": m, "Tags": tags, "Companies": companies, "Screenshots":screenshots})
+		c.JSON(http.StatusOK, gin.H{"MetaData": m})
 	}
 
 	r.POST("/SteamImport", func(c *gin.Context){
@@ -1132,6 +1189,15 @@ func setupRouter() *gin.Engine {
 			panic(err)
 		}
 		c.JSON(http.StatusOK, gin.H{"foundGames":string(foundGamesJSON)})
+	})
+
+	r.GET("/GameDetails", func(c *gin.Context){
+
+		fmt.Println("Receivedddd")
+		UID := c.Query("uid")
+		metaData := getGameDetails(UID)
+		fmt.Println()
+		c.JSON(http.StatusOK, gin.H{"metadata":metaData})
 	})
 
 	r.POST("/InsertGameInDB", func(c *gin.Context){

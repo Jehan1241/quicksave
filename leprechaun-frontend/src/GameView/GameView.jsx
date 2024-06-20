@@ -1,78 +1,79 @@
-import { useState } from "react";
-import { IoIosInformationCircleOutline } from "react-icons/io";
-import { IoImagesOutline } from "react-icons/io5";
+import { useEffect, useState } from "react";
 import DisplayInfo from "./DisplayInfo";
 import DisplayImage from "./DisplayImage";
 
 function GameView(props) {
-  const data = props.data;
-  const tags = props.tags;
+  const [companies, setCompanies] = useState("");
+  const [tags, setTags] = useState("");
+  const [screenshots, setScreenshots] = useState("");
+  const [metadata, setMetadata] = useState("");
+
+  const fetchData = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/GameDetails?uid=${props.uid}`
+      );
+      const json = await response.json();
+
+      // Destructure metadata from the JSON response
+      const { companies, tags, screenshots, m: metadata } = json.metadata;
+
+      // Set state correctly
+      setCompanies(companies[props.uid]); // Access companies by UID
+      setTags(tags[props.uid]); // Access tags by UID
+      setMetadata(metadata[props.uid]); // Access metadata by UID
+      setScreenshots(screenshots[props.uid]); // Access screenshots by UID
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const UID = props.uid;
+  /*   const data = props.data; */
+  /*   const tags = props.tags;
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(props.companies);
-  const screenshotsArray = Object.values(props.screenshots);
+  const screenshotsArray = Object.values(props.screenshots); */
 
-  const [imageVisible, setImageVisible] = useState(true);
-  const [infoVisible, setInfoVisible] = useState(true);
-
-  const informationClickHandler = () => {
-    setInfoVisible(!infoVisible);
-  };
-  const imageClickHandler = () => {
-    setImageVisible(!imageVisible);
-  };
+  const tagsArray = Object.values(tags);
+  const companiesArray = Object.values(companies);
+  const screenshotsArray = Object.values(screenshots);
 
   return (
-    <div className="overflow-scroll relative h-screen font-mono text-center text-white bg-gameView bg-[src]">
-      {/* <img
-        className="absolute z-0 w-full opacity-20"
-        src={"/leprechaun-backend/" + screenshotsArray[0]}
-      /> */}
-      {/* Horizontal FLEX Holder */}
-      <div className="flex flex-row">
-        {/* LOGO AND Description DIV */}
-        <div className=" m-2 w-1/3 h-[calc(100vh-15px)] rounded-3xl ">
-          <div
-            className={`flex flex-col p-2 h-1/3 rounded-t-3xl border-2 border-gray-500 backdrop-blur-md bg-black/20 ${
-              infoVisible ? "" : "rounded-3xl"
-            }`}
-          >
-            <img
-              className="object-scale-down m-2 h-5/6 text-5xl font-extrabold"
-              src="https://cdn.cloudflare.steamstatic.com/steam/apps/292030/logo.png?t=1693590448"
-              alt={data.Name}
-            />
-            <div>
-              <button className="mx-1 w-4/12 h-12 rounded-2xl border-2 border-gray-500 bg-primary">
-                Play
-              </button>
-              <button className="mx-1 w-4/12 h-12 rounded-2xl border-2 border-gray-500 bg-primary">
-                Customize
-              </button>
-              <button
-                onClick={informationClickHandler}
-                className="mx-1 w-8 h-8 rounded-2xl border-2 border-gray-500 bg-primary"
-              >
-                <IoIosInformationCircleOutline className="inline" size={20} />
-              </button>
-              <button
-                onClick={imageClickHandler}
-                className="mx-1 w-8 h-8 rounded-2xl border-2 border-gray-500 bg-primary"
-              >
-                <IoImagesOutline className="inline" size={18} />
-              </button>
-            </div>
+    <>
+      <img
+        className="absolute top-0 right-0 w-screen h-screen opacity-20 blur-md"
+        src={"http://localhost:8080/screenshots/" + screenshots[0]}
+      />
+      <div className="overflow-y-auto relative h-screen text-center text-white">
+        {/* Spacer Div */}
+        <div className="h-[4%]"></div>
+        {/* Name and Time Flex */}
+        <div className="flex flex-row justify-between items-center px-3 mx-10 my-2 h-24 rounded-2xl">
+          <div className="text-3xl font-bold">{metadata.Name}</div>
+          <div className="text-2xl">
+            Time Played : {metadata.TimePlayed} Hrs
           </div>
-          <DisplayInfo
-            data={data}
-            tags={tagsArray}
-            companies={companiesArray}
-            visible={infoVisible}
-          />
         </div>
-        {/* Image Div */}
-        <DisplayImage screenshots={screenshotsArray} visible={imageVisible} />
+        {/* Horizontal FLEX Holder */}
+        <div className="flex flex-row mx-10">
+          {/* LOGO AND Description DIV */}
+          <div className="m-2 w-1/3 h-full rounded-3xl">
+            <DisplayInfo
+              data={metadata}
+              tags={tagsArray}
+              companies={companiesArray}
+            />
+          </div>
+          {/* Image Div */}
+          <DisplayImage screenshots={screenshotsArray} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

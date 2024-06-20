@@ -18,7 +18,7 @@ function AddGameSteam() {
   };
 
   return (
-    <div className="relative z-0 p-12 ml-1 h-screen font-mono text-center text-white rounded-l-3xl bg-gameView">
+    <div className="relative p-12 ml-1 h-screen text-center text-white rounded-l-3xl bg-gameView">
       <div className="p-6 w-1/2 rounded-2xl border-2 border-gray-700 bg-primary hover:border-gray-500">
         <p className="text-2xl text-left text-white">Import Steam Library</p>
         <div className="text-left">

@@ -1,0 +1,7 @@
+GameView parity
+Background image
+Search parity
+
+game details - flatten return object
+DisplayAllData() => only converart and titles and ID
+Break into parts

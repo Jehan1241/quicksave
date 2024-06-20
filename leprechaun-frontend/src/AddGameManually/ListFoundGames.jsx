@@ -34,17 +34,17 @@ function ListFoundGames(props) {
     const data = JSON.parse(props.FoundGames.foundGames);
     if (Object.keys(data).length === 0) {
       return (
-        <div className="mt-4 font-mono text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
           No Games Found
         </div>
       );
     } else {
       return commiting ? (
-        <div className="mt-4 font-mono text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
           Adding Game...
         </div>
       ) : (
-        <div className="mt-4 font-mono text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
           <ul className="w-11/12 text-white">
             {Object.values(data).map((game) => (
               <li

@@ -11,6 +11,9 @@ module.exports = {
         secondary: "#8d6e63",
         gameBG: "#0a0a0a",
       },
+      fontFamily: {
+        sans: ["Inter", "system-ui"],
+      },
     },
   },
 

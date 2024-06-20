@@ -6,33 +6,26 @@ import { useState } from "react";
 
 function LibraryView(props) {
   const data = props.data;
-  const [searchText, setSearchText] = useState("");
-  const searchBarHandler = () => {
-    setSearchText(document.getElementById("searchBar").value);
-  };
+  const searchText = props.searchText;
 
   return (
-    <div className="overflow-scroll relative h-screen text-center bg-gameView">
-      {/* <div className="fixed top-0 left-1/2 z-10 h-12 drop-shadow-lg -translate-x-1/2">
-        <input
-          id="searchBar"
-          onChange={searchBarHandler}
-          className="m-2 w-72 h-9 text-white rounded-lg border-2 border-gray-700 bg-primary"
-        />
-        <button className="m-2 w-9 h-9 text-white rounded-lg border-2 border-gray-700 bg-primary">
-          <CiSearch className="inline" />
-        </button>
-        <button className="m-2 w-9 h-9 text-white rounded-lg border-2 border-gray-700 bg-primary">
-          <FaFilter className="inline" />
-        </button>
-      </div> */}
+    <div className="overflow-y-auto min-h-screen text-center bg-gameView">
+      {/* Spacer Div */}
+      <div className="h-16"></div>
       {data.map((item) =>
-        item.Name.toLowerCase().includes(searchText) ? (
+        item.Name.toLowerCase()
+          .replace("'", "")
+          .replace("’", "")
+          .replace("®", "")
+          .replace("™", "")
+          .replace(":", "")
+          .includes(searchText) ? (
           <GridMaker
             name={item.Name}
             cover={item.CoverArtPath}
             uid={item.UID}
             platform={item.OwnedPlatform}
+            tileSize={props.tileSize}
           />
         ) : null
       )}

@@ -67,7 +67,9 @@ function AddGameManually(props) {
   }, []);
 
   return (
-    <div className="overflow-hidden relative z-0 p-12 ml-1 h-screen font-mono text-center text-white rounded-l-3xl bg-gameView">
+    <div className="overflow-hidden relative p-12 ml-1 h-screen text-center text-white rounded-l-3xl bg-gameView">
+      {/* Spacer DIV */}
+      <div className="h-[4%]" />
       <div className="p-6 w-1/2 rounded-2xl border-2 border-gray-700 bg-primary hover:border-gray-500">
         <p className="text-2xl text-left text-white">Import Game Manually</p>
         <div className="m-6 text-left">
@@ -120,7 +122,7 @@ function AddGameManually(props) {
       </div>
       <div>
         {loading ? (
-          <div className="mt-4 font-mono text-left my-2 p-5 bg-primary  rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+          <div className="mt-4  text-left my-2 p-5 bg-primary  rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
             <p>Loading...</p>
           </div>
         ) : (
