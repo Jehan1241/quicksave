@@ -25,9 +25,9 @@ function DisplayImage(props) {
   return (
     <div className="flex flex-col overflow-y-auto w-[60%] gap-1">
       {/* Main Img Div */}
-      <div className="flex justify-center">
+      <div className="flex justify-center h-[67vh]">
         <img
-          className="object-scale-down w-full"
+          className="object-cover w-full"
           src={
             "http://localhost:8080/screenshots" +
             screenshotsArray[selectedScreenShot]
@@ -43,7 +43,7 @@ function DisplayImage(props) {
                 src={
                   "http://localhost:8080/screenshots" + screenshotsArray[index]
                 }
-                className={`w-32 ${
+                className={`w-32 max-h-[4.5rem] ${
                   index === selectedScreenShot ? "border-2" : ""
                 }`}
               />

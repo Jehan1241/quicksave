@@ -46,7 +46,7 @@ function App() {
   const DataArray = Object.values(metaData);
 
   return (
-    <div className="flex flex-col w-screen h-screen bg-gameView">
+    <div className="flex flex-col w-screen h-screen">
       <NavBar
         inputChangeHandler={NavBarInputChangeHanlder}
         sizeChangeHandler={sizeChangeHandler}
