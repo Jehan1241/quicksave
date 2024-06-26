@@ -967,6 +967,7 @@ func GetMD5Hash(text string) string {
 
 //SteamFuncs
 func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct SteamGameMetadataStruct ){
+	timePlayedHours := timePlayed / 60
 	name :=SteamGameMetadataStruct.Data.Name
 	releaseDate :=SteamGameMetadataStruct.Data.ReleaseDate.Date
 	if(releaseDate==""){
@@ -1004,13 +1005,13 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 
 	if insert{
 
-	fmt.Println(UID, name, releaseDate, platform, AggregatedRating ,timePlayed, isDLC)
+	fmt.Println(UID, name, releaseDate, platform, AggregatedRating ,timePlayedHours, isDLC)
 
 	coverArtURL:=fmt.Sprintf(`https://cdn.cloudflare.steamstatic.com/steam/apps/%d/library_600x900_2x.jpg?t=1693590448`,Appid)
 	location :=fmt.Sprintf(`coverArt/%s/`,UID)
 	filename :=fmt.Sprintf(UID+"-0.jpeg")
+	coverArtPath :=fmt.Sprintf(`/%s/%s-0.jpeg`,UID,UID)
 	getImageFromURL(coverArtURL,location,filename)
-	coverArtPath := location+filename
 
 	//OPENS DB
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
@@ -1025,43 +1026,77 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 		panic(err)
 	}
 	defer preparedStatement.Close()
-	preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayed, AggregatedRating)
+	preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
 
 	//Insert to Screenshots
-	for i:=range SteamGameMetadataStruct.Data.Screenshots{
-		location:=fmt.Sprintf(`screenshots/%s/`,UID)
-		filename:=fmt.Sprintf(`%s-%d.jpeg`,UID,i)
-		getImageFromURL(SteamGameMetadataStruct.Data.Screenshots[i].PathFull,location,filename)
+
+	if(SteamGameMetadataStruct.Data.Screenshots == nil){
 		preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, location+filename)
+		preparedStatement.Exec(UID, "")
+	} else{
+		for i:=range SteamGameMetadataStruct.Data.Screenshots{
+			location:=fmt.Sprintf(`screenshots/%s/`,UID)
+			filename:=fmt.Sprintf(`%s-%d.jpeg`,UID,i)
+			screenshotPath :=fmt.Sprintf(`/%s/%s-%d.jpeg`,UID,UID,i)
+			getImageFromURL(SteamGameMetadataStruct.Data.Screenshots[i].PathFull,location,filename)
+			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, screenshotPath)
+		}
 	}
 
  	//Insert to InvolvedCompanies table
-	for i := range len(SteamGameMetadataStruct.Data.Developers) {
+	if(SteamGameMetadataStruct.Data.Developers == nil){
 		preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Developers[i])
+		preparedStatement.Exec(UID, "Unknown")
+	}else{
+		for i := range len(SteamGameMetadataStruct.Data.Developers) {
+			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Developers[i])
+		}
 	}
-	for i := range len(SteamGameMetadataStruct.Data.Publishers) {
+	if(SteamGameMetadataStruct.Data.Publishers == nil){
 		preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Publishers[i])
+		preparedStatement.Exec(UID, "Unknown")
+	}else{
+		for i := range len(SteamGameMetadataStruct.Data.Publishers) {
+			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Publishers[i])
+		}
 	}
 
 	//Insert to Tags Table
-	for i := range len(SteamGameMetadataStruct.Data.Genres) {
+	if(SteamGameMetadataStruct.Data.Genres == nil){
 		preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
+		preparedStatement.Exec(UID, "NA")
+	} else{
+		for i := range len(SteamGameMetadataStruct.Data.Genres) {
+			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
+		}
 	}
 }
 }

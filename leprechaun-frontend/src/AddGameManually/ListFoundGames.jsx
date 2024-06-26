@@ -34,31 +34,31 @@ function ListFoundGames(props) {
     const data = JSON.parse(props.FoundGames.foundGames);
     if (Object.keys(data).length === 0) {
       return (
-        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+        <div className="text-left bg-gameView h-[28vh] w-auto overflow-scroll flex justify-center">
           No Games Found
         </div>
       );
     } else {
       return commiting ? (
-        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
+        <div className="text-left bg-gameView h-[28vh] w-auto overflow-scroll flex justify-center">
           Adding Game...
         </div>
       ) : (
-        <div className="mt-4  text-left my-2 bg-primary p-5 rounded-2xl h-[calc(100vh-400px)] w-1/2 overflow-scroll border-2 border-gray-700 flex justify-center hover:border-gray-500">
-          <ul className="w-11/12 text-white">
+        <div className="overflow-scroll justify-center w-auto h-full text-left bg-gameView hover:border-gray-500">
+          <div className="flex flex-col w-11/12">
             {Object.values(data).map((game) => (
-              <li
-                className="p-2 my-2 border-b-2 border-gray-700 hover:font-bold hover:scale-105 hover:border-white"
+              <button
+                className="p-1 rounded-lg border-gray-700 bg-gameView hover:bg-gray-500/20"
                 key={game.appid}
                 onClick={() => selectedGameClickHandler(game.appid)}
               >
-                <div className="">{game.name}</div>
-                <div className="text-right">
+                <div className="flex justify-start text-left">{game.name}</div>
+                <div className="flex justify-end">
                   {new Date(game.date).getFullYear()}
                 </div>
-              </li>
+              </button>
             ))}
-          </ul>
+          </div>
         </div>
       );
     }

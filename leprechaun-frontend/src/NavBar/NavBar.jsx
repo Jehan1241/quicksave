@@ -77,6 +77,7 @@ function NavBar(props) {
       {/* POP BAR */}
       {importClicked ? (
         <ImportPopUp
+          onGameAdded={props.onGameAdded}
           importClickHandler={importClickHandler}
           fromSteamClickHandler={fromSteamClickHandler}
           addGameManuallyClickHandler={addGameManuallyClickHandler}
