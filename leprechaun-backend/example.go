@@ -1147,6 +1147,43 @@ func steamImportUserGames(SteamID string, APIkey string){
 	}
 }
 
+func deleteGameFromDB(uid string){
+	fmt.Println("OverHere Test")
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	
+	preparedStatement, err := db.Prepare("DELETE FROM GameMetaData WHERE UID=?")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid)
+
+	preparedStatement, err = db.Prepare("DELETE FROM InvolvedCompanies WHERE UID=?")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid)
+
+	preparedStatement, err = db.Prepare("DELETE FROM ScreenShots WHERE UID=?")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid)
+
+	preparedStatement, err = db.Prepare("DELETE FROM Tags WHERE UID=?")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid)
+}
+
 
 
 
@@ -1228,11 +1265,18 @@ func setupRouter() *gin.Engine {
 
 	r.GET("/GameDetails", func(c *gin.Context){
 
-		fmt.Println("Receivedddd")
+		fmt.Println("Recieved Game Details")
 		UID := c.Query("uid")
 		metaData := getGameDetails(UID)
-		fmt.Println()
 		c.JSON(http.StatusOK, gin.H{"metadata":metaData})
+	})
+
+	r.GET("/DeleteGame", func(c *gin.Context){
+
+		fmt.Println("Recieved Delete Game")
+		UID := c.Query("uid")
+		deleteGameFromDB(UID)
+		c.JSON(http.StatusOK, gin.H{"Deleted":"Success Var?"})
 	})
 
 	r.POST("/InsertGameInDB", func(c *gin.Context){

@@ -28,6 +28,7 @@ function App() {
   };
 
   const fetchData = async () => {
+    console.log("fetch");
     try {
       const response = await fetch("http://localhost:8080/getBasicInfo");
       const json = await response.json();
@@ -68,7 +69,10 @@ function App() {
           path="AddGameManually"
         />
         <Route element={<AddGameSteam />} path="AddGameSteam" />
-        <Route element={<GameView uid={state?.data} />} path="gameview" />
+        <Route
+          element={<GameView uid={state?.data} onDelete={fetchData} />}
+          path="gameview"
+        />
         {/* {DataArray.map((item) => (
           <Route
             element={

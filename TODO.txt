@@ -1,6 +1,6 @@
 1. Redo Import pages - almost done, just fix the sizing somehow
 2. Somehow find a way to make sure steam import never fails on their end?
-
+5. Add Play button functionality to gameView
 
 game details - flatten return object
 DisplayAllData() => only converart and titles and ID
