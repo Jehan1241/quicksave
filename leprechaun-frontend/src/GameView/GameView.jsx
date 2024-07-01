@@ -1,7 +1,7 @@
-import { MdDelete } from "react-icons/md";
-import { useEffect, useState } from "react";
 import DisplayInfo from "./DisplayInfo";
 import DisplayImage from "./DisplayImage";
+import { MdDelete } from "react-icons/md";
+import { useEffect, useState } from "react";
 import { FaPlay } from "react-icons/fa";
 import { TiTick } from "react-icons/ti";
 import { RxCross2 } from "react-icons/rx";
@@ -56,12 +56,6 @@ function GameView(props) {
   }, []);
 
   const UID = props.uid;
-  /*   const data = props.data; */
-  /*   const tags = props.tags;
-  const tagsArray = Object.values(tags);
-  const companiesArray = Object.values(props.companies);
-  const screenshotsArray = Object.values(props.screenshots); */
-
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(companies);
   const screenshotsArray = Object.values(screenshots);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FaPlaystation, FaSteamSymbol } from "react-icons/fa";
 import { SiEpicgames, SiGogdotcom, SiSteam } from "react-icons/si";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,9 @@ function GridMaker(props) {
 
   const tileCilckHandler = () => {
     console.log(props.uid);
-    navigate(`gameview`, { state: { data: props.uid } });
+    navigate(`gameview`, {
+      state: { data: props.uid },
+    });
   };
 
   const style = {

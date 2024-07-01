@@ -3,30 +3,6 @@ import SteamImportView from "./SteamImportView";
 import ManualImportView from "./ManualImportView";
 
 function ImportPopUp(props) {
-  /*   return (
-    <div
-      onClick={props.importClickHandler}
-      className="flex overflow-hidden fixed z-20 w-screen h-screen bg-black/80"
-    >
-      <div
-        className={`flex flex-col p-5 m-auto text-white bg-gray-900 shadow-lg`}
-      >
-        <button
-          className="text-gray-400 text-left text-m font-semibold  hover:text-lg  min-h-[30px]"
-          onClick={props.fromSteamClickHandler}
-        >
-          FROM STEAM <FaSteam className="inline" size={20} />
-        </button>
-        <button
-          onClick={props.addGameManuallyClickHandler}
-          className="text-gray-400 text-left text-m font-semibold  hover:text-lg min-h-[30px]"
-        >
-          ADD GAME MANUALLY <IoAddCircle className="inline" size={20} />
-        </button>
-      </div>
-    </div>
-  ); */
-
   const [steamClicked, setSteamClicked] = useState(false);
   const [manuallyClicked, setManuallyClicked] = useState(true);
 

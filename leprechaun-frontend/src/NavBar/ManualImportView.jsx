@@ -99,53 +99,6 @@ function SteamImportView(props) {
       </div>
     </div>
   );
-
-  /* <div className="flex flex-col p-4 mt-2 w-full h-full text-base rounded-xl">
-      <div className="flex flex-row gap-4">
-        <div className="flex flex-col gap-4">
-          <p>Title</p>
-          <p>Hours Played</p>
-          <p>Platform</p>
-        </div>
-        <div className="flex flex-col gap-4">
-          <input
-            id="SearchBar"
-            className="px-1 rounded-lg bg-gray-500/20"
-          ></input>
-          <input
-            id="timePlayed"
-            className="px-1 rounded-lg bg-gray-500/20"
-          ></input>
-          <input
-            id="Platform"
-            className="px-1 rounded-lg bg-gray-500/20"
-          ></input>
-        </div>
-        <div>
-          {loading ? (
-            <div className="text-left bg-gameView rounded-2xl h-[28vh] w-[30vw] overflow-scroll border-gray-700 flex justify-center hover:border-gray-500">
-              <p>Loading...</p>
-            </div>
-          ) : (
-            <ListFoundGames
-              FoundGames={data}
-              SelectedPlatform={selectedPlatform}
-              onGameAdded={props.onGameAdded}
-              time={timePlayed}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-end mt-auto">
-        <button
-          className="w-32 h-10 rounded-lg border-2 bg-primary"
-          onClick={searchClickHandler}
-        >
-          Search
-        </button>
-      </div>
-    </div> */
 }
 
 export default SteamImportView;

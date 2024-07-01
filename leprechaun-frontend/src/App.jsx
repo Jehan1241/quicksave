@@ -18,7 +18,7 @@ function App() {
     setSearchText(text.toLowerCase());
   };
 
-  /* To initially set Tile Size to 25 */
+  /* To initially set Tile Size to xxx */
   useEffect(() => {
     setTileSize(40);
   }, []);
@@ -73,30 +73,6 @@ function App() {
           element={<GameView uid={state?.data} onDelete={fetchData} />}
           path="gameview"
         />
-        {/* {DataArray.map((item) => (
-          <Route
-            element={
-              <>
-                <img
-                  className="absolute top-0 right-0 w-screen h-screen opacity-20 blur-md"
-                  src={
-                    "http://localhost:8080/screenshots/" +
-                    Object.values(screenshots[item.UID])
-                  }
-                />
-                <GameView
-                  screenshots={
-                    screenshots[item.UID] ? screenshots[item.UID] : {}
-                  }
-                  companies={companies[item.UID] ? companies[item.UID] : {}}
-                  tags={tags[item.UID] ? tags[item.UID] : {}}
-                  data={item}
-                />
-              </>
-            }
-            path={`/GameView/${item.UID}`}
-          />
-        ))} */}
       </Routes>
     </div>
   );

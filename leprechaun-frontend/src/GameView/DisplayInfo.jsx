@@ -10,7 +10,6 @@ function DisplayInfo(props) {
       <div className="flex flex-row justify-start items-center text-xl">
         {data.OwnedPlatform === "Steam" && <FaSteam className="m-1" />}
         <p className="m-1">{data.OwnedPlatform}</p>
-        {/* ADD MORE */}
       </div>
       <div className="flex flex-col justify-center items-start p-2 text-xl">
         <p>Developers And Publishers</p>
