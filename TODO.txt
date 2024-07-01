@@ -1,3 +1,9 @@
+- Adding Games Enter to ADD
+- FIX user can put platform as blank make it NA or smn or default
+- FIX the sort double toggle dropdown
+- implement some sorting for LibraryView
+- scrape steam store for user defined tags
+- for IGDB manual imports use Regex to standardize PS5
 1. Redo Import pages - almost done, just fix the sizing somehow
 2. Somehow find a way to make sure steam import never fails on their end?
 5. Add Play button functionality to gameView
@@ -7,3 +13,6 @@ DisplayAllData() => only converart and titles and ID
 Break into parts
 
 FOR scrolling on main I've got scroll position to GameView
+
+default sort is by Name, change later
+3 sorts for now name time rating, add more???

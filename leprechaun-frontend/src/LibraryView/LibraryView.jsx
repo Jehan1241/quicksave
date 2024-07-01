@@ -40,6 +40,7 @@ function LibraryView(props) {
             .replace(":", "")
             .includes(searchText) ? (
             <GridMaker
+              key={item.UID}
               name={item.Name}
               cover={item.CoverArtPath}
               uid={item.UID}

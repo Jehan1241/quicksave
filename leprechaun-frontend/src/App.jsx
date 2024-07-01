@@ -12,6 +12,12 @@ function App() {
   const location = useLocation();
   const state = location.state;
   const [tileSize, setTileSize] = useState("");
+  const [sortType, setSortType] = useState("Name");
+
+  const sortTypeChangeHandler = (type) => {
+    console.log("ABCC" + type);
+    setSortType(type);
+  };
 
   const NavBarInputChangeHanlder = (e) => {
     const text = e.target.value;
@@ -30,10 +36,11 @@ function App() {
   const fetchData = async () => {
     console.log("fetch");
     try {
-      const response = await fetch("http://localhost:8080/getBasicInfo");
+      const response = await fetch(
+        `http://localhost:8080/getBasicInfo?type=${sortType}`
+      );
       const json = await response.json();
       setMetaData(json.MetaData);
-      console.log(json.Screenshots);
       console.log("Run");
     } catch (error) {
       console.error(error);
@@ -42,7 +49,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [sortType]);
 
   const DataArray = Object.values(metaData);
 
@@ -52,6 +59,7 @@ function App() {
         onGameAdded={fetchData}
         inputChangeHandler={NavBarInputChangeHanlder}
         sizeChangeHandler={sizeChangeHandler}
+        sortTypeChangeHandler={sortTypeChangeHandler}
       />
       <Routes>
         <Route

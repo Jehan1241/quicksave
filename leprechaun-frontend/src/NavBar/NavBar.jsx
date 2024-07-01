@@ -1,6 +1,7 @@
-import { useState } from "react";
-
+import { useState, useEffect, useRef } from "react";
+import { useClickAway } from "react-use";
 import { useNavigate } from "react-router-dom";
+import { FaSortAmountUpAlt } from "react-icons/fa";
 import { IoIosArrowRoundBack, IoIosArrowRoundForward } from "react-icons/io";
 import { GoPlus } from "react-icons/go";
 import ImportPopUp from "./ImportPopUp";
@@ -8,7 +9,28 @@ import ImportPopUp from "./ImportPopUp";
 function NavBar(props) {
   const [importClicked, setImportClicked] = useState(false);
   const [libraryClicked, setLibraryClicked] = useState(false);
+  const [sortClicked, setSortClicked] = useState(false);
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
+
+  /* Custom Hook from React-Use Library for Clickaway */
+  useClickAway(dropdownRef, () => {
+    setSortClicked(false);
+  });
+
+  const sortClickHandler = () => {
+    setSortClicked(!sortClicked);
+  };
+
+  const sortOptionSelect = async (type) => {
+    console.log(type);
+    props.sortTypeChangeHandler(type);
+    try {
+      const response = await fetch(`http://localhost:8080/sort?type=${type}`);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const importClickHandler = () => {
     setImportClicked(!importClicked);
@@ -52,11 +74,51 @@ function NavBar(props) {
           </button>
         </div>
 
-        <input
-          onChange={props.inputChangeHandler}
-          className="px-3 my-auto h-7 text-white rounded-xl bg-gray-600/20"
-          placeholder="Search"
-        />
+        <div className="flex flex-row gap-2 justify-center items-center text-white">
+          <input
+            onChange={props.inputChangeHandler}
+            className="px-3 my-auto h-7 rounded-xl bg-gray-600/20"
+            placeholder="Search"
+          />
+          <div className="flex relative flex-col">
+            <button>
+              <FaSortAmountUpAlt
+                size={18}
+                onClick={sortClickHandler}
+                className={`duration-150 ease-in-out ${
+                  sortClicked ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {sortClicked ? (
+              <div
+                ref={dropdownRef}
+                className="flex absolute top-10 flex-col gap-2 p-1 text-sm rounded-lg bg-gameView"
+              >
+                <button
+                  className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
+                  onClick={() => sortOptionSelect("Name")}
+                >
+                  Alphabetical
+                </button>
+
+                <button
+                  className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
+                  onClick={() => sortOptionSelect("TimePlayed")}
+                >
+                  Time Played
+                </button>
+
+                <button
+                  className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
+                  onClick={() => sortOptionSelect("AggregatedRating")}
+                >
+                  Rating
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
         {/* Add and Slider Div */}
         <div className="flex gap-3">
           <input

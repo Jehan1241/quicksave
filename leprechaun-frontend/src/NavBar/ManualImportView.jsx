@@ -34,6 +34,12 @@ function SteamImportView(props) {
     setToSearch(value);
   };
 
+  const handleTimePlayedChange = (e) => {
+    const { value } = e.target;
+    const numericValue = value.replace(/[^0-9]/g, "");
+    setTimePlayed(numericValue);
+  };
+
   const fetchData = async (toSearch) => {
     try {
       const response = await fetch("http://localhost:8080/IGDBsearch", {
@@ -63,6 +69,9 @@ function SteamImportView(props) {
             <p>Time Played</p>
             <input
               id="timePlayed"
+              type="text"
+              value={timePlayed}
+              onChange={handleTimePlayedChange}
               className="px-1 w-52 h-6 rounded-lg bg-gray-500/20"
             ></input>
           </div>
