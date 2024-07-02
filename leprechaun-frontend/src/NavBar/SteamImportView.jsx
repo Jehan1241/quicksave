@@ -17,6 +17,12 @@ function SteamImportView() {
     }
   };
 
+  const checkForEnterPressed = (e) => {
+    if (e.key == "Enter") {
+      searchClickHandler();
+    }
+  };
+
   return (
     <div className="flex flex-col p-4 mt-2 w-full h-full text-base rounded-xl">
       {/* Input Div */}
@@ -27,10 +33,12 @@ function SteamImportView() {
         </div>
         <div className="flex flex-col gap-4">
           <input
+            onKeyDown={checkForEnterPressed}
             id="SteamID"
             className="px-1 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
           ></input>
           <input
+            onKeyDown={checkForEnterPressed}
             id="APIKey"
             className="px-1 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
           ></input>

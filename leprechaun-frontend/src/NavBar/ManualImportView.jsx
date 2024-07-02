@@ -54,6 +54,12 @@ function SteamImportView(props) {
     }
   };
 
+  const checkForEnterPressed = (e) => {
+    if (e.key == "Enter") {
+      searchClickHandler();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1 p-4 mt-2 w-full h-full text-base rounded-xl">
       <div className="flex flex-row gap-10 w-full h-full">
@@ -61,18 +67,20 @@ function SteamImportView(props) {
           <div className="flex flex-row gap-2 items-center">
             <p>Title</p>
             <input
+              onKeyDown={checkForEnterPressed}
               id="SearchBar"
               className="px-1 ml-7 w-52 rounded-lg bg-gray-500/20"
             ></input>
           </div>
           <div className="flex flex-row gap-2 items-center">
-            <p>Time Played</p>
+            <p>Hours Played</p>
             <input
               id="timePlayed"
               type="text"
               value={timePlayed}
               onChange={handleTimePlayedChange}
               className="px-1 w-52 h-6 rounded-lg bg-gray-500/20"
+              onKeyDown={checkForEnterPressed}
             ></input>
           </div>
           <div className="flex flex-row gap-2 items-center">
@@ -80,6 +88,7 @@ function SteamImportView(props) {
             <input
               id="Platform"
               className="px-1 w-52 rounded-lg bg-gray-500/20"
+              onKeyDown={checkForEnterPressed}
             ></input>
           </div>
         </div>

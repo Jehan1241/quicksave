@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 
-func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct SteamGameMetadataStruct ){
+func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string ){
 	timePlayedHours := timePlayed / 60
 	name :=SteamGameMetadataStruct.Data.Name
 	releaseDate :=SteamGameMetadataStruct.Data.ReleaseDate.Date
@@ -127,21 +130,61 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 	}
 
 	//Insert to Tags Table
-	if(SteamGameMetadataStruct.Data.Genres == nil){
+	/* if(SteamGameMetadataStruct.Data.Genres == nil && tags==nil){
 		preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
 		if err != nil {
 			panic(err)
 		}
 		preparedStatement.Exec(UID, "NA")
-	} else{
-		for i := range len(SteamGameMetadataStruct.Data.Genres) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
+	} else {
+			if(tags==nil){
+				fmt.Println("Here")
+				for i := range len(SteamGameMetadataStruct.Data.Genres){
+					preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+					if err != nil {
+						panic(err)
+					}
+					preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
+				}
+			} else {
+				for i := range len(tags) {
+					preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+					if err != nil {
+						panic(err)
+					}
+					preparedStatement.Exec(UID, tags[i])	
+				}
+			}	
+	} */
+
+	if (len(tags)==0 && SteamGameMetadataStruct.Data.Genres == nil){
+		preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+		if err != nil {
+			panic(err)
+		}
+		preparedStatement.Exec(UID, "NA")
+	} else {
+		if (len(tags)==0){
+			fmt.Println("Emptyyyyy")
+			for i := range len(SteamGameMetadataStruct.Data.Genres) {
+				preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+				if err != nil {
+					panic(err)
+				}
+				preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)	
 			}
-			preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
+		} else{
+			for i := range len(tags) {
+				fmt.Println(tags[i])
+				preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+				if err != nil {
+					panic(err)
+				}
+				preparedStatement.Exec(UID, tags[i])	
+			}
 		}
 	}
+	
 }
 }
 func getAndInsertSteamGameMetaData(Appid int, timePlayed int){
@@ -165,10 +208,33 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed int){
 	if err != nil {
 		panic(err)
 	}
-	if(SteamGameMetadataStruct.Success){
-		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct)
+
+	getString = fmt.Sprintf(`https://store.steampowered.com/app/%d`,Appid)
+	resp,err=http.Get(getString)
+	if err !=nil{
+		panic(err)
+	}
+	defer resp.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err!= nil {
+		log.Fatal(err)
+	}
+	tags:=[]string{}
+
+	doc.Find(".app_tag").Each(func(i int, s *goquery.Selection) {
+		tag := strings.TrimSpace(s.Text())
+		tags = append(tags, tag)
+	})
+	// Delete the last element of tags if it exists the +
+	if len(tags) > 0 {
+		tags = tags[:len(tags)-1]
 	}
 
+
+
+	if(SteamGameMetadataStruct.Success){
+		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags)
+	}
 }
 func steamImportUserGames(SteamID string, APIkey string){
 
