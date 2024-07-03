@@ -9,6 +9,8 @@ function SteamImportView(props) {
   const [clickCount, setClickCount] = useState(0);
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [timePlayed, setTimePlayed] = useState(0);
+  const [platforms, setPlatforms] = useState([]);
+  const [customPlatfromClicked, setCustomPlatformClicked] = useState(false);
 
   useEffect(() => {
     if (searchClicked) {
@@ -54,10 +56,30 @@ function SteamImportView(props) {
     }
   };
 
+  useEffect(() => {
+    getPlatforms();
+  }, []);
+
+  const getPlatforms = async () => {
+    console.log("Getting Platforms");
+    try {
+      const response = await fetch(`http://localhost:8080/Platforms`);
+      const json = await response.json();
+      setPlatforms(Object.values(json.platforms));
+      console.log("Run");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const checkForEnterPressed = (e) => {
     if (e.key == "Enter") {
       searchClickHandler();
     }
+  };
+
+  const addCustomPlatformClickHandler = () => {
+    setCustomPlatformClicked(!customPlatfromClicked);
   };
 
   return (
@@ -85,11 +107,32 @@ function SteamImportView(props) {
           </div>
           <div className="flex flex-row gap-2 items-center">
             <p>Platform</p>
-            <input
-              id="Platform"
-              className="px-1 w-52 rounded-lg bg-gray-500/20"
-              onKeyDown={checkForEnterPressed}
-            ></input>
+            {customPlatfromClicked ? (
+              <input
+                onKeyDown={checkForEnterPressed}
+                id="Platform"
+                className="px-1 w-52 h-6 rounded-lg bg-gray-500/20"
+              ></input>
+            ) : (
+              <select
+                onKeyDown={checkForEnterPressed}
+                id="Platform"
+                className="px-1 w-52 h-6 rounded-lg bg-gray-500/20"
+              >
+                {platforms.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              className="px-1 h-6 text-sm rounded-lg bg-gray-500/20"
+              onClick={addCustomPlatformClickHandler}
+            >
+              +
+            </button>
           </div>
         </div>
         <div className="ml-auto w-full border-4">

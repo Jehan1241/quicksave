@@ -1,8 +1,7 @@
-- Adding Games Enter to ADD --- DONE
-- FIX user can put platform as blank make it NA or smn or default
+- FIX user can put platform as blank make it NA or smn or default  ---- DONE
 - FIX the sort double toggle dropdown
 - scrape steam store for user defined tags  -------- Done, but some store pages don't work [Deus Ex Wolfenstein MGS55?]  --- Failed once index out of length[2]
-- for IGDB manual imports use Regex to standardize PS5
+- for IGDB manual imports use Regex to standardize PS5    ------ DONE
 - More Themes, better Themes
 - Fix IGDB Import page Sizing issue
 - Somehow find a way to make sure steam import never fails on their end?
@@ -11,6 +10,9 @@
 - PSN Integration --- (https://www.npmjs.com/package/psn-api)
 - Xbox integration
 - Playnite style custom Cover, SS and BG with a browser opened
+- Auto Refresh after every steam game added
+- Find a way to make platfroms dropdown dark?
+
 
 game details - flatten return object
 DisplayAllData() => only coverArt and titles and ID

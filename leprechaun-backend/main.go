@@ -353,6 +353,30 @@ func sortDB(sortType string) map[int]map[string]interface{} {
 	return(m)
 }
 
+func getPlatforms() []string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT * FROM Platforms ORDER BY Name"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	platforms := []string{}
+	for rows.Next() {
+		var UID string
+		var Name string
+		rows.Scan(&UID, &Name)
+		platforms = append(platforms, Name)
+	}
+	return(platforms)
+}
+
 func updateBasicInfo(r *gin.Engine){
 	MetaData:=displayEntireDB()
 	m := MetaData["m"].(map[string]map[string]interface{})
@@ -413,6 +437,12 @@ func setupRouter() *gin.Engine {
 		println(metaData[0]["Name"].(string))
 	})
 
+	r.GET("/Platforms", func(c *gin.Context){
+		fmt.Println("Recieved Platforms")
+		PlatformList := getPlatforms()
+		c.JSON(http.StatusOK, gin.H{"platforms":PlatformList})
+	})
+
 	r.POST("/IGDBsearch", func(c *gin.Context){
 		if err:= c.BindJSON(&data); err!=nil{
 			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
@@ -450,11 +480,8 @@ func setupRouter() *gin.Engine {
 		insertMetaDataInDB(data.SelectedPlatform, data.Time)
 		MetaData := displayEntireDB()
 		m := MetaData["m"].(map[string]map[string]interface{})
-		tags := MetaData["tags"].(map[string]map[int]string)
-		companies := MetaData["companies"].(map[string]map[int]string)
-		screenshots := MetaData["screenshots"].(map[string]map[int]string)
 		basicInfoHandler = func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"MetaData": m, "Tags": tags, "Companies": companies, "Screenshots":screenshots})
+			c.JSON(http.StatusOK, gin.H{"MetaData": m})
 		}
 		c.JSON(http.StatusOK, gin.H{"status":"OK"})
 		DBupdated=1

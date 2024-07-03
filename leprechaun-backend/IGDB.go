@@ -59,21 +59,6 @@ func searchGame(accessToken string, gameTofind string) gameStruct {
 
 	return (gameStruct)
 }
-func listFoundGames(gameStruct gameStruct) int {
-	var userChoice int
-
-	for i := range len(gameStruct) {
-		UNIX_releaseDate := gameStruct[i].FirstReleaseDate
-		releaseDateTemp := time.Unix(int64(UNIX_releaseDate), 0)
-		releaseDateTime = releaseDateTemp.Format("2 Jan, 2006")
-		fmt.Println(i+1, gameStruct[i].Name, "-----", releaseDateTime)
-	}
-	fmt.Print("\nSelect a Game : ")
-	fmt.Scan(&userChoice)
-	gameIndex := userChoice - 1
-	fmt.Println("\nSelected Game :", gameStruct[gameIndex].Name)
-	return (gameIndex)
-}
 func returnFoundGames(gameStruct gameStruct) map[int]map[string]interface{} {
 	foundGames := make(map[int]map[string]interface{})
 
@@ -253,12 +238,20 @@ func insertMetaDataInDB( platform string, time string) {
 		} 
 
 		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
+
+
+		// Incase its a new Platforms, its added
+		preparedStatement, err := db.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
+		if err != nil {
+			panic(err)
+		}
+		preparedStatement.Exec(platform)
 	
 	
 	
 	
 		//Insert to GameMetaData Table
-		preparedStatement, err := db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+		preparedStatement, err = db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
 		if err != nil {
 			panic(err)
 		}
@@ -314,5 +307,4 @@ func insertMetaDataInDB( platform string, time string) {
 		}
 		defer preparedStatement.Close()
 	}
-
 }
