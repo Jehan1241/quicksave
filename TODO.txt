@@ -1,7 +1,7 @@
-- FIX user can put platform as blank make it NA or smn or default  ---- DONE
+- sort by ASC or DESC in a Better Way?
+- SAVE sort State for next startup
 - FIX the sort double toggle dropdown
 - scrape steam store for user defined tags  -------- Done, but some store pages don't work [Deus Ex Wolfenstein MGS55?]  --- Failed once index out of length[2]
-- for IGDB manual imports use Regex to standardize PS5    ------ DONE
 - More Themes, better Themes
 - Fix IGDB Import page Sizing issue
 - Somehow find a way to make sure steam import never fails on their end?

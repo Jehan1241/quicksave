@@ -12,6 +12,92 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+func steamImportUserGames(SteamID string, APIkey string){
+
+	var allSteamGamesStruct allSteamGamesStruct
+
+	getString := fmt.Sprintf(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=%s&steamid=%s&include_appinfo=true&include_played_free_games=true`,APIkey,SteamID)
+	resp, err := http.Get(getString)
+	if err!=nil{
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	json.Unmarshal(body, &allSteamGamesStruct)
+	for i:= range allSteamGamesStruct.Response.Games{
+		Appid := allSteamGamesStruct.Response.Games[i].Appid
+		getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
+
+	}
+}
+
+func getAndInsertSteamGameMetaData(Appid int, timePlayed int){
+	var SteamGameMetadataStruct SteamGameMetadataStruct
+	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d`,Appid)
+	resp,err:=http.Get(getURL)
+	if err !=nil{
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	prefixCut := fmt.Sprintf("{\"%d\":", Appid)
+	suffixCut := "}"
+	prefixRemoved, _ := strings.CutPrefix(string(body), prefixCut)
+	suffixRemoved, _ := strings.CutSuffix(prefixRemoved, suffixCut)
+
+	err = json.Unmarshal([]byte(suffixRemoved), &SteamGameMetadataStruct)
+	if err != nil {
+		panic(err)
+	}
+
+	// For User Defined Tags 
+	url := fmt.Sprintf(`https://store.steampowered.com/app/%d`,Appid)
+	client := &http.Client {
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Add("Cookie", "birthtime=28801") // To bypass Steam Age Check
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err!= nil {
+		log.Fatal(err)
+	}
+	
+	tags:=[]string{}
+
+	doc.Find(".app_tag").Each(func(i int, s *goquery.Selection) {
+		tag := strings.TrimSpace(s.Text())
+		tags = append(tags, tag)
+	})
+	// Delete the last element of tags if it exists the +
+	if len(tags) > 0 {
+		tags = tags[:len(tags)-1]
+	}
+	fmt.Println("!!!Tags:")
+	for _, tag := range tags {
+		fmt.Println(tag)
+	}
+
+	if(SteamGameMetadataStruct.Success){
+		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags)
+	}
+}
 
 func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string ){
 	timePlayedHours := timePlayed / 60
@@ -186,73 +272,4 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 	}
 	
 }
-}
-func getAndInsertSteamGameMetaData(Appid int, timePlayed int){
-	var SteamGameMetadataStruct SteamGameMetadataStruct
-	getString := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d`,Appid)
-	resp,err:=http.Get(getString)
-	if err !=nil{
-		panic(err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	prefixCut := fmt.Sprintf("{\"%d\":", Appid)
-	suffixCut := "}"
-	prefixRemoved, _ := strings.CutPrefix(string(body), prefixCut)
-	suffixRemoved, _ := strings.CutSuffix(prefixRemoved, suffixCut)
-
-	err = json.Unmarshal([]byte(suffixRemoved), &SteamGameMetadataStruct)
-	if err != nil {
-		panic(err)
-	}
-
-	getString = fmt.Sprintf(`https://store.steampowered.com/app/%d`,Appid)
-	resp,err=http.Get(getString)
-	if err !=nil{
-		panic(err)
-	}
-	defer resp.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err!= nil {
-		log.Fatal(err)
-	}
-	tags:=[]string{}
-
-	doc.Find(".app_tag").Each(func(i int, s *goquery.Selection) {
-		tag := strings.TrimSpace(s.Text())
-		tags = append(tags, tag)
-	})
-	// Delete the last element of tags if it exists the +
-	if len(tags) > 0 {
-		tags = tags[:len(tags)-1]
-	}
-
-
-
-	if(SteamGameMetadataStruct.Success){
-		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags)
-	}
-}
-func steamImportUserGames(SteamID string, APIkey string){
-
-	var allSteamGamesStruct allSteamGamesStruct
-
-	getString := fmt.Sprintf(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=%s&steamid=%s&include_appinfo=true&include_played_free_games=true`,APIkey,SteamID)
-	resp, err := http.Get(getString)
-	if err!=nil{
-		panic(err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	json.Unmarshal(body, &allSteamGamesStruct)
-	for i:= range allSteamGamesStruct.Response.Games{
-		Appid := allSteamGamesStruct.Response.Games[i].Appid
-		getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
-	}
 }

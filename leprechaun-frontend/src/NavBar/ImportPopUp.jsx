@@ -42,7 +42,9 @@ function ImportPopUp(props) {
             From Steam
           </button>
         </div>
-        {steamClicked ? <SteamImportView /> : null}
+        {steamClicked ? (
+          <SteamImportView onGameAdded={props.onGameAdded} />
+        ) : null}
         {manuallyClicked ? (
           <ManualImportView onGameAdded={props.onGameAdded} />
         ) : null}

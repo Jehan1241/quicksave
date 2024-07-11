@@ -13,10 +13,12 @@ function App() {
   const state = location.state;
   const [tileSize, setTileSize] = useState("");
   const [sortType, setSortType] = useState("Name");
+  const [sortOrder, setSortOrder] = useState("ASC");
 
-  const sortTypeChangeHandler = (type) => {
-    console.log("ABCC" + type);
+  const sortTypeChangeHandler = (type, order) => {
+    console.log(order);
     setSortType(type);
+    setSortOrder(order);
   };
 
   const NavBarInputChangeHanlder = (e) => {
@@ -37,9 +39,10 @@ function App() {
     console.log("fetch");
     try {
       const response = await fetch(
-        `http://localhost:8080/getBasicInfo?type=${sortType}`
+        `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}`
       );
       const json = await response.json();
+      console.log("Received data:", json.MetaData);
       setMetaData(json.MetaData);
       console.log("Run");
     } catch (error) {
@@ -49,7 +52,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
-  }, [sortType]);
+  }, [sortType, sortOrder]);
 
   const DataArray = Object.values(metaData);
 
@@ -72,11 +75,6 @@ function App() {
           }
           path="/"
         />
-        <Route
-          element={<AddGameManually onGameAdded={fetchData} />}
-          path="AddGameManually"
-        />
-        <Route element={<AddGameSteam />} path="AddGameSteam" />
         <Route
           element={<GameView uid={state?.data} onDelete={fetchData} />}
           path="gameview"

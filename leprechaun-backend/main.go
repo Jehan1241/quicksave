@@ -313,14 +313,14 @@ func deleteGameFromDB(uid string){
 }
 
 
-func sortDB(sortType string) map[int]map[string]interface{} {
+func sortDB(sortType string, order string) map[int]map[string]interface{} {
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
 
-	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s DESC`,sortType)
+	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`,sortType,order)
 	rows, err := db.Query(QueryString)
 	if err != nil {
 		panic(err)
@@ -377,18 +377,6 @@ func getPlatforms() []string {
 	return(platforms)
 }
 
-func updateBasicInfo(r *gin.Engine){
-	MetaData:=displayEntireDB()
-	m := MetaData["m"].(map[string]map[string]interface{})
-	tags := MetaData["tags"].(map[string]map[int]string)
-	companies := MetaData["companies"].(map[string]map[int]string)
-	screenshots :=MetaData["screenshots"].(map[string]map[int]string)
-	r.GET("/getBasicInfo", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"MetaData": m, "Tags": tags, "Companies": companies, "Screenshots":screenshots})
-	})
-	fmt.Println("Inside Basic Info")
-}
-
 
 func setupRouter() *gin.Engine {
 	
@@ -399,18 +387,15 @@ func setupRouter() *gin.Engine {
 	}
 	var accessToken string
 	var gameStruct gameStruct
-	DBupdated := 0
+	//DBupdated := 0
 
 	r := gin.Default()
 	r.Use(cors.Default())
 
 	basicInfoHandler := func(c *gin.Context) {
-		/* MetaData:=displayEntireDB()
-		m := MetaData["m"].(map[string]map[string]interface{})
-		c.JSON(http.StatusOK, gin.H{"MetaData": m}) */
 		sortType := c.Query("type")
-		fmt.Println("Sort Type : "+sortType)
-		metaData := sortDB(sortType)
+		order := c.Query("order")
+		metaData := sortDB(sortType, order)
 		c.JSON(http.StatusOK, gin.H{"MetaData": metaData})
 	}
 
@@ -428,13 +413,6 @@ func setupRouter() *gin.Engine {
 		UID := c.Query("uid")
 		deleteGameFromDB(UID)
 		c.JSON(http.StatusOK, gin.H{"Deleted":"Success Var?"})
-	})
-
-	r.GET("/sort", func(c *gin.Context){
-		fmt.Println("Recieved Sort")
-		sortType := c.Query("type")
-		metaData := sortDB(sortType)
-		println(metaData[0]["Name"].(string))
 	})
 
 	r.GET("/Platforms", func(c *gin.Context){
@@ -484,7 +462,6 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusOK, gin.H{"MetaData": m})
 		}
 		c.JSON(http.StatusOK, gin.H{"status":"OK"})
-		DBupdated=1
 		basicInfoHandler(c)
 	})
 
@@ -506,9 +483,7 @@ func setupRouter() *gin.Engine {
 	})
 
 
-	if DBupdated==1{
-		updateBasicInfo(r)
-	}
+
 
 	return r
 }
