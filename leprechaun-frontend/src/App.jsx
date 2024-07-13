@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import NavBar from "./NavBar/NavBar";
 import LibraryView from "./LibraryView/LibraryView";
 import { Route, Routes, useLocation } from "react-router-dom";
-import AddGameManually from "./AddGameManually/AddGameManually";
-import AddGameSteam from "./AddGameSteam/AddGameSteam";
 import GameView from "./GameView/GameView";
 
 function App() {
@@ -14,19 +12,18 @@ function App() {
   const [tileSize, setTileSize] = useState("");
   const [sortType, setSortType] = useState("Name");
   const [sortOrder, setSortOrder] = useState("ASC");
+  const [sse, setSse] = useState(null); // State to hold SSE connection
 
   const sortTypeChangeHandler = (type, order) => {
-    console.log(order);
     setSortType(type);
     setSortOrder(order);
   };
 
-  const NavBarInputChangeHanlder = (e) => {
+  const NavBarInputChangeHandler = (e) => {
     const text = e.target.value;
     setSearchText(text.toLowerCase());
   };
 
-  /* To initially set Tile Size to xxx */
   useEffect(() => {
     setTileSize(40);
   }, []);
@@ -35,16 +32,32 @@ function App() {
     setTileSize(e.target.value);
   };
 
+  useEffect(() => {
+    const eventSource = new EventSource(
+      "http://localhost:8080/sse-steam-updates"
+    );
+
+    eventSource.onmessage = (event) => {
+      console.log("SSE message received:", event.data); // Log SSE message directly
+      fetchData();
+    };
+    eventSource.onerror = (error) => {
+      console.error("SSE Error:", error);
+      // Handle SSE connection errors here
+    };
+    setSse(eventSource); // Save eventSource object in state
+    return () => {
+      eventSource.close(); // Clean up SSE connection on component unmount
+    };
+  }, []); // Empty dependency array ensures this effect runs only once
+
   const fetchData = async () => {
-    console.log("fetch");
     try {
       const response = await fetch(
         `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}`
       );
       const json = await response.json();
-      console.log("Received data:", json.MetaData);
       setMetaData(json.MetaData);
-      console.log("Run");
     } catch (error) {
       console.error(error);
     }
@@ -60,7 +73,7 @@ function App() {
     <div className="flex flex-col w-screen h-screen">
       <NavBar
         onGameAdded={fetchData}
-        inputChangeHandler={NavBarInputChangeHanlder}
+        inputChangeHandler={NavBarInputChangeHandler}
         sizeChangeHandler={sizeChangeHandler}
         sortTypeChangeHandler={sortTypeChangeHandler}
       />

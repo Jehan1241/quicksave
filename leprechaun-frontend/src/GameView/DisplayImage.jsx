@@ -58,7 +58,7 @@ function DisplayImage(props) {
         className="inline-flex overflow-x-scroll flex-row gap-2 pb-1"
       >
         {screenshotsArray.map((item, index) => (
-          <div className={`w-32 min-w-32`}>
+          <div key={index} className={`w-32 min-w-32`}>
             <button onClick={() => imageTileClickHandler(index)}>
               <img
                 src={

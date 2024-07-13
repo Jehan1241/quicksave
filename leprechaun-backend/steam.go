@@ -30,7 +30,6 @@ func steamImportUserGames(SteamID string, APIkey string){
 	for i:= range allSteamGamesStruct.Response.Games{
 		Appid := allSteamGamesStruct.Response.Games[i].Appid
 		getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
-
 	}
 }
 
@@ -270,6 +269,8 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 			}
 		}
 	}
+	msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
+	sendSSEMessage(msg)
 	
 }
 }

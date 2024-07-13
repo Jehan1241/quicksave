@@ -21,6 +21,7 @@ import (
 
 
 func main() {
+	startSSEListener()
 	routing()
 }
 
@@ -378,6 +379,61 @@ func getPlatforms() []string {
 }
 
 
+var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
+var sseBroadcast = make(chan string) // Used to broadcast messages to all connected clients
+
+// Function runs indefinately, waits for a SSE messages and sends to all connected clients
+func handleSSEClients() {
+	for {
+		// Wait for broadcast message
+		msg := <-sseBroadcast
+		// Send message to all connected clients
+		for client := range sseClients {
+			client <- msg
+		}
+	}
+}
+
+// Starts SSE in a goRoutine
+func startSSEListener() {
+	go handleSSEClients()
+}
+
+func addSSEClient(c *gin.Context) {
+	// Set headers for SSE
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+
+	// Create a new channel for client
+	clientChan := make(chan string)
+
+	// Register client channel
+	sseClients[clientChan] = true
+
+	// Listen for client closure
+	defer func() {
+		delete(sseClients, clientChan)
+		close(clientChan)
+	}()
+
+	c.SSEvent("message", "Connected to SSE server")
+
+	// Infinite loop to listen for messages
+	for {
+		msg := <-clientChan
+		c.SSEvent("message", msg)
+		c.Writer.Flush()
+	}
+}
+
+func sendSSEMessage(msg string) {
+	sseBroadcast <- msg
+}
+
+
+
+
 func setupRouter() *gin.Engine {
 	
 	var appID int
@@ -391,6 +447,8 @@ func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 	r.Use(cors.Default())
+
+	r.GET("/sse-steam-updates", addSSEClient)
 
 	basicInfoHandler := func(c *gin.Context) {
 		sortType := c.Query("type")
