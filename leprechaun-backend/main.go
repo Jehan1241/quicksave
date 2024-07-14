@@ -314,20 +314,56 @@ func deleteGameFromDB(uid string){
 }
 
 
-func sortDB(sortType string, order string) map[int]map[string]interface{} {
+func sortDB(sortType string, order string) map[string]interface{} {
+
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
 
-	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`,sortType,order)
+	if sortType == "default"{
+		QueryString := "SELECT * FROM SortState"
+		rows, err := db.Query(QueryString)
+		if err != nil {
+			panic(err)
+		}
+
+		for rows.Next(){
+			var Value string
+			var Type string
+			rows.Scan(&Type,&Value)
+			if Type=="Sort Type"{
+				sortType = Value
+			}
+			if Type=="Sort Order"{
+				order = Value
+			}
+	
+		}
+	} 
+	
+		QueryString := fmt.Sprintf(`UPDATE SortState SET Value="%s" WHERE Type="Sort Type"`,sortType)
+		_,err = db.Exec(QueryString)
+		if err != nil {
+			panic(err)
+		}
+		QueryString = fmt.Sprintf(`UPDATE SortState SET Value="%s" WHERE Type="Sort Order"`,order)
+		_,err = db.Exec(QueryString)
+		if err != nil {
+			panic(err)
+		}
+
+
+
+
+	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`,sortType,order)
 	rows, err := db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
-
+	metaDataAndSortInfo := make(map[string]interface{})
 	m := make(map[int]map[string]interface{})
 	i :=0
 	for rows.Next() {
@@ -351,7 +387,38 @@ func sortDB(sortType string, order string) map[int]map[string]interface{} {
 		m[i]["AggregatedRating"] = AggregatedRating
 		i++
 	}
-	return(m)
+	metaDataAndSortInfo["MetaData"]=m
+	metaDataAndSortInfo["SortOrder"]=order
+	metaDataAndSortInfo["SortType"]=sortType
+	return(metaDataAndSortInfo)
+}
+
+func getSortOrder() map[string]string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT * FROM SortState"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	SortMap := make(map[string]string)
+	for rows.Next(){
+		var Value string
+		var Type string
+		rows.Scan(&Type,&Value)
+		if Type=="Sort Type"{
+			SortMap["Type"] = Value
+		}
+		if Type=="Sort Order"{
+			SortMap["Order"] = Value
+		}
+
+	}
+	return(SortMap)
 }
 
 func getPlatforms() []string {
@@ -443,7 +510,6 @@ func setupRouter() *gin.Engine {
 	}
 	var accessToken string
 	var gameStruct gameStruct
-	//DBupdated := 0
 
 	r := gin.Default()
 	r.Use(cors.Default())
@@ -454,8 +520,14 @@ func setupRouter() *gin.Engine {
 		sortType := c.Query("type")
 		order := c.Query("order")
 		metaData := sortDB(sortType, order)
-		c.JSON(http.StatusOK, gin.H{"MetaData": metaData})
+		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"],"SortOrder":metaData["SortOrder"],"SortType":metaData["SortType"]})
 	}
+
+	r.GET("/getSortOrder", func(c *gin.Context){
+		fmt.Println("Recieved Sort Order Req")
+		sortMap := getSortOrder()
+		c.JSON(http.StatusOK, gin.H{"Type":sortMap["Type"],"Order":sortMap["Order"]})
+	})
 
 	r.GET("/getBasicInfo", basicInfoHandler)
 
@@ -539,10 +611,6 @@ func setupRouter() *gin.Engine {
 		steamImportUserGames(SteamID, APIkey)
 		c.JSON(http.StatusOK, gin.H{"status":"OK"})
 	})
-
-
-
-
 	return r
 }
 

@@ -10,8 +10,8 @@ function App() {
   const location = useLocation();
   const state = location.state;
   const [tileSize, setTileSize] = useState("");
-  const [sortType, setSortType] = useState("Name");
-  const [sortOrder, setSortOrder] = useState("ASC");
+  const [sortType, setSortType] = useState("default");
+  const [sortOrder, setSortOrder] = useState("default");
   const [sse, setSse] = useState(null); // State to hold SSE connection
 
   const sortTypeChangeHandler = (type, order) => {

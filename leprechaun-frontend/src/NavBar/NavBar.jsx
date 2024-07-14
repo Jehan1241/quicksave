@@ -26,11 +26,12 @@ function NavBar(props) {
   const sortOptionSelect = async (type) => {
     if (order == "ASC") {
       setOrder("DESC");
+      props.sortTypeChangeHandler(type, order);
     }
     if (order == "DESC") {
       setOrder("ASC");
+      props.sortTypeChangeHandler(type, order);
     }
-    props.sortTypeChangeHandler(type, order);
   };
 
   const importClickHandler = () => {
@@ -100,7 +101,7 @@ function NavBar(props) {
                   className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
                   onClick={() => sortOptionSelect("Name")}
                 >
-                  Alphabetical
+                  Alphabetical {order == "ASC" ? "A Z" : "Z A"}
                 </button>
 
                 <button
