@@ -58,6 +58,7 @@ function App() {
       );
       const json = await response.json();
       setMetaData(json.MetaData);
+      setSortOrder(json.SortOrder);
     } catch (error) {
       console.error(error);
     }
@@ -76,6 +77,7 @@ function App() {
         inputChangeHandler={NavBarInputChangeHandler}
         sizeChangeHandler={sizeChangeHandler}
         sortTypeChangeHandler={sortTypeChangeHandler}
+        sortOrder={sortOrder}
       />
       <Routes>
         <Route

@@ -122,6 +122,10 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed int) {
 	if len(tags) > 0 {
 		tags = tags[:len(tags)-1]
 	}
+	fmt.Println("!!!Tags:")
+	for _, tag := range tags {
+		fmt.Println(tag)
+	}
 
 	if SteamGameMetadataStruct.Success {
 		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags)

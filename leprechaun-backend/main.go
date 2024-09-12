@@ -328,7 +328,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		if err != nil {
 			panic(err)
 		}
-
+		defer rows.Close()
 		for rows.Next(){
 			var Value string
 			var Type string
@@ -339,23 +339,25 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			if Type=="Sort Order"{
 				order = Value
 			}
-	
 		}
 	} 
 	
-		QueryString := fmt.Sprintf(`UPDATE SortState SET Value="%s" WHERE Type="Sort Type"`,sortType)
-		_,err = db.Exec(QueryString)
-		if err != nil {
-			panic(err)
-		}
-		QueryString = fmt.Sprintf(`UPDATE SortState SET Value="%s" WHERE Type="Sort Order"`,order)
-		_,err = db.Exec(QueryString)
-		if err != nil {
-			panic(err)
-		}
+	QueryString := "UPDATE SortState SET Value=? WHERE Type=?"
+	stmt, err := db.Prepare(QueryString)
+	if err != nil {
+		panic(err)
+	}
 
+	defer stmt.Close()
 
-
+	_, err = stmt.Exec(sortType, "Sort Type")
+	if err != nil {
+		panic(err)
+	}
+	_, err = stmt.Exec(order, "Sort Order")
+	if err != nil {
+		panic(err)
+	}
 
 	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`,sortType,order)
 	rows, err := db.Query(QueryString)
@@ -365,7 +367,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	defer rows.Close()
 	metaDataAndSortInfo := make(map[string]interface{})
 	m := make(map[int]map[string]interface{})
-	i :=0
+	i := 0
 	for rows.Next() {
 		var UID string
 		var Name string

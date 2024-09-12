@@ -10,9 +10,13 @@ function NavBar(props) {
   const [importClicked, setImportClicked] = useState(false);
   const [libraryClicked, setLibraryClicked] = useState(false);
   const [sortClicked, setSortClicked] = useState(false);
-  const [order, setOrder] = useState("ASC");
+  const [order, setOrder] = useState(props.sortOrder);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    setOrder(props.sortOrder);
+  }, [props.sortOrder]);
 
   /* Custom Hook from React-Use Library for Clickaway */
   useClickAway(dropdownRef, () => {
@@ -26,11 +30,11 @@ function NavBar(props) {
   const sortOptionSelect = async (type) => {
     if (order == "ASC") {
       setOrder("DESC");
-      props.sortTypeChangeHandler(type, order);
+      props.sortTypeChangeHandler(type, "DESC");
     }
     if (order == "DESC") {
       setOrder("ASC");
-      props.sortTypeChangeHandler(type, order);
+      props.sortTypeChangeHandler(type, "ASC");
     }
   };
 
