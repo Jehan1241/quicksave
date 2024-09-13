@@ -18,8 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-
 func main() {
 	startSSEListener()
 	routing()
@@ -65,7 +63,7 @@ func displayEntireDB() map[string]interface{} {
 	}
 	MetaData := make(map[string]interface{})
 	MetaData["m"] = m
-	return(MetaData)
+	return (MetaData)
 }
 func getGameDetails(UID string) map[string]interface{} {
 
@@ -89,7 +87,7 @@ func getGameDetails(UID string) map[string]interface{} {
 	}
 	defer db.Close()
 
-	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData Where gameMetadata.UID = "%s"`,UID)
+	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData Where gameMetadata.UID = "%s"`, UID)
 	rows, err := db.Query(QueryString)
 	if err != nil {
 		panic(err)
@@ -121,79 +119,79 @@ func getGameDetails(UID string) map[string]interface{} {
 		m[UID]["AggregatedRating"] = AggregatedRating
 		//FIGURE OUT HOW TO MAKE(STRUCT)
 	}
-	
-	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`,UID)
+
+	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`, UID)
 	rows, err = db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
-	
+
 	tags := make(map[string]map[int]string)
-	varr:=0
-	prevUID :="-xxx"
+	varr := 0
+	prevUID := "-xxx"
 	for rows.Next() {
 		var UUID int
 		var UID string
 		var Tags string
 		rows.Scan(&UUID, &UID, &Tags)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			tags[UID]=make(map[int]string)
+		if prevUID != UID {
+			prevUID = UID
+			varr = 0
+			tags[UID] = make(map[int]string)
 		}
-		tags[UID][varr]=Tags
+		tags[UID][varr] = Tags
 		varr++
 	}
 
-	QueryString = fmt.Sprintf(`SELECT * FROM InvolvedCompanies Where InvolvedCompanies.UID = "%s"`,UID)
+	QueryString = fmt.Sprintf(`SELECT * FROM InvolvedCompanies Where InvolvedCompanies.UID = "%s"`, UID)
 	rows, err = db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
-	
+
 	companies := make(map[string]map[int]string)
-	varr=0
-	prevUID ="-xxx"
+	varr = 0
+	prevUID = "-xxx"
 	for rows.Next() {
 		var UUID int
 		var UID string
 		var Names string
 		rows.Scan(&UUID, &UID, &Names)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			companies[UID]=make(map[int]string)
+		if prevUID != UID {
+			prevUID = UID
+			varr = 0
+			companies[UID] = make(map[int]string)
 		}
-		companies[UID][varr]=Names
+		companies[UID][varr] = Names
 		varr++
 	}
 
-	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`,UID)
+	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
 	rows, err = db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
-	
+
 	screenshots := make(map[string]map[int]string)
-	varr=0
-	prevUID ="-xxx"
+	varr = 0
+	prevUID = "-xxx"
 	for rows.Next() {
 		var UUID int
 		var UID string
 		var ScreenshotPath string
 		rows.Scan(&UUID, &UID, &ScreenshotPath)
-		if(prevUID!=UID){
-			prevUID=UID
-			varr=0
-			screenshots[UID]=make(map[int]string)
+		if prevUID != UID {
+			prevUID = UID
+			varr = 0
+			screenshots[UID] = make(map[int]string)
 		}
-		screenshots[UID][varr]=ScreenshotPath
+		screenshots[UID][varr] = ScreenshotPath
 		varr++
 	}
-	
+
 	for i := range m {
 		println("Name : ", m[i]["Name"].(string))
 		println("UID : ", m[i]["UID"].(string))
@@ -204,21 +202,18 @@ func getGameDetails(UID string) map[string]interface{} {
 		println("Time Played : ", m[i]["TimePlayed"].(int))
 		println("Aggregated Rating : ", m[i]["AggregatedRating"].(float32))
 	}
-	for i:= range tags{
-		for j:= range tags[i]{
-			println("Tags :",i, tags[i][j], j)
+	for i := range tags {
+		for j := range tags[i] {
+			println("Tags :", i, tags[i][j], j)
 		}
 	}
 	MetaData := make(map[string]interface{})
 	MetaData["m"] = m
-    MetaData["tags"] = tags
-	MetaData["companies"]=companies
-	MetaData["screenshots"]=screenshots
-	return(MetaData)
+	MetaData["tags"] = tags
+	MetaData["companies"] = companies
+	MetaData["screenshots"] = screenshots
+	return (MetaData)
 }
-
-
-
 
 // Repeated Call Funcs
 func post(postString string, bodyString string, accessToken string) []byte {
@@ -270,21 +265,28 @@ func getImageFromURL(getURL string, location string, filename string) {
 	}
 }
 
-//MD5HASH
+// MD5HASH
 func GetMD5Hash(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
 }
 
-func deleteGameFromDB(uid string){
+func deleteGameFromDB(uid string) {
 	fmt.Println("OverHere Test")
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
 		panic(err)
 	}
 	defer db.Close()
-	
+
 	preparedStatement, err := db.Prepare("DELETE FROM GameMetaData WHERE UID=?")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid)
+
+	preparedStatement, err = db.Prepare("DELETE FROM SteamAppIds WHERE UID=?")
 	if err != nil {
 		panic(err)
 	}
@@ -313,7 +315,6 @@ func deleteGameFromDB(uid string){
 	preparedStatement.Exec(uid)
 }
 
-
 func sortDB(sortType string, order string) map[string]interface{} {
 
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
@@ -322,26 +323,26 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	}
 	defer db.Close()
 
-	if sortType == "default"{
+	if sortType == "default" {
 		QueryString := "SELECT * FROM SortState"
 		rows, err := db.Query(QueryString)
 		if err != nil {
 			panic(err)
 		}
 		defer rows.Close()
-		for rows.Next(){
+		for rows.Next() {
 			var Value string
 			var Type string
-			rows.Scan(&Type,&Value)
-			if Type=="Sort Type"{
+			rows.Scan(&Type, &Value)
+			if Type == "Sort Type" {
 				sortType = Value
 			}
-			if Type=="Sort Order"{
+			if Type == "Sort Order" {
 				order = Value
 			}
 		}
-	} 
-	
+	}
+
 	QueryString := "UPDATE SortState SET Value=? WHERE Type=?"
 	stmt, err := db.Prepare(QueryString)
 	if err != nil {
@@ -359,7 +360,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		panic(err)
 	}
 
-	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`,sortType,order)
+	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`, sortType, order)
 	rows, err := db.Query(QueryString)
 	if err != nil {
 		panic(err)
@@ -389,10 +390,10 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		m[i]["AggregatedRating"] = AggregatedRating
 		i++
 	}
-	metaDataAndSortInfo["MetaData"]=m
-	metaDataAndSortInfo["SortOrder"]=order
-	metaDataAndSortInfo["SortType"]=sortType
-	return(metaDataAndSortInfo)
+	metaDataAndSortInfo["MetaData"] = m
+	metaDataAndSortInfo["SortOrder"] = order
+	metaDataAndSortInfo["SortType"] = sortType
+	return (metaDataAndSortInfo)
 }
 
 func getSortOrder() map[string]string {
@@ -408,19 +409,19 @@ func getSortOrder() map[string]string {
 		panic(err)
 	}
 	SortMap := make(map[string]string)
-	for rows.Next(){
+	for rows.Next() {
 		var Value string
 		var Type string
-		rows.Scan(&Type,&Value)
-		if Type=="Sort Type"{
+		rows.Scan(&Type, &Value)
+		if Type == "Sort Type" {
 			SortMap["Type"] = Value
 		}
-		if Type=="Sort Order"{
+		if Type == "Sort Order" {
 			SortMap["Order"] = Value
 		}
 
 	}
-	return(SortMap)
+	return (SortMap)
 }
 
 func getPlatforms() []string {
@@ -444,12 +445,11 @@ func getPlatforms() []string {
 		rows.Scan(&UID, &Name)
 		platforms = append(platforms, Name)
 	}
-	return(platforms)
+	return (platforms)
 }
 
-
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
-var sseBroadcast = make(chan string) // Used to broadcast messages to all connected clients
+var sseBroadcast = make(chan string)        // Used to broadcast messages to all connected clients
 
 // Function runs indefinately, waits for a SSE messages and sends to all connected clients
 func handleSSEClients() {
@@ -500,14 +500,11 @@ func sendSSEMessage(msg string) {
 	sseBroadcast <- msg
 }
 
-
-
-
 func setupRouter() *gin.Engine {
-	
+
 	var appID int
 	var foundGames map[int]map[string]interface{}
-	var data struct{
+	var data struct {
 		NameToSearch string `json:"NameToSearch"`
 	}
 	var accessToken string
@@ -522,69 +519,69 @@ func setupRouter() *gin.Engine {
 		sortType := c.Query("type")
 		order := c.Query("order")
 		metaData := sortDB(sortType, order)
-		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"],"SortOrder":metaData["SortOrder"],"SortType":metaData["SortType"]})
+		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"]})
 	}
 
-	r.GET("/getSortOrder", func(c *gin.Context){
+	r.GET("/getSortOrder", func(c *gin.Context) {
 		fmt.Println("Recieved Sort Order Req")
 		sortMap := getSortOrder()
-		c.JSON(http.StatusOK, gin.H{"Type":sortMap["Type"],"Order":sortMap["Order"]})
+		c.JSON(http.StatusOK, gin.H{"Type": sortMap["Type"], "Order": sortMap["Order"]})
 	})
 
 	r.GET("/getBasicInfo", basicInfoHandler)
 
-	r.GET("/GameDetails", func(c *gin.Context){
+	r.GET("/GameDetails", func(c *gin.Context) {
 		fmt.Println("Recieved Game Details")
 		UID := c.Query("uid")
 		metaData := getGameDetails(UID)
-		c.JSON(http.StatusOK, gin.H{"metadata":metaData})
+		c.JSON(http.StatusOK, gin.H{"metadata": metaData})
 	})
 
-	r.GET("/DeleteGame", func(c *gin.Context){
+	r.GET("/DeleteGame", func(c *gin.Context) {
 		fmt.Println("Recieved Delete Game")
 		UID := c.Query("uid")
 		deleteGameFromDB(UID)
-		c.JSON(http.StatusOK, gin.H{"Deleted":"Success Var?"})
+		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
 	})
 
-	r.GET("/Platforms", func(c *gin.Context){
+	r.GET("/Platforms", func(c *gin.Context) {
 		fmt.Println("Recieved Platforms")
 		PlatformList := getPlatforms()
-		c.JSON(http.StatusOK, gin.H{"platforms":PlatformList})
+		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
-	r.POST("/IGDBsearch", func(c *gin.Context){
-		if err:= c.BindJSON(&data); err!=nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+	r.POST("/IGDBsearch", func(c *gin.Context) {
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		fmt.Println("Received", data.NameToSearch)
-		gameToFind:=data.NameToSearch
+		gameToFind := data.NameToSearch
 		accessToken = getAccessToken()
 		gameStruct = searchGame(accessToken, gameToFind)
 		foundGames = returnFoundGames(gameStruct)
 		foundGamesJSON, err := json.Marshal(foundGames)
 		fmt.Println()
-		if err!=nil{
+		if err != nil {
 			panic(err)
 		}
-		c.JSON(http.StatusOK, gin.H{"foundGames":string(foundGamesJSON)})
+		c.JSON(http.StatusOK, gin.H{"foundGames": string(foundGamesJSON)})
 	})
 
-	r.POST("/InsertGameInDB", func(c *gin.Context){
-		var data struct{
-			Key int `json:"key"`
+	r.POST("/InsertGameInDB", func(c *gin.Context) {
+		var data struct {
+			Key              int    `json:"key"`
 			SelectedPlatform string `json:"platform"`
-			Time string `json:"time"`
+			Time             string `json:"time"`
 		}
-		if err:= c.BindJSON(&data); err!=nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		fmt.Println("Received", data.Key)
 		fmt.Println("Recieved", data.SelectedPlatform)
 		fmt.Println("Recieved", data.Time)
-		appID=data.Key
+		appID = data.Key
 		fmt.Println(appID)
 		getMetaData(appID, gameStruct, accessToken)
 		insertMetaDataInDB(data.SelectedPlatform, data.Time)
@@ -593,17 +590,17 @@ func setupRouter() *gin.Engine {
 		basicInfoHandler = func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"MetaData": m})
 		}
-		c.JSON(http.StatusOK, gin.H{"status":"OK"})
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 		basicInfoHandler(c)
 	})
 
-	r.POST("/SteamImport", func(c *gin.Context){
-		var data struct{
+	r.POST("/SteamImport", func(c *gin.Context) {
+		var data struct {
 			SteamID string `json:"SteamID"`
-			APIkey string `json:"APIkey"`
+			APIkey  string `json:"APIkey"`
 		}
-		if err:= c.BindJSON(&data); err!=nil{
-			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		SteamID := data.SteamID
@@ -611,14 +608,14 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Received", SteamID)
 		fmt.Println("Recieved", APIkey)
 		steamImportUserGames(SteamID, APIkey)
-		c.JSON(http.StatusOK, gin.H{"status":"OK"})
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
 	return r
 }
 
 func routing() {
 	r := setupRouter()
-	r.Static("/screenshots","./screenshots")
-	r.Static("/cover-art","./coverArt")
+	r.Static("/screenshots", "./screenshots")
+	r.Static("/cover-art", "./coverArt")
 	r.Run(":8080")
 }

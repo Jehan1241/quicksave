@@ -22,11 +22,16 @@ func steamImportUserGames(SteamID string, APIkey string) {
 		panic(err)
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
-	json.Unmarshal(body, &allSteamGamesStruct)
+
+	err = json.Unmarshal(body, &allSteamGamesStruct)
+	if err != nil {
+		panic(err)
+	}
 
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
@@ -34,34 +39,52 @@ func steamImportUserGames(SteamID string, APIkey string) {
 	}
 	defer db.Close()
 
-	QueryString := "SELECT Name FROM GameMetaData"
+	QueryString := "SELECT AppID FROM SteamAppIds"
 	rows, err := db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
 
-	var GamesInDB []string
-
+	var AppIDsInDB []int
 	for rows.Next() {
-		var Game string
-		rows.Scan(&Game)
-		GamesInDB = append(GamesInDB, Game)
+		var AppID int
+		rows.Scan(&AppID)
+		AppIDsInDB = append(AppIDsInDB, AppID)
 	}
 
 	for i := range allSteamGamesStruct.Response.Games {
 		insert := true
-		Title := allSteamGamesStruct.Response.Games[i].Name
+		AppID := allSteamGamesStruct.Response.Games[i].Appid
 
-		for j := range GamesInDB {
-			TitleDB := GamesInDB[j]
-			if TitleDB == Title {
+		for j := range AppIDsInDB {
+			AppIDinDB := AppIDsInDB[j]
+			if AppIDinDB == AppID {
 				insert = false
+				break
 			}
+		}
+		if !insert {
+			QueryString := fmt.Sprintf(`SELECT UID FROM SteamAppIds Where AppID=%d`, AppID)
+			rows, err := db.Query(QueryString)
+			if err != nil {
+				panic(err)
+			}
+			defer rows.Close()
+			var UID string
+			for rows.Next() {
+				rows.Scan(&UID)
+			}
+			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %d WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
+			_, err = db.Exec(updateQuery)
+			if err != nil {
+				panic(err)
+			}
+
 		}
 
 		if insert {
-			fmt.Println("Inserting ", Title)
+			fmt.Println("Inserting ", allSteamGamesStruct.Response.Games[i].Name)
 			Appid := allSteamGamesStruct.Response.Games[i].Appid
 			getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
 		}
@@ -189,6 +212,14 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 		}
 		defer preparedStatement.Close()
 		preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
+
+		//Insert SteamAppIDs
+		preparedStatement, err = db.Prepare("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?)")
+		if err != nil {
+			panic(err)
+		}
+		defer preparedStatement.Close()
+		preparedStatement.Exec(UID, Appid)
 
 		//Insert to Screenshots
 

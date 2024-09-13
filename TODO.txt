@@ -1,9 +1,11 @@
 SORT IN PROGRESS, Do everything on fetchData, not on another endpoint, causes DB locked errors
 
+TODO - ability to change playtime for manually added games
+
 NOTE - It now can do steam library updates relatively quick However I currently check titleInDB vs titleOfOwned steam games and sometimes it's not an exact match which leads to extra
 steam app details API calls, to fix consider adding steam APPID field? but then IGDB games don't have a steamID? [Morrowind vs Morrowind GOTY example]
 
-
+- Playtime update does'nt update order untill reordered
 - sort by ASC or DESC in a Better Way?
 - FIX the sort double toggle dropdown
 - More Themes, better Themes
