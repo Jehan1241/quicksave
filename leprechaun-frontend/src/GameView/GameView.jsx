@@ -58,7 +58,7 @@ function GameView(props) {
   const playClicked = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8080/LaunchSteamGame?uid=${props.uid}`
+        `http://localhost:8080/LaunchGame?uid=${props.uid}`
       );
       const json = await response;
     } catch (error) {

@@ -448,6 +448,10 @@ func getPlatforms() []string {
 	return (platforms)
 }
 
+func launchManualGame(uid string) {
+	fmt.Println("IN PROGRESS (Launch manual non steam game)")
+}
+
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
 var sseBroadcast = make(chan string)        // Used to broadcast messages to all connected clients
 
@@ -550,11 +554,15 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
-	r.GET("/LaunchSteamGame", func(c *gin.Context) {
-		fmt.Println("Recieved Launch Steam Game")
+	r.GET("/LaunchGame", func(c *gin.Context) {
+		fmt.Println("Received Launch Game")
 		uid := c.Query("uid")
-		appid := getSteamAppIDfromUID(uid)
-		launchSteamGame(appid)
+		appid := getSteamAppID(uid)
+		if appid != 0 {
+			launchSteamGame(appid)
+		} else {
+			launchManualGame(uid)
+		}
 		c.JSON(http.StatusOK, gin.H{"LaunchGame?": "fill>"})
 	})
 

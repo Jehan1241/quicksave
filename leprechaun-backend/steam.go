@@ -337,7 +337,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 	}
 }
 
-func getSteamAppIDfromUID(uid string) int {
+func getSteamAppID(uid string) int {
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
 		panic(err)
@@ -354,7 +354,6 @@ func getSteamAppIDfromUID(uid string) int {
 	for rows.Next() {
 		rows.Scan(&appid)
 	}
-	fmt.Println(uid)
 	return (appid)
 }
 

@@ -1,15 +1,13 @@
-BIG TODO : RN hittinh play button goes to LaunchSteamGame endpoint which assumes all incoming launch requests are steam games, 
-add a condition which checks for manually added games and launches them too
 
 TODO - ability to change playtime for manually added games
-TODO: Gameview- cursor on image row  and scroll should advance the horizontal scroll position
 TODO: Remember zoom state on app exit and reboot
 
+
 Play Button :-
+    - TODO: manually added games launch
+    - TODO: Windows games launch
     - Installed Linux steam games launch from button
     - uninstalled games throw an invalid platform errors
-    - TODO: Windows games launch
-    - TODO: manually added games launch
     - Potentially support other linux versions of steam later
 
 - Playtime update does'nt update order untill reordered
@@ -29,6 +27,11 @@ Play Button :-
 TODO: game details - flatten return object
 DisplayAllData() => only coverArt and titles and ID
 Break into parts
+
+UI TODOS :-
+    - Glassmorphism on GameView Tags
+    - More information in GameView (rating)
+    - Gameview: cursor on image row  and scroll should advance the horizontal scroll position
 
 FOR scrolling on main I've got scroll position to GameView
 
