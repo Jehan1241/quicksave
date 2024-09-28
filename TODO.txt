@@ -1,9 +1,16 @@
-SORT IN PROGRESS, Do everything on fetchData, not on another endpoint, causes DB locked errors
+BIG TODO : RN hittinh play button goes to LaunchSteamGame endpoint which assumes all incoming launch requests are steam games, 
+add a condition which checks for manually added games and launches them too
 
 TODO - ability to change playtime for manually added games
+TODO: Gameview- cursor on image row  and scroll should advance the horizontal scroll position
+TODO: Remember zoom state on app exit and reboot
 
-NOTE - It now can do steam library updates relatively quick However I currently check titleInDB vs titleOfOwned steam games and sometimes it's not an exact match which leads to extra
-steam app details API calls, to fix consider adding steam APPID field? but then IGDB games don't have a steamID? [Morrowind vs Morrowind GOTY example]
+Play Button :-
+    - Installed Linux steam games launch from button
+    - uninstalled games throw an invalid platform errors
+    - TODO: Windows games launch
+    - TODO: manually added games launch
+    - Potentially support other linux versions of steam later
 
 - Playtime update does'nt update order untill reordered
 - sort by ASC or DESC in a Better Way?
@@ -11,24 +18,18 @@ steam app details API calls, to fix consider adding steam APPID field? but then 
 - More Themes, better Themes
 - Fix IGDB Import page Sizing issue
 - Somehow find a way to make sure steam import never fails on their end?
-- Add Play button functionality to gameView
 - When Sorting by Time display Time, by rating show rating
 - PSN Integration --- (https://www.npmjs.com/package/psn-api)
 - Xbox integration
 - Playnite style custom Cover, SS and BG with a browser opened
 - Find a way to make platfroms dropdown dark?
-- Understan SSE properly
+- Understand SSE properly
 - Select random game button
 
-- GameView - if small sized and scroll appears, scrolling on images does next img and scrolls down, disable scroll down
-
-- Steam update, on game added, it reverts to alphabetical sorting & - SAVE sort State for next startup {doing this might auto fix prev}
-
-game details - flatten return object
+TODO: game details - flatten return object
 DisplayAllData() => only coverArt and titles and ID
 Break into parts
 
 FOR scrolling on main I've got scroll position to GameView
 
-default sort is by Name, change later
-3 sorts for now name time rating, add more???
+Default sort by name(consider changing)

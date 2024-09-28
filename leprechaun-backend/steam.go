@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -334,4 +335,37 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 		sendSSEMessage(msg)
 
 	}
+}
+
+func getSteamAppIDfromUID(uid string) int {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := fmt.Sprintf(`SELECT AppID FROM SteamAppIds WHERE UID="%s"`, uid)
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+	var appid int
+	for rows.Next() {
+		rows.Scan(&appid)
+	}
+	fmt.Println(uid)
+	return (appid)
+}
+
+func launchSteamGame(appid int) {
+	fmt.Println("Launching Steam Game", appid)
+	command := fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
+	cmd := exec.Command("bash", "-c", command)
+	stdout, err := cmd.Output()
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(string(stdout))
 }

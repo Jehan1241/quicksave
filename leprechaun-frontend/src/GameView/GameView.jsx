@@ -55,6 +55,17 @@ function GameView(props) {
     fetchData();
   }, []);
 
+  const playClicked = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/LaunchSteamGame?uid=${props.uid}`
+      );
+      const json = await response;
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   const UID = props.uid;
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(companies);
@@ -73,7 +84,7 @@ function GameView(props) {
         <div className="flex flex-row justify-between items-center px-3 mx-10 my-2 h-24 rounded-2xl">
           <div className="flex flex-row gap-3">
             <div className="text-3xl font-bold">{metadata.Name}</div>
-            <button className="px-1 mt-1">
+            <button className="px-1 mt-1" onClick={playClicked}>
               <FaPlay size={18} />
             </button>
             <div className="flex flex-row items-center">

@@ -550,6 +550,14 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
+	r.GET("/LaunchSteamGame", func(c *gin.Context) {
+		fmt.Println("Recieved Launch Steam Game")
+		uid := c.Query("uid")
+		appid := getSteamAppIDfromUID(uid)
+		launchSteamGame(appid)
+		c.JSON(http.StatusOK, gin.H{"LaunchGame?": "fill>"})
+	})
+
 	r.POST("/IGDBsearch", func(c *gin.Context) {
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
