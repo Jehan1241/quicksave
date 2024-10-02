@@ -6,6 +6,7 @@ import { FaPlay } from "react-icons/fa";
 import { TiTick } from "react-icons/ti";
 import { RxCross2 } from "react-icons/rx";
 import { useNavigate } from "react-router-dom";
+import AddGamePath from "./AddGamePath";
 
 function GameView(props) {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ function GameView(props) {
   const [screenshots, setScreenshots] = useState("");
   const [metadata, setMetadata] = useState("");
   const [deleteClicked, setDeleteClicked] = useState(false);
+  const [toAddGamePath, setToAddGamePath] = useState(false);
 
   const deleteGameClickHandler = () => {
     setDeleteClicked(!deleteClicked);
@@ -31,6 +33,24 @@ function GameView(props) {
     }
     navigate("/", { replace: true });
     props.onDelete();
+  };
+
+  const addGamePathClickHandler = () => {
+    console.log("here");
+    setToAddGamePath(!toAddGamePath);
+  };
+
+  const sendGamePathtoDB = async (path) => {
+    addGamePathClickHandler();
+    console.log(path);
+    try {
+      const response = await fetch(
+        `http://localhost:8080/setGamePath?uid=${props.uid}&path=${path}`
+      );
+      const json = await response.json();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const fetchData = async () => {
@@ -60,7 +80,11 @@ function GameView(props) {
       const response = await fetch(
         `http://localhost:8080/LaunchGame?uid=${props.uid}`
       );
-      const json = await response;
+      const json = await response.json();
+      console.log(json.ManualGameLaunch);
+      if (json.ManualGameLaunch == "AddPath") {
+        addGamePathClickHandler();
+      }
     } catch (error) {
       console.log(error);
     }
@@ -122,6 +146,12 @@ function GameView(props) {
           <DisplayImage screenshots={screenshotsArray} />
         </div>
       </div>
+      {toAddGamePath ? (
+        <AddGamePath
+          addGamePathClickHandler={addGamePathClickHandler}
+          sendGamePathtoDB={sendGamePathtoDB}
+        />
+      ) : null}
     </>
   );
 }

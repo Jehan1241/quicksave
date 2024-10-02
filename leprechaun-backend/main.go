@@ -448,8 +448,47 @@ func getPlatforms() []string {
 	return (platforms)
 }
 
-func launchManualGame(uid string) {
-	fmt.Println("IN PROGRESS (Launch manual non steam game)")
+func getManualGamePath(uid string) string {
+	fmt.Println("To launch ", uid)
+
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := fmt.Sprintf(`SELECT path FROM ManualGameLaunchPath WHERE uid="%s"`, uid)
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var path string
+	for rows.Next() {
+		rows.Scan(&path)
+	}
+	return (path)
+}
+
+func launchGameFromPath(path string) {
+	fmt.Println("Logic to launch game Path : ", path)
+}
+
+func addPathToDB(uid string, path string) {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	//Insert to GameMetaData Table
+	preparedStatement, err := db.Prepare("INSERT INTO ManualGameLaunchPath (uid, path) VALUES (?,?)")
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	preparedStatement.Exec(uid, path)
 }
 
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
@@ -560,10 +599,26 @@ func setupRouter() *gin.Engine {
 		appid := getSteamAppID(uid)
 		if appid != 0 {
 			launchSteamGame(appid)
+			c.JSON(http.StatusOK, gin.H{"SteamGame": "Launched"})
 		} else {
-			launchManualGame(uid)
+			path := getManualGamePath(uid)
+			fmt.Println(path)
+			if path == "" {
+				c.JSON(http.StatusOK, gin.H{"ManualGameLaunch": "AddPath"})
+			} else {
+				launchGameFromPath(path)
+				c.JSON(http.StatusOK, gin.H{"ManualGameLaunch": "Launched"})
+			}
 		}
-		c.JSON(http.StatusOK, gin.H{"LaunchGame?": "fill>"})
+	})
+
+	r.GET("/setGamePath", func(c *gin.Context) {
+		fmt.Println("Received Set Game Path")
+		uid := c.Query("uid")
+		path := c.Query("path")
+		fmt.Println(uid, path)
+		addPathToDB(uid, path)
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	r.POST("/IGDBsearch", func(c *gin.Context) {

@@ -5,8 +5,11 @@ TODO: Remember zoom state on app exit and reboot
 
 Play Button :-
     - TODO: manually added games launch
+        - The above is partially complete, .exe location is sent to DB, logic to run exe is left
+        - If exe moves, system breaks
+        - currently no way to remap the exe
+        - RN user has to copy exe path manually, make it a path thing
     - TODO: Windows games launch
-    - Installed Linux steam games launch from button
     - uninstalled games throw an invalid platform errors
     - Potentially support other linux versions of steam later
 
