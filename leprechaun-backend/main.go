@@ -396,6 +396,42 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	return (metaDataAndSortInfo)
 }
 
+func storeSize(FrontEndSize string) string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	if FrontEndSize == "default" {
+		QueryString := "SELECT * FROM TileSize"
+		rows, err := db.Query(QueryString)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+		var NewSize string
+		for rows.Next() {
+			rows.Scan(&NewSize)
+		}
+		FrontEndSize = NewSize
+	}
+
+	QueryString := "UPDATE TileSize SET Size=?"
+	stmt, err := db.Prepare(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(FrontEndSize)
+	if err != nil {
+		panic(err)
+	}
+
+	return (FrontEndSize)
+}
+
 func getSortOrder() map[string]string {
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
@@ -561,8 +597,10 @@ func setupRouter() *gin.Engine {
 	basicInfoHandler := func(c *gin.Context) {
 		sortType := c.Query("type")
 		order := c.Query("order")
+		tileSize := c.Query("size")
 		metaData := sortDB(sortType, order)
-		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"]})
+		sizeData := storeSize(tileSize)
+		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData})
 	}
 
 	r.GET("/getSortOrder", func(c *gin.Context) {
