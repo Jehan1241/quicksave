@@ -1,7 +1,4 @@
-
 TODO - ability to change playtime for manually added games
-TODO: Remember zoom state on app exit and reboot
-
 
 Play Button :-
     - TODO: manually added games launch
@@ -13,6 +10,13 @@ Play Button :-
     - uninstalled games throw an invalid platform errors
     - Potentially support other linux versions of steam later
 
+PSN Integration :-
+    - Works for newerGames
+    - TODO : Incase 200+ games, use offset
+    - TODO : Get Games from TrophiesAPI for ps3 titles
+    - CoverArt doens't look good on the UI
+    - Very poor metadata availability
+
 - Playtime update does'nt update order untill reordered
 - sort by ASC or DESC in a Better Way?
 - FIX the sort double toggle dropdown
@@ -20,11 +24,9 @@ Play Button :-
 - Fix IGDB Import page Sizing issue
 - Somehow find a way to make sure steam import never fails on their end?
 - When Sorting by Time display Time, by rating show rating
-- PSN Integration --- (https://www.npmjs.com/package/psn-api)
 - Xbox integration
 - Playnite style custom Cover, SS and BG with a browser opened
 - Find a way to make platfroms dropdown dark?
-- Understand SSE properly
 - Select random game button
 
 TODO: game details - flatten return object
@@ -32,10 +34,8 @@ DisplayAllData() => only coverArt and titles and ID
 Break into parts
 
 UI TODOS :-
-    - Glassmorphism on GameView Tags
     - More information in GameView (rating)
     - Gameview: cursor on image row  and scroll should advance the horizontal scroll position
+    - Extra vertical scroll bar spawns when hovering on lowest games in library view
 
 FOR scrolling on main I've got scroll position to GameView
-
-Default sort by name(consider changing)

@@ -1,20 +1,30 @@
-import { useState } from "react";
-import SteamImportView from "./SteamImportView";
-import ManualImportView from "./ManualImportView";
+import { useEffect, useState } from 'react'
+import SteamImportView from './SteamImportView'
+import ManualImportView from './ManualImportView'
+import PsImportView from './PsImportView'
 
 function ImportPopUp(props) {
-  const [steamClicked, setSteamClicked] = useState(false);
-  const [manuallyClicked, setManuallyClicked] = useState(true);
+  const [steamClicked, setSteamClicked] = useState(false)
+  const [manuallyClicked, setManuallyClicked] = useState(true)
+  const [psClicked, setPsClicked] = useState(false)
+
+  const psClickHandler = () => {
+    setPsClicked(true)
+    setManuallyClicked(false)
+    setSteamClicked(false)
+  }
 
   const fromSteamClickHandler = () => {
-    setSteamClicked(true);
-    setManuallyClicked(false);
-  };
+    setSteamClicked(true)
+    setManuallyClicked(false)
+    setPsClicked(false)
+  }
 
   const manuallyClickHandler = () => {
-    setManuallyClicked(true);
-    setSteamClicked(false);
-  };
+    setManuallyClicked(true)
+    setSteamClicked(false)
+    setPsClicked(false)
+  }
 
   return (
     <div
@@ -29,28 +39,29 @@ function ImportPopUp(props) {
         <div className="flex flex-row">
           <button
             onClick={manuallyClickHandler}
-            className={`mx-2 h-10 text-lg ${
-              manuallyClicked ? "border-b-2" : ""
-            }`}
+            className={`mx-2 h-10 text-lg ${manuallyClicked ? 'border-b-2' : ''}`}
           >
             Manually
           </button>
           <button
             onClick={fromSteamClickHandler}
-            className={`mx-2 h-10 text-lg ${steamClicked ? "border-b-2" : ""}`}
+            className={`mx-2 h-10 text-lg ${steamClicked ? 'border-b-2' : ''}`}
           >
-            From Steam
+            Steam
+          </button>
+          <button
+            onClick={psClickHandler}
+            className={`mx-2 h-10 text-lg ${psClicked ? 'border-b-2' : ''}`}
+          >
+            Playstation
           </button>
         </div>
-        {steamClicked ? (
-          <SteamImportView onGameAdded={props.onGameAdded} />
-        ) : null}
-        {manuallyClicked ? (
-          <ManualImportView onGameAdded={props.onGameAdded} />
-        ) : null}
+        {steamClicked ? <SteamImportView onGameAdded={props.onGameAdded} /> : null}
+        {manuallyClicked ? <ManualImportView onGameAdded={props.onGameAdded} /> : null}
+        {psClicked ? <PsImportView onGameAdded={props.onGameAdded} /> : null}
       </div>
     </div>
-  );
+  )
 }
 
-export default ImportPopUp;
+export default ImportPopUp

@@ -103,7 +103,7 @@ func getGameDetails(UID string) map[string]interface{} {
 		var Description string
 		var isDLC int
 		var OwnedPlatform string
-		var TimePlayed int
+		var TimePlayed float64
 		var AggregatedRating float32
 		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
 		//GameData[0].Name = Name
@@ -199,7 +199,7 @@ func getGameDetails(UID string) map[string]interface{} {
 		println("Description : ", m[i]["Description"].(string))
 		println("isDLC? : ", m[i]["isDLC"].(int))
 		println("Owned Platform : ", m[i]["OwnedPlatform"].(string))
-		println("Time Played : ", m[i]["TimePlayed"].(int))
+		println("Time Played : ", m[i]["TimePlayed"].(float64))
 		println("Aggregated Rating : ", m[i]["AggregatedRating"].(float32))
 	}
 	for i := range tags {
@@ -377,7 +377,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		var Description string
 		var isDLC int
 		var OwnedPlatform string
-		var TimePlayed int
+		var TimePlayed float64
 		var AggregatedRating float32
 		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
 		m[i] = make(map[string]interface{})
@@ -529,7 +529,6 @@ func addPathToDB(uid string, path string) {
 
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
 var sseBroadcast = make(chan string)        // Used to broadcast messages to all connected clients
-
 // Function runs indefinately, waits for a SSE messages and sends to all connected clients
 func handleSSEClients() {
 	for {
@@ -574,7 +573,6 @@ func addSSEClient(c *gin.Context) {
 		c.Writer.Flush()
 	}
 }
-
 func sendSSEMessage(msg string) {
 	sseBroadcast <- msg
 }
@@ -717,6 +715,20 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Received", SteamID)
 		fmt.Println("Recieved", APIkey)
 		steamImportUserGames(SteamID, APIkey)
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	})
+
+	r.POST("/PlayStationImport", func(c *gin.Context) {
+		var data struct {
+			Npsso string `json:"npsso"`
+		}
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		npsso := data.Npsso
+		fmt.Println("Received PlayStation Import Games npsso : ", npsso)
+		playstationImportUserGames(npsso)
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
 	return r
