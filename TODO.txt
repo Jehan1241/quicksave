@@ -11,11 +11,10 @@ Play Button :-
     - Potentially support other linux versions of steam later
 
 PSN Integration :-
-    - Works for newerGames
+    - Works for newerGames and olderGames
     - TODO : Incase 200+ games, use offset
     - TODO : Get Games from TrophiesAPI for ps3 titles
-    - CoverArt doens't look good on the UI
-    - Very poor metadata availability
+    - WHAT DO I DO IF GAME IS ALR ADDED FROM STEAM?????????????????
 
 - Playtime update does'nt update order untill reordered
 - sort by ASC or DESC in a Better Way?
