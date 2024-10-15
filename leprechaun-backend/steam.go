@@ -76,7 +76,7 @@ func steamImportUserGames(SteamID string, APIkey string) {
 			for rows.Next() {
 				rows.Scan(&UID)
 			}
-			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %d WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
+			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %f WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
 			_, err = db.Exec(updateQuery)
 			if err != nil {
 				panic(err)
@@ -92,7 +92,7 @@ func steamImportUserGames(SteamID string, APIkey string) {
 	}
 }
 
-func getAndInsertSteamGameMetaData(Appid int, timePlayed int) {
+func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) {
 	var SteamGameMetadataStruct SteamGameMetadataStruct
 	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d`, Appid)
 	resp, err := http.Get(getURL)
@@ -152,7 +152,7 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed int) {
 	}
 }
 
-func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string) {
+func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string) {
 	timePlayedHours := timePlayed / 60
 	name := SteamGameMetadataStruct.Data.Name
 	releaseDate := SteamGameMetadataStruct.Data.ReleaseDate.Date
@@ -165,7 +165,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed int, SteamGameMetadataStruct 
 	isDLC := 0
 	platform := "Steam"
 	AggregatedRating := SteamGameMetadataStruct.Data.Metacritic.Score
-	UID := GetMD5Hash(name + releaseYear)
+	UID := GetMD5Hash(name + releaseYear + "Steam")
 
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {

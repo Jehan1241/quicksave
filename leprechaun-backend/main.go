@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	_ "modernc.org/sqlite"
 
@@ -267,7 +269,17 @@ func getImageFromURL(getURL string, location string, filename string) {
 
 // MD5HASH
 func GetMD5Hash(text string) string {
-	hash := md5.Sum([]byte(text))
+
+	symbols := []string{"™", "®", ":", "-", "_"}
+
+	pattern := strings.Join(symbols, "|")
+	re := regexp.MustCompile(pattern)
+
+	normalized := re.ReplaceAllString(text, "")
+	normalized = strings.ToLower(normalized)
+	normalized = strings.TrimSpace(normalized)
+
+	hash := md5.Sum([]byte(normalized))
 	return hex.EncodeToString(hash[:])
 }
 
@@ -690,8 +702,8 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Recieved", data.Time)
 		appID = data.Key
 		fmt.Println(appID)
-		getMetaData(appID, gameStruct, accessToken)
-		insertMetaDataInDB(data.SelectedPlatform, data.Time)
+		getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
+		insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
 		MetaData := displayEntireDB()
 		m := MetaData["m"].(map[string]map[string]interface{})
 		basicInfoHandler = func(c *gin.Context) {

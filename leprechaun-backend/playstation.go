@@ -85,7 +85,7 @@ var PsGameStruct struct {
 	} `json:"titles"`
 }
 
-var PsTrophyStruct struct {
+var PSTrophyStruct struct {
 	TrophyTitles []struct {
 		NpServiceName       string `json:"npServiceName"`
 		NpCommunicationID   string `json:"npCommunicationId"`
@@ -110,7 +110,9 @@ var PsTrophyStruct struct {
 		} `json:"earnedTrophies"`
 		HiddenFlag          bool      `json:"hiddenFlag"`
 		LastUpdatedDateTime time.Time `json:"lastUpdatedDateTime"`
+		TrophyTitleDetail   string    `json:"trophyTitleDetail,omitempty"`
 	} `json:"trophyTitles"`
+	TotalItemCount int `json:"totalItemCount"`
 }
 
 func getAuthCode(npsso string) string {
@@ -151,9 +153,7 @@ func getAuthCode(npsso string) string {
 	defer resp.Body.Close()
 	fmt.Println("----------")
 	return ("Error")
-
 }
-
 func getAuthToken(code string) string {
 	body := url.Values{}
 	body.Add("code", code)
@@ -197,12 +197,11 @@ func getAuthToken(code string) string {
 	return result.AccessToken
 }
 
-func getGames(token string) {
+func getAndInsertPSGames_NormalAPI(token string) []string {
 	url := "https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=0"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		fmt.Println("error creating request:", err)
-		return
 	}
 	client := &http.Client{}
 	req.Header.Add("x-apollo-operation-name", "pn_psn")
@@ -211,62 +210,178 @@ func getGames(token string) {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("error making request:", err)
-		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("unexpected response status:", resp.Status)
-		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("error reading response body: %v\n", err)
-		return
 	}
 	if err := json.Unmarshal(body, &PsGameStruct); err != nil {
 		fmt.Printf("error decoding JSON response: %v\n", err)
-		return
 	}
+
 	var gamesNotMatched []string
+	var PSgameList_NormalAPI_Normalized []string
 	for game := range PsGameStruct.Titles {
 		title := PsGameStruct.Titles[game].Name
-		timePlayed := PsGameStruct.Titles[game].PlayDuration // Play time in format PT xH yM zS  Can be unknown
-		timePlayedHours := convertToHours(timePlayed)
-		platform := PsGameStruct.Titles[game].Category // ps4_game ps5_native_game can be unknown
-		if platform == "ps4_game" {
-			platform = "Sony PlayStation 4"
+		normalizedTitleForCheck := normalizeTitleToStore(title)
+		PSgameList_NormalAPI_Normalized = append(PSgameList_NormalAPI_Normalized, normalizedTitleForCheck)
+
+		db, err := sql.Open("sqlite", "IGDB_Database.db")
+		if err != nil {
+			panic(err)
 		}
-		if platform == "ps5_native_game" {
-			platform = "Sony PlayStation 5"
+		defer db.Close()
+
+		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
+		rows, err := db.Query(QueryString)
+		if err != nil {
+			panic(err)
 		}
-		titleToSend := normalizeTitleToSend(title)
-		accessToken := getAccessToken()
-		gameStruct := searchGame(accessToken, titleToSend)
-		foundGames := returnFoundGames(gameStruct)
-		Match := false
-		for game := range foundGames {
-			IGDBtitle := foundGames[game]["name"].(string)
-			AppID := foundGames[game]["appid"].(int)
-			IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
-			if IGDBtitleNormalized == titleToSend {
-				getMetaData(AppID, gameStruct, accessToken)
-				insertMetaDataInDB(platform, timePlayedHours)
-				Match = true
-				break
+		defer rows.Close()
+
+		insert := true
+		for rows.Next() {
+			var titleDB string
+			rows.Scan(&titleDB)
+			if titleDB == normalizedTitleForCheck {
+				insert = false
 			}
 		}
-		if !Match {
-			fmt.Println("---------NO MATCH FOR ", title)
-			gamesNotMatched = append(gamesNotMatched, title)
+
+		timePlayed := PsGameStruct.Titles[game].PlayDuration // Play time in format PT xH yM zS  Can be unknown
+		timePlayedHours := convertToHours(timePlayed)
+
+		if insert {
+			fmt.Println("Trying to Insert", title)
+			platform := PsGameStruct.Titles[game].Category // ps4_game ps5_native_game can be unknown
+			if platform == "ps4_game" {
+				platform = "Sony PlayStation 4"
+			}
+			if platform == "ps5_native_game" {
+				platform = "Sony PlayStation 5"
+			}
+			if platform == "unknown" {
+				platform = "Sony PlayStation x"
+			}
+			titleToStoreInDB := normalizeTitleToStore(title)
+			titleToSendIGDB := normalizeTitleToSend(title)
+			accessToken := getAccessToken()
+			gameStruct := searchGame(accessToken, titleToSendIGDB)
+			foundGames := returnFoundGames(gameStruct)
+			Match := false
+			for game := range foundGames {
+				IGDBtitle := foundGames[game]["name"].(string)
+				AppID := foundGames[game]["appid"].(int)
+				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
+				if IGDBtitleNormalized == titleToSendIGDB {
+					getMetaData(AppID, gameStruct, accessToken, platform)
+					insertMetaDataInDB(titleToStoreInDB, platform, timePlayedHours)
+					Match = true
+					msg := fmt.Sprintf("Game added: %s", title)
+					sendSSEMessage(msg)
+					break
+				}
+			}
+			if !Match {
+				fmt.Println("---------NO MATCH FOR ", title)
+				gamesNotMatched = append(gamesNotMatched, title)
+			}
+
+		} else {
+			fmt.Println("Updating Playtime", normalizedTitleForCheck)
+			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %s WHERE Name = "%s" AND OwnedPlatform IN ("Sony PlayStation 5", "Sony PlayStation 4", "Sony PlayStation 3", "Sony PlayStation x")`, timePlayedHours, normalizedTitleForCheck)
+			_, err = db.Exec(updateQuery)
+			if err != nil {
+				panic(err)
+			}
+
 		}
-		msg := fmt.Sprintf("Game added: %s", title)
-		sendSSEMessage(msg)
 	}
 	fmt.Println("Games Not Added, ", gamesNotMatched)
+	return (PSgameList_NormalAPI_Normalized)
 }
 
+func getGameTrophyAPI(token string) []map[string]string {
+
+	newURL := "https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles?limit=800"
+	req, err := http.NewRequest("GET", newURL, nil)
+	if err != nil {
+		fmt.Println("error creating request:", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	// Execute the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("error making request:", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("unexpected response status:", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("error reading response body:\n", err)
+	}
+
+	fmt.Println(string(body))
+
+	if err := json.Unmarshal(body, &PSTrophyStruct); err != nil {
+		fmt.Println("error decoding JSON response:\n", err)
+	}
+
+	var PSNgameListTrophy []map[string]string
+	for game := range PSTrophyStruct.TrophyTitles {
+		NormalizedTitle := normalizeTrophyAPITitle(PSTrophyStruct.TrophyTitles[game].TrophyTitleName)
+		Platform := PSTrophyStruct.TrophyTitles[game].TrophyTitlePlatform
+
+		if Platform == "PS5,PSPC" || Platform == "PS5" {
+			Platform = "Sony PlayStation 5"
+		}
+		if Platform == "PS4" {
+			Platform = "Sony PlayStation 4"
+		}
+		if Platform == "PS3" {
+			Platform = "Sony PlayStation 3"
+		}
+		gameData := map[string]string{
+			"Title":    NormalizedTitle,
+			"Platform": Platform,
+		}
+		PSNgameListTrophy = append(PSNgameListTrophy, gameData)
+	}
+	fmt.Println("Len", PSTrophyStruct.TotalItemCount)
+	return PSNgameListTrophy
+}
+
+func normalizeTitleToStore(title string) string {
+	// Define the symbols to be removed
+	symbols := []string{"™", "®"}
+	// Create a regex pattern that matches all symbols
+	pattern := strings.Join(symbols, "|")
+	re := regexp.MustCompile(pattern)
+	// Remove the symbols and trim whitespace
+	normalized := re.ReplaceAllString(title, "")
+	return strings.TrimSpace(normalized)
+}
+func normalizeTrophyAPITitle(title string) string {
+	// Define the symbols and keywords to be removed
+	symbols := []string{"™", "®", `\s*Trophies`}
+	// Create a regex pattern that matches all symbols and keywords
+	pattern := strings.Join(symbols, "|")
+	re := regexp.MustCompile(pattern)
+
+	// Remove the symbols and keywords, and trim whitespace
+	normalized := re.ReplaceAllString(title, "")
+	return strings.TrimSpace(normalized)
+}
 func normalizeTitleToSend(title string) string {
 	// Define the symbols to be removed
 	symbols := []string{"™", "®", ":", "(PlayStation®5)"}
@@ -284,262 +399,144 @@ func normalizeTitleToSend(title string) string {
 	normalized = strings.ToLower(normalized)
 	return strings.TrimSpace(normalized)
 }
-
-func getGameTrophyAPI(token string) []string {
-	url := "https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles?limit=800"
-
-	// Create a new HTTP request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println("error creating request:", err)
-	}
-
-	// Set the Authorization header
-	req.Header.Add("Authorization", "Bearer "+token)
-
-	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("error making request:", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the response status
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("unexpected response status:", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("error reading response body:\n", err)
-	}
-	if err := json.Unmarshal(body, &PsTrophyStruct); err != nil {
-		fmt.Printf("error decoding JSON response:\n", err)
-	}
-	var PSNgameListTrophy []string
-	for game := range PsTrophyStruct.TrophyTitles {
-		PSNgameListTrophy = append(PSNgameListTrophy, PsTrophyStruct.TrophyTitles[game].TrophyTitleName)
-	}
-	return PSNgameListTrophy
-}
-
 func convertToHours(duration string) string {
-	// Remove the "PT" prefix
+	// Remove the "PT" prefix if present
 	if strings.HasPrefix(duration, "PT") {
 		duration = duration[2:]
 	}
 
-	// Parse the duration
+	// Regular expression to match hours, minutes, and seconds
+	re := regexp.MustCompile(`(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
+	matches := re.FindStringSubmatch(duration)
+
 	var hours, minutes, seconds int64
-	n, err := fmt.Sscanf(duration, "%dH%dM%dS", &hours, &minutes, &seconds)
-	if err != nil || n < 1 {
-		fmt.Println("invalid duration format")
+
+	if len(matches) > 1 {
+		if matches[1] != "" {
+			fmt.Sscan(matches[1], &hours)
+		}
+		if matches[2] != "" {
+			fmt.Sscan(matches[2], &minutes)
+		}
+		if matches[3] != "" {
+			fmt.Sscan(matches[3], &seconds)
+		}
 	}
 
-	// Convert to hours
+	// Convert to total hours
 	totalHours := float64(hours) + float64(minutes)/60 + float64(seconds)/3600
 
 	// Format to one decimal place
-	return fmt.Sprintf("%.1f", totalHours)
+	return fmt.Sprintf("%f", totalHours)
+}
+func normalizeToCompareBothAPI(title string) string {
+	// Define the symbols and keywords to be removed
+	symbols := []string{"™", "®", `\s*Trophies`, `:`, `\.`, `,`, `'`, `/`, `@`, `"`}
+
+	// Create a regex pattern that matches all symbols and keywords
+	pattern := strings.Join(symbols, "|")
+	re := regexp.MustCompile(pattern)
+
+	// Remove the symbols and keywords
+	normalized := re.ReplaceAllString(title, "")
+
+	// Convert to lowercase and remove all whitespace
+	normalized = strings.ToLower(normalized)
+	normalized = strings.ReplaceAll(normalized, " ", "")
+
+	return normalized
 }
 
-func insertPsGameInDB(title string, tags []string, timePlayed string, platform string, coverArtURL string, ArtWorkURLs []struct {
-	URL    string "json:\"url\""
-	Format string "json:\"format\""
-	Type   string "json:\"type\""
-}) {
-	db, err := sql.Open("sqlite", "IGDB_Database.db")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	UID := GetMD5Hash(title + "1970")
-
-	QueryString := "SELECT UID FROM GameMetaData"
-	rows, err := db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-
-	insert := true
-	for rows.Next() {
-		var UIDdb string
-		rows.Scan(&UIDdb)
-		if UIDdb == UID {
-			insert = false
+func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGamesList []map[string]string) []map[string]string {
+	var unmatchedTrophyGames []map[string]string
+	for i := range TrophyAPIGamesList {
+		match := false
+		for j := range NormalAPIGamesList {
+			NormalizedTrophyTitle := normalizeToCompareBothAPI(TrophyAPIGamesList[i]["Title"])
+			NormalizedGameTitle := normalizeToCompareBothAPI(NormalAPIGamesList[j])
+			if NormalizedTrophyTitle == NormalizedGameTitle {
+				fmt.Println("Match", NormalAPIGamesList[j], TrophyAPIGamesList[i]["Title"])
+				match = true
+				break
+			}
+		}
+		if !match {
+			fmt.Println("No Match", TrophyAPIGamesList[i]["Title"], " ", TrophyAPIGamesList[i]["Platform"])
+			unmatchedTrophyGames = append(unmatchedTrophyGames, TrophyAPIGamesList[i])
 		}
 	}
+	return unmatchedTrophyGames
+}
 
-	if insert {
-		if platform == "ps5_native_game" {
-			platform = "PS5"
-		} else if platform == "ps4_game" {
-			platform = "PS4"
-		} else {
-			platform = "Unknown"
-		}
+func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
+	var gamesNotMatched []string
+	for i := range FilteredTrophyGames {
+		title := FilteredTrophyGames[i]["Title"]
+		platform := FilteredTrophyGames[i]["Platform"]
+		normalizedTitleForCheck := normalizeTitleToStore(title)
+		fmt.Println("Trying to Insert", title, " ", platform)
 
-		timePlayedHours := convertToHours(timePlayed)
-
-		fmt.Println("Inserting", title)
-		location := fmt.Sprintf(`coverArt/%s/`, UID)
-		filename := fmt.Sprintf(UID + "-0.jpeg")
-		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
-		getImageFromURL(coverArtURL, location, filename)
-
-		//OPENS DB
 		db, err := sql.Open("sqlite", "IGDB_Database.db")
 		if err != nil {
 			panic(err)
 		}
 		defer db.Close()
 
-		//Insert to GameMetaData Table
-		preparedStatement, err := db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
+		rows, err := db.Query(QueryString)
 		if err != nil {
 			panic(err)
 		}
-		defer preparedStatement.Close()
-		preparedStatement.Exec(UID, title, "Unknown", coverArtPath, "Unknown", 0, platform, timePlayedHours, 0)
+		defer rows.Close()
 
-		//Insert to Screenshots
-		if ArtWorkURLs == nil {
-			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "")
-		} else {
-			for i := range ArtWorkURLs {
-				location := fmt.Sprintf(`screenshots/%s/`, UID)
-				filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
-				screenshotPath := fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
-				getImageFromURL(ArtWorkURLs[i].URL, location, filename)
-				preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-				if err != nil {
-					panic(err)
-				}
-				preparedStatement.Exec(UID, screenshotPath)
+		insert := true
+		for rows.Next() {
+			var titleDB string
+			rows.Scan(&titleDB)
+			if titleDB == normalizedTitleForCheck {
+				insert = false
 			}
 		}
-
-		//Insert to InvolvedCompanies table
-		preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-		if err != nil {
-			panic(err)
-		}
-		preparedStatement.Exec(UID, "Unknown")
-
-		if len(tags) == 0 {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "Unknown")
-		} else {
-			for i := range len(tags) {
-				preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-				if err != nil {
-					panic(err)
-				}
-				preparedStatement.Exec(UID, tags[i])
-			}
-		}
-
-		msg := fmt.Sprintf("Game added: %s", title)
-		sendSSEMessage(msg)
-	}
-}
-
-func listGames(token string) []string {
-	url := "https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=0"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println("error creating request:", err)
-
-	}
-	client := &http.Client{}
-	req.Header.Add("x-apollo-operation-name", "pn_psn")
-	req.Header.Add("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("error making request:", err)
-
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("unexpected response status:", resp.Status)
-
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("error reading response body: %v\n", err)
-
-	}
-	if err := json.Unmarshal(body, &PsGameStruct); err != nil {
-		fmt.Printf("error decoding JSON response: %v\n", err)
-
-	}
-	var GameList []string
-	for game := range PsGameStruct.Titles {
-		GameList = append(GameList, PsGameStruct.Titles[game].Name)
-	}
-	return GameList
-}
-
-func compareLists(GameList_Normal []string, GameList_Trophies []string) {
-	var gamesNotMatched []string
-	for TrophyGame := range GameList_Trophies {
-		match := false
-		for NormalGame := range GameList_Normal {
-			if NormalGame == TrophyGame {
-				match = true
-				break
-			}
-		}
-		if !match {
-			fmt.Println(GameList_Trophies[TrophyGame])
-			NormalizedTitle := normalizeTitleToSend(GameList_Trophies[TrophyGame])
-			platform := "Sony PlayStation 3"
+		if insert {
+			fmt.Println("Trying to Insert", title)
+			titleToStoreInDB := normalizeTitleToStore(title)
+			titleToSendIGDB := normalizeTitleToSend(title)
 			accessToken := getAccessToken()
-			gameStruct := searchGame(accessToken, NormalizedTitle)
+			gameStruct := searchGame(accessToken, titleToSendIGDB)
 			foundGames := returnFoundGames(gameStruct)
 			Match := false
 			for game := range foundGames {
 				IGDBtitle := foundGames[game]["name"].(string)
 				AppID := foundGames[game]["appid"].(int)
 				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
-				if IGDBtitleNormalized == NormalizedTitle {
-					getMetaData(AppID, gameStruct, accessToken)
-					insertMetaDataInDB(platform, "-1")
+				if IGDBtitleNormalized == titleToSendIGDB {
+					getMetaData(AppID, gameStruct, accessToken, platform)
+					insertMetaDataInDB(titleToStoreInDB, platform, "-1")
 					Match = true
+					msg := fmt.Sprintf("Game added: %s", title)
+					sendSSEMessage(msg)
 					break
 				}
 			}
 			if !Match {
-				fmt.Println("---------NO MATCH FOR ", NormalizedTitle)
-				gamesNotMatched = append(gamesNotMatched, NormalizedTitle)
+				fmt.Println("---------NO MATCH FOR ", title)
+				gamesNotMatched = append(gamesNotMatched, title)
 			}
-			msg := fmt.Sprintf("Game added: %s", NormalizedTitle)
-			sendSSEMessage(msg)
+
 		}
 	}
-	fmt.Println("Games Not Added, ", gamesNotMatched)
+	fmt.Println(gamesNotMatched)
 }
 
 func playstationImportUserGames(npsso string) {
 	fmt.Println(npsso)
 	authCode := getAuthCode(npsso)
 	authToken := getAuthToken(authCode)
-	getGames(authToken)
-	GameList_Trophies := getGameTrophyAPI(authToken)
-	GameList_Normal := listGames(authToken)
-	compareLists(GameList_Normal, GameList_Trophies)
+	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken)
+	TrophyAPIGamesList := getGameTrophyAPI(authToken)
+	fmt.Println(NormalAPIGamesList)
+	fmt.Println(TrophyAPIGamesList)
+	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
+	insertFilteredTrophyGames(FilteredTrophyGames)
 
 }

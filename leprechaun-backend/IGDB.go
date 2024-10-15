@@ -73,7 +73,7 @@ func returnFoundGames(gameStruct gameStruct) map[int]map[string]interface{} {
 	}
 	return (foundGames)
 }
-func getMetaData(gameID int, gameStruct gameStruct, accessToken string) {
+func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform string) {
 
 	var gameIndex int = -1
 	for i := range gameStruct {
@@ -93,7 +93,7 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string) {
 		releaseDateTime = tempTime.Format("2 Jan, 2006")
 		AggregatedRating = gameStruct[gameIndex].AggregatedRating
 		Name = gameStruct[gameIndex].Name
-		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, " ")[2])
+		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, " ")[2] + platform)
 
 		db, err := sql.Open("sqlite", "IGDB_Database.db")
 		if err != nil {
@@ -227,10 +227,14 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		json.Unmarshal(body, &involvedCompaniesStruct)
 	}
 }
-func insertMetaDataInDB(platform string, time string) {
+func insertMetaDataInDB(title string, platform string, time string) {
 	//gameID := gameIndex
+	if title != "" {
+		Name = title
+	}
+
 	releaseYear := strings.Split(releaseDateTime, " ")[2]
-	UID := GetMD5Hash(Name + releaseYear)
+	UID := GetMD5Hash(Name + releaseYear + platform)
 
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
