@@ -84,7 +84,6 @@ var PsGameStruct struct {
 		PlayDuration        string    `json:"playDuration"`
 	} `json:"titles"`
 }
-
 var PSTrophyStruct struct {
 	TrophyTitles []struct {
 		NpServiceName       string `json:"npServiceName"`
@@ -361,6 +360,118 @@ func getGameTrophyAPI(token string) []map[string]string {
 	return PSNgameListTrophy
 }
 
+func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGamesList []map[string]string) []map[string]string {
+	var unmatchedTrophyGames []map[string]string
+	for i := range TrophyAPIGamesList {
+		match := false
+		for j := range NormalAPIGamesList {
+			NormalizedTrophyTitle := normalizeToCompareBothAPI(TrophyAPIGamesList[i]["Title"])
+			NormalizedGameTitle := normalizeToCompareBothAPI(NormalAPIGamesList[j])
+			if NormalizedTrophyTitle == NormalizedGameTitle {
+				fmt.Println("Match", NormalAPIGamesList[j], TrophyAPIGamesList[i]["Title"])
+				match = true
+				break
+			}
+		}
+		if !match {
+			fmt.Println("No Match", TrophyAPIGamesList[i]["Title"], " ", TrophyAPIGamesList[i]["Platform"])
+			unmatchedTrophyGames = append(unmatchedTrophyGames, TrophyAPIGamesList[i])
+		}
+	}
+	return unmatchedTrophyGames
+}
+
+func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
+	var gamesNotMatched []string
+	for i := range FilteredTrophyGames {
+		title := FilteredTrophyGames[i]["Title"]
+		platform := FilteredTrophyGames[i]["Platform"]
+		normalizedTitleForCheck := normalizeTitleToStore(title)
+		fmt.Println("Trying to Insert", title, " ", platform)
+
+		db, err := sql.Open("sqlite", "IGDB_Database.db")
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+
+		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
+		rows, err := db.Query(QueryString)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		insert := true
+		for rows.Next() {
+			var titleDB string
+			rows.Scan(&titleDB)
+			if titleDB == normalizedTitleForCheck {
+				insert = false
+			}
+		}
+		if insert {
+			fmt.Println("Trying to Insert", title)
+			titleToStoreInDB := normalizeTitleToStore(title)
+			titleToSendIGDB := normalizeTitleToSend(title)
+			accessToken := getAccessToken()
+			gameStruct := searchGame(accessToken, titleToSendIGDB)
+			foundGames := returnFoundGames(gameStruct)
+			Match := false
+			for game := range foundGames {
+				IGDBtitle := foundGames[game]["name"].(string)
+				AppID := foundGames[game]["appid"].(int)
+				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
+				if IGDBtitleNormalized == titleToSendIGDB {
+					getMetaData(AppID, gameStruct, accessToken, platform)
+					insertMetaDataInDB(titleToStoreInDB, platform, "-1")
+					Match = true
+					msg := fmt.Sprintf("Game added: %s", title)
+					sendSSEMessage(msg)
+					break
+				}
+			}
+			if !Match {
+				fmt.Println("Failed First Pass For : ", title)
+				for game := range foundGames {
+					IGDBtitle := foundGames[game]["name"].(string)
+					AppID := foundGames[game]["appid"].(int)
+					IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
+					titleToSendIGDB = normalizePass2(titleToSendIGDB)
+					IGDBtitleNormalized = normalizePass2(IGDBtitleNormalized)
+					if IGDBtitleNormalized == titleToSendIGDB {
+						getMetaData(AppID, gameStruct, accessToken, platform)
+						insertMetaDataInDB(titleToStoreInDB, platform, "-1")
+						Match = true
+						msg := fmt.Sprintf("Game added: %s", title)
+						sendSSEMessage(msg)
+						break
+					}
+				}
+				gamesNotMatched = append(gamesNotMatched, title)
+			}
+
+		}
+	}
+	fmt.Println(gamesNotMatched)
+}
+
+func playstationImportUserGames(npsso string) {
+	fmt.Println(npsso)
+	authCode := getAuthCode(npsso)
+	authToken := getAuthToken(authCode)
+	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken)
+	TrophyAPIGamesList := getGameTrophyAPI(authToken)
+	fmt.Println(NormalAPIGamesList)
+	fmt.Println(TrophyAPIGamesList)
+	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
+	insertFilteredTrophyGames(FilteredTrophyGames)
+}
+
+// Normalizer and hour COnversion funcs
+func normalizePass2(title string) string {
+	return (title) //Place Holder CHANGE THIS for MGS4 type games
+}
 func normalizeTitleToStore(title string) string {
 	// Define the symbols to be removed
 	symbols := []string{"™", "®"}
@@ -445,98 +556,4 @@ func normalizeToCompareBothAPI(title string) string {
 	normalized = strings.ReplaceAll(normalized, " ", "")
 
 	return normalized
-}
-
-func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGamesList []map[string]string) []map[string]string {
-	var unmatchedTrophyGames []map[string]string
-	for i := range TrophyAPIGamesList {
-		match := false
-		for j := range NormalAPIGamesList {
-			NormalizedTrophyTitle := normalizeToCompareBothAPI(TrophyAPIGamesList[i]["Title"])
-			NormalizedGameTitle := normalizeToCompareBothAPI(NormalAPIGamesList[j])
-			if NormalizedTrophyTitle == NormalizedGameTitle {
-				fmt.Println("Match", NormalAPIGamesList[j], TrophyAPIGamesList[i]["Title"])
-				match = true
-				break
-			}
-		}
-		if !match {
-			fmt.Println("No Match", TrophyAPIGamesList[i]["Title"], " ", TrophyAPIGamesList[i]["Platform"])
-			unmatchedTrophyGames = append(unmatchedTrophyGames, TrophyAPIGamesList[i])
-		}
-	}
-	return unmatchedTrophyGames
-}
-
-func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
-	var gamesNotMatched []string
-	for i := range FilteredTrophyGames {
-		title := FilteredTrophyGames[i]["Title"]
-		platform := FilteredTrophyGames[i]["Platform"]
-		normalizedTitleForCheck := normalizeTitleToStore(title)
-		fmt.Println("Trying to Insert", title, " ", platform)
-
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
-		defer db.Close()
-
-		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
-		rows, err := db.Query(QueryString)
-		if err != nil {
-			panic(err)
-		}
-		defer rows.Close()
-
-		insert := true
-		for rows.Next() {
-			var titleDB string
-			rows.Scan(&titleDB)
-			if titleDB == normalizedTitleForCheck {
-				insert = false
-			}
-		}
-		if insert {
-			fmt.Println("Trying to Insert", title)
-			titleToStoreInDB := normalizeTitleToStore(title)
-			titleToSendIGDB := normalizeTitleToSend(title)
-			accessToken := getAccessToken()
-			gameStruct := searchGame(accessToken, titleToSendIGDB)
-			foundGames := returnFoundGames(gameStruct)
-			Match := false
-			for game := range foundGames {
-				IGDBtitle := foundGames[game]["name"].(string)
-				AppID := foundGames[game]["appid"].(int)
-				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
-				if IGDBtitleNormalized == titleToSendIGDB {
-					getMetaData(AppID, gameStruct, accessToken, platform)
-					insertMetaDataInDB(titleToStoreInDB, platform, "-1")
-					Match = true
-					msg := fmt.Sprintf("Game added: %s", title)
-					sendSSEMessage(msg)
-					break
-				}
-			}
-			if !Match {
-				fmt.Println("---------NO MATCH FOR ", title)
-				gamesNotMatched = append(gamesNotMatched, title)
-			}
-
-		}
-	}
-	fmt.Println(gamesNotMatched)
-}
-
-func playstationImportUserGames(npsso string) {
-	fmt.Println(npsso)
-	authCode := getAuthCode(npsso)
-	authToken := getAuthToken(authCode)
-	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken)
-	TrophyAPIGamesList := getGameTrophyAPI(authToken)
-	fmt.Println(NormalAPIGamesList)
-	fmt.Println(TrophyAPIGamesList)
-	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
-	insertFilteredTrophyGames(FilteredTrophyGames)
-
 }

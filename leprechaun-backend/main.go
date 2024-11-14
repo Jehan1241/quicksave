@@ -21,8 +21,172 @@ import (
 )
 
 func main() {
+	checkAndCreateDB()
 	startSSEListener()
 	routing()
+}
+
+func checkAndCreateDB() {
+	if _, err := os.Stat("IGDB_Database.db"); os.IsNotExist(err) {
+		fmt.Println("Database not found. Creating the database...")
+		// Creates DB if not found
+		db, err := sql.Open("sqlite", "IGDB_Database.db")
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+
+		createTables(db)
+		initializeDefaultDBValues(db)
+
+	} else {
+		fmt.Println("DB Found")
+	}
+}
+
+func createTables(db *sql.DB) {
+	createGameMetaDataTable := `CREATE TABLE IF NOT EXISTS "GameMetaData" (
+	"UID"	TEXT NOT NULL UNIQUE,
+	"Name"	TEXT NOT NULL,
+	"ReleaseDate"	TEXT NOT NULL,
+	"CoverArtPath"	TEXT NOT NULL,
+	"Description"	TEXT NOT NULL,
+	"isDLC"	INTEGER NOT NULL,
+	"OwnedPlatform"	TEXT NOT NULL,
+	"TimePlayed"	INTEGER NOT NULL,
+	"AggregatedRating"	INTEGER NOT NULL,
+	PRIMARY KEY("UID")
+	);`
+
+	createInvolvedCompaniesTable := `CREATE TABLE IF NOT EXISTS "InvolvedCompanies" (
+	"UUID"	INTEGER NOT NULL UNIQUE,
+	"UID"	TEXT NOT NULL,
+	"Name"	TEXT NOT NULL,
+	PRIMARY KEY("UUID")
+	);`
+
+	createManualGameLaunchPathTable := `CREATE TABLE IF NOT EXISTS "ManualGameLaunchPath" (
+	"uid"	TEXT NOT NULL UNIQUE,
+	"path"	TEXT NOT NULL,
+	PRIMARY KEY("uid")
+	);`
+
+	createPlatformsTable := `CREATE TABLE IF NOT EXISTS "Platforms" (
+	"UID"	INTEGER NOT NULL UNIQUE,
+	"Name"	TEXT NOT NULL UNIQUE,
+	PRIMARY KEY("UID")
+	);`
+
+	createScreenshotsTable := `CREATE TABLE IF NOT EXISTS "ScreenShots" (
+	"UUID"	INTEGER NOT NULL UNIQUE,
+	"UID"	TEXT NOT NULL,
+	"ScreenshotPath"	TEXT NOT NULL,
+	PRIMARY KEY("UUID")
+	);`
+
+	createSortStateTable := `CREATE TABLE IF NOT EXISTS "SortState" (
+	"Type"	TEXT,
+	"Value"	TEXT
+	);`
+
+	createSteamAppIdsTable := `CREATE TABLE IF NOT EXISTS "SteamAppIds" (
+	"UID"	TEXT NOT NULL UNIQUE,
+	"AppID"	INTEGER NOT NULL UNIQUE,
+	PRIMARY KEY("UID")
+	);`
+
+	createTagsTable := `CREATE TABLE IF NOT EXISTS "Tags" (
+	"UUID"	INTEGER NOT NULL UNIQUE,
+	"UID"	TEXT NOT NULL,
+	"Tags"	TEXT NOT NULL,
+	PRIMARY KEY("UUID")
+	);`
+
+	createTileSizeTable := `CREATE TABLE IF NOT EXISTS "TileSize" (
+	"Size"	TEXT NOT NULL
+	);`
+
+	_, err := db.Exec(createGameMetaDataTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createTagsTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createInvolvedCompaniesTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createManualGameLaunchPathTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createPlatformsTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createScreenshotsTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createSortStateTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createSteamAppIdsTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createTileSizeTable)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func initializeDefaultDBValues(db *sql.DB) {
+	platforms := []string{
+		"Sony Playstation 1",
+		"Sony Playstation 2",
+		"Sony Playstation 3",
+		"Sony Playstation 4",
+		"Sony Playstation 5",
+		"Xbox 360",
+		"Xbox One",
+		"Xbox Series X",
+		"PC",
+	}
+	for _, platform := range platforms {
+		_, err := db.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	_, err := db.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Type', 'TimePlayed')`)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(`INSERT OR REPLACE INTO TileSize (Size) VALUES ('37')`)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("DB Default Values Initialized.")
 }
 
 func displayEntireDB() map[string]interface{} {
