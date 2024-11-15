@@ -3,4 +3,10 @@ leprechaun-backend/coverArt/**
 leprechaun-backend/screenshots/**
 leprechaun-backend/IGDB_Databasecopy.db
 leprechaun-backend/IGDB_Database.db
+backend/artworks/**
+backend/coverArt/**
+backend/screenshots/**
+backend/IGDB_Databasecopy.db
+backend/IGDB_Database.db
 TODO.txt
+Leprechaun.code-workspace
