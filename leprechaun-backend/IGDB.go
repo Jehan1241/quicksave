@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func getAccessToken() string {
+func getAccessToken(clientID string, clientSecret string) string {
 	// Struct Holds AccessToken which expires in a few thousand seconds
 	var accessStruct struct {
 		AccessToken string `json:"access_token"`
@@ -50,6 +50,7 @@ func searchGame(accessToken string, gameTofind string) gameStruct {
 	bodyString := fmt.Sprintf(`fields *; search "%s"; limit 20; where category=(0,8,9);`, gameTofind)
 
 	postReturn := post(postString, bodyString, accessToken)
+	fmt.Println(string(postReturn))
 
 	//Unmarshalls body into accessStruct
 	err := json.Unmarshal(postReturn, &gameStruct)

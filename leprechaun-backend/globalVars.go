@@ -293,5 +293,5 @@ var releaseDateTime string
 var AggregatedRating float64
 var Name string
 
-const clientID = "bg50w140115zmfq2pi0uc0wujj9pn6"
-const clientSecret = "1nk95mh97tui5t1ct1q5i7sqyfmqvd"
+var clientID string
+var clientSecret string

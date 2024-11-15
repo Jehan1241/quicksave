@@ -196,7 +196,7 @@ func getAuthToken(code string) string {
 	return result.AccessToken
 }
 
-func getAndInsertPSGames_NormalAPI(token string) []string {
+func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret string) []string {
 	url := "https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=0"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -270,7 +270,7 @@ func getAndInsertPSGames_NormalAPI(token string) []string {
 			}
 			titleToStoreInDB := normalizeTitleToStore(title)
 			titleToSendIGDB := normalizeTitleToSend(title)
-			accessToken := getAccessToken()
+			accessToken := getAccessToken(clientID, clientSecret)
 			gameStruct := searchGame(accessToken, titleToSendIGDB)
 			foundGames := returnFoundGames(gameStruct)
 			Match := false
@@ -381,7 +381,7 @@ func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGame
 	return unmatchedTrophyGames
 }
 
-func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
+func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID string, clientSecret string) {
 	var gamesNotMatched []string
 	for i := range FilteredTrophyGames {
 		title := FilteredTrophyGames[i]["Title"]
@@ -414,7 +414,7 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
 			fmt.Println("Trying to Insert", title)
 			titleToStoreInDB := normalizeTitleToStore(title)
 			titleToSendIGDB := normalizeTitleToSend(title)
-			accessToken := getAccessToken()
+			accessToken := getAccessToken(clientID, clientSecret)
 			gameStruct := searchGame(accessToken, titleToSendIGDB)
 			foundGames := returnFoundGames(gameStruct)
 			Match := false
@@ -456,16 +456,16 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string) {
 	fmt.Println(gamesNotMatched)
 }
 
-func playstationImportUserGames(npsso string) {
+func playstationImportUserGames(npsso string, clientID string, clientSecret string) {
 	fmt.Println(npsso)
 	authCode := getAuthCode(npsso)
 	authToken := getAuthToken(authCode)
-	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken)
+	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
 	TrophyAPIGamesList := getGameTrophyAPI(authToken)
 	fmt.Println(NormalAPIGamesList)
 	fmt.Println(TrophyAPIGamesList)
 	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
-	insertFilteredTrophyGames(FilteredTrophyGames)
+	insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
 }
 
 // Normalizer and hour COnversion funcs

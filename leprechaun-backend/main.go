@@ -759,6 +759,8 @@ func setupRouter() *gin.Engine {
 	var foundGames map[int]map[string]interface{}
 	var data struct {
 		NameToSearch string `json:"NameToSearch"`
+		ClientID     string `json:"clientID"`
+		ClientSecret string `json:"clientSecret"`
 	}
 	var accessToken string
 	var gameStruct gameStruct
@@ -838,9 +840,11 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		fmt.Println("Received", data.NameToSearch)
+		fmt.Println(data.ClientID, "  ", data.ClientSecret)
+		clientID = data.ClientID
+		clientSecret = data.ClientSecret
 		gameToFind := data.NameToSearch
-		accessToken = getAccessToken()
+		accessToken = getAccessToken(clientID, clientSecret)
 		gameStruct = searchGame(accessToken, gameToFind)
 		foundGames = returnFoundGames(gameStruct)
 		foundGamesJSON, err := json.Marshal(foundGames)
@@ -896,15 +900,19 @@ func setupRouter() *gin.Engine {
 
 	r.POST("/PlayStationImport", func(c *gin.Context) {
 		var data struct {
-			Npsso string `json:"npsso"`
+			Npsso        string `json:"npsso"`
+			ClientID     string `json:"clientID"`
+			ClientSecret string `json:"clientSecret"`
 		}
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		npsso := data.Npsso
-		fmt.Println("Received PlayStation Import Games npsso : ", npsso)
-		playstationImportUserGames(npsso)
+		clientID = data.ClientID
+		clientSecret = data.ClientSecret
+		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
+		playstationImportUserGames(npsso, clientID, clientSecret)
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
 	return r
