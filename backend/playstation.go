@@ -279,7 +279,7 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 				AppID := foundGames[game]["appid"].(int)
 				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 				if IGDBtitleNormalized == titleToSendIGDB {
-					getMetaData(AppID, gameStruct, accessToken, platform)
+					getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
 					insertMetaDataInDB(titleToStoreInDB, platform, timePlayedHours)
 					Match = true
 					msg := fmt.Sprintf("Game added: %s", title)
@@ -386,6 +386,9 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 	for i := range FilteredTrophyGames {
 		title := FilteredTrophyGames[i]["Title"]
 		platform := FilteredTrophyGames[i]["Platform"]
+		if platform == "PS3,PSVITA" {
+			platform = "Sony PlayStation 3"
+		}
 		normalizedTitleForCheck := normalizeTitleToStore(title)
 		fmt.Println("Trying to Insert", title, " ", platform)
 
@@ -423,7 +426,7 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 				AppID := foundGames[game]["appid"].(int)
 				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 				if IGDBtitleNormalized == titleToSendIGDB {
-					getMetaData(AppID, gameStruct, accessToken, platform)
+					getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
 					insertMetaDataInDB(titleToStoreInDB, platform, "-1")
 					Match = true
 					msg := fmt.Sprintf("Game added: %s", title)
@@ -431,29 +434,38 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 					break
 				}
 			}
+			Match2 := false
 			if !Match {
 				fmt.Println("Failed First Pass For : ", title)
+				gameStruct = searchGame(accessToken, titleToSendIGDB)
+				foundGames = returnFoundGames(gameStruct)
 				for game := range foundGames {
 					IGDBtitle := foundGames[game]["name"].(string)
 					AppID := foundGames[game]["appid"].(int)
 					IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 					titleToSendIGDB = normalizePass2(titleToSendIGDB)
 					IGDBtitleNormalized = normalizePass2(IGDBtitleNormalized)
+					fmt.Println(IGDBtitleNormalized, " ", titleToSendIGDB)
 					if IGDBtitleNormalized == titleToSendIGDB {
-						getMetaData(AppID, gameStruct, accessToken, platform)
+						fmt.Println(AppID)
+						getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
 						insertMetaDataInDB(titleToStoreInDB, platform, "-1")
-						Match = true
+						Match2 = true
 						msg := fmt.Sprintf("Game added: %s", title)
 						sendSSEMessage(msg)
 						break
 					}
 				}
+			}
+			if !Match2 {
 				gamesNotMatched = append(gamesNotMatched, title)
 			}
 
 		}
 	}
 	fmt.Println(gamesNotMatched)
+	msg := fmt.Sprintf("Game added: %s", "finished")
+	sendSSEMessage(msg)
 }
 
 func playstationImportUserGames(npsso string, clientID string, clientSecret string) {
@@ -462,15 +474,30 @@ func playstationImportUserGames(npsso string, clientID string, clientSecret stri
 	authToken := getAuthToken(authCode)
 	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
 	TrophyAPIGamesList := getGameTrophyAPI(authToken)
-	fmt.Println(NormalAPIGamesList)
-	fmt.Println(TrophyAPIGamesList)
 	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
 	insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
 }
 
-// Normalizer and hour COnversion funcs
+// Normalizer and hour Conversion funcs
 func normalizePass2(title string) string {
-	return (title) //Place Holder CHANGE THIS for MGS4 type games
+	title = strings.ToLower(title)
+	if strings.Contains(title, "ac") {
+		title = strings.ReplaceAll(title, "ac", "assassin's creed")
+	}
+	if strings.Contains(title, "gta") {
+		title = strings.ReplaceAll(title, "gta", "grand theft auto")
+	}
+	re := regexp.MustCompile(`[0-9]+`)
+	// Find the first occurrence of a number
+	match := re.FindStringIndex(title)
+	if match != nil {
+		// Slice the title to keep only the part before the first number
+		title = title[:match[1]]
+	}
+
+	title = strings.ReplaceAll(title, ":", "")
+
+	return title
 }
 func normalizeTitleToStore(title string) string {
 	// Define the symbols to be removed
@@ -556,4 +583,82 @@ func normalizeToCompareBothAPI(title string) string {
 	normalized = strings.ReplaceAll(normalized, " ", "")
 
 	return normalized
+}
+
+func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, accessToken string, platform string) {
+
+	var gameIndex int = -1
+	for i := range gameStruct {
+		if gameStruct[i].ID == gameID {
+			gameIndex = i
+		}
+	}
+
+	if gameIndex == -1 {
+		fmt.Println("error")
+	} else {
+
+		summary = gameStruct[gameIndex].Summary
+		gameID = gameStruct[gameIndex].ID
+		UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
+		tempTime := time.Unix(int64(UNIX_releaseDate), 0)
+		releaseDateTime = tempTime.Format("2 Jan, 2006")
+		AggregatedRating = gameStruct[gameIndex].AggregatedRating
+		Name = gameStruct[gameIndex].Name
+		UID := GetMD5Hash(Title + strings.Split(releaseDateTime, " ")[2] + platform)
+
+		db, err := sql.Open("sqlite", "IGDB_Database.db")
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+
+		QueryString := "SELECT UID FROM GameMetaData"
+		rows, err := db.Query(QueryString)
+		if err != nil {
+			panic(err)
+		}
+		defer rows.Close()
+
+		insert := true
+		for rows.Next() {
+			var UIDdb string
+			rows.Scan(&UIDdb)
+			if UIDdb == UID {
+				insert = false
+			}
+		}
+
+		if insert {
+			// Seperate Cause it needs 2 API calls
+			getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+			// Tags
+			postString := "https://api.igdb.com/v4/player_perspectives"
+			passer := gameStruct[gameIndex].PlayerPerspectives
+			playerPerspectiveStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+			postString = "https://api.igdb.com/v4/genres"
+			passer = gameStruct[gameIndex].Genres
+			genresStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+			postString = "https://api.igdb.com/v4/themes"
+			passer = gameStruct[gameIndex].Themes
+			themeStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+			postString = "https://api.igdb.com/v4/game_modes"
+			passer = gameStruct[gameIndex].GameModes
+			gameModesStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+			postString = "https://api.igdb.com/v4/game_engines"
+			passer = gameStruct[gameIndex].GameEngines
+			gameEngineStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+
+			//Images
+
+			postString = "https://api.igdb.com/v4/covers"
+			folderName := "coverArt"
+			coverStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+
+			postString = "https://api.igdb.com/v4/screenshots"
+			folderName = "screenshots"
+			screenshotStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+		}
+
+	}
 }

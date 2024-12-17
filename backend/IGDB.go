@@ -50,7 +50,7 @@ func searchGame(accessToken string, gameTofind string) gameStruct {
 	bodyString := fmt.Sprintf(`fields *; search "%s"; limit 20; where category=(0,8,9);`, gameTofind)
 
 	postReturn := post(postString, bodyString, accessToken)
-	fmt.Println(string(postReturn))
+	//fmt.Println(string(postReturn))
 
 	//Unmarshalls body into accessStruct
 	err := json.Unmarshal(postReturn, &gameStruct)
