@@ -107,7 +107,7 @@ func createTables(db *sql.DB) {
 	);`
 
 	createIgdbAPIKeysTable := `CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
-		"ClientID"	TEXT NOT NULL
+		"ClientID"	TEXT NOT NULL,
 		"ClientSecret"	TEXT NOT NULL
 	);`
 
