@@ -1,27 +1,49 @@
+import { useEffect, useState } from 'react'
+
 function SteamImportView() {
+  const [steamID, setSteamID] = useState('')
+  const [APIKey, setAPIkey] = useState('')
+
   const searchClickHandler = async () => {
-    const SteamID = document.getElementById("SteamID").value;
-    const APIkey = document.getElementById("APIKey").value;
-    console.log(SteamID, APIkey);
+    const SteamID = document.getElementById('SteamID').value
+    const APIkey = document.getElementById('APIKey').value
+    console.log(SteamID, APIkey)
 
     try {
-      const response = await fetch("http://localhost:8080/SteamImport", {
-        method: "POST",
+      const response = await fetch('http://localhost:8080/SteamImport', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ SteamID: SteamID, APIkey: APIkey }),
-      });
+        body: JSON.stringify({ SteamID: SteamID, APIkey: APIkey })
+      })
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error:', error)
     }
-  };
+  }
+
+  useEffect(() => {
+    getSteamCreds()
+  }, [])
+
+  const getSteamCreds = async () => {
+    console.log('Getting Platforms')
+    try {
+      const response = await fetch(`http://localhost:8080/SteamCreds`)
+      const json = await response.json()
+      console.log(json.SteamCreds[0])
+      setSteamID(json.SteamCreds[0])
+      setAPIkey(json.SteamCreds[1])
+    } catch (error) {
+      console.error(error)
+    }
+  }
 
   const checkForEnterPressed = (e) => {
-    if (e.key == "Enter") {
-      searchClickHandler();
+    if (e.key == 'Enter') {
+      searchClickHandler()
     }
-  };
+  }
 
   return (
     <div className="flex flex-col p-4 mt-2 w-full h-full text-base rounded-xl">
@@ -36,11 +58,15 @@ function SteamImportView() {
             onKeyDown={checkForEnterPressed}
             id="SteamID"
             className="px-1 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
+            value={steamID}
+            onChange={(e) => setSteamID(e.target.value)}
           ></input>
           <input
             onKeyDown={checkForEnterPressed}
             id="APIKey"
             className="px-1 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
+            value={APIKey}
+            onChange={(e) => setAPIkey(e.target.value)}
           ></input>
         </div>
         <div className="flex items-end text-sm text-blue-700 underline">
@@ -49,15 +75,12 @@ function SteamImportView() {
       </div>
       {/* button div */}
       <div className="flex justify-end mt-auto">
-        <button
-          className="w-32 h-10 rounded-lg border-2 bg-primary"
-          onClick={searchClickHandler}
-        >
+        <button className="w-32 h-10 rounded-lg border-2 bg-primary" onClick={searchClickHandler}>
           Import
         </button>
       </div>
     </div>
-  );
+  )
 }
 
-export default SteamImportView;
+export default SteamImportView

@@ -1,4 +1,10 @@
+import { useState, useEffect } from 'react'
+
 function PsImportView() {
+  const [clientID, setClientID] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [npsso, setNpsso] = useState('')
+
   const searchClickHandler = async () => {
     const npsso = document.getElementById('npsso').value
     const clientID = document.getElementById('clientID').value
@@ -15,6 +21,36 @@ function PsImportView() {
       })
     } catch (error) {
       console.error('Error:', error)
+    }
+  }
+
+  useEffect(() => {
+    getIGDBKeys()
+    getNpsso()
+  }, [])
+
+  const getIGDBKeys = async () => {
+    console.log('Getting Platforms')
+    try {
+      const response = await fetch(`http://localhost:8080/IGDBKeys`)
+      const json = await response.json()
+      console.log(json.IGDBKeys[0])
+      setClientID(json.IGDBKeys[0])
+      setClientSecret(json.IGDBKeys[1])
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const getNpsso = async () => {
+    console.log('Getting Platforms')
+    try {
+      const response = await fetch(`http://localhost:8080/Npsso`)
+      const json = await response.json()
+      console.log(json.Npsso)
+      setNpsso(json.Npsso)
+    } catch (error) {
+      console.error(error)
     }
   }
 
@@ -37,6 +73,8 @@ function PsImportView() {
               onKeyDown={checkForEnterPressed}
               id="npsso"
               className="px-1 mx-10 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
+              value={npsso}
+              onChange={(e) => setNpsso(e.target.value)}
             ></input>
           </div>
           <div className="flex items-end text-sm text-blue-700 underline">
@@ -54,6 +92,8 @@ function PsImportView() {
               onKeyDown={checkForEnterPressed}
               id="clientID"
               className="px-1 mx-8 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
+              value={clientID}
+              onChange={(e) => setClientID(e.target.value)}
             ></input>
           </div>
         </div>
@@ -66,6 +106,8 @@ function PsImportView() {
               onKeyDown={checkForEnterPressed}
               id="clientSecret"
               className="px-1 w-72 h-6 text-sm rounded-lg bg-gray-500/20"
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
             ></input>
           </div>
         </div>

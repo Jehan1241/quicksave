@@ -68,6 +68,7 @@ function SteamImportView(props) {
 
   useEffect(() => {
     getPlatforms()
+    getIGDBKeys()
   }, [])
 
   const getPlatforms = async () => {
@@ -77,6 +78,19 @@ function SteamImportView(props) {
       const json = await response.json()
       setPlatforms(Object.values(json.platforms))
       console.log('Run')
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const getIGDBKeys = async () => {
+    console.log('Getting Platforms')
+    try {
+      const response = await fetch(`http://localhost:8080/IGDBKeys`)
+      const json = await response.json()
+      console.log(json.IGDBKeys[0])
+      setClientID(json.IGDBKeys[0])
+      setClientSecret(json.IGDBKeys[1])
     } catch (error) {
       console.error(error)
     }
@@ -153,6 +167,8 @@ function SteamImportView(props) {
               type="text"
               className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
               onKeyDown={checkForEnterPressed}
+              value={clientID}
+              onChange={(e) => setClientID(e.target.value)}
             />
           </div>
 
@@ -163,6 +179,8 @@ function SteamImportView(props) {
               type="text"
               className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
               onKeyDown={checkForEnterPressed}
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
             />
             <a href="https://api-docs.igdb.com/#getting-started" className="ml-2 text-sm">
               Client?

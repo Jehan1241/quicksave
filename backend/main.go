@@ -106,6 +106,20 @@ func createTables(db *sql.DB) {
 	"Size"	TEXT NOT NULL
 	);`
 
+	createIgdbAPIKeysTable := `CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
+		"ClientID"	TEXT NOT NULL
+		"ClientSecret"	TEXT NOT NULL
+	);`
+
+	createPlayStationNpssoTable := `CREATE TABLE IF NOT EXISTS "PlayStationNpsso" (
+		"Npsso"	TEXT NOT NULL
+	);`
+
+	createSteamCredsTable := `CREATE TABLE IF NOT EXISTS "SteamCreds" (
+		"SteamID"	TEXT NOT NULL,
+		"SteamAPIKey"	TEXT NOT NULL
+	);`
+
 	_, err := db.Exec(createGameMetaDataTable)
 	if err != nil {
 		panic(err)
@@ -147,6 +161,21 @@ func createTables(db *sql.DB) {
 	}
 
 	_, err = db.Exec(createTileSizeTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createIgdbAPIKeysTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createPlayStationNpssoTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createSteamCredsTable)
 	if err != nil {
 		panic(err)
 	}
@@ -660,6 +689,137 @@ func getPlatforms() []string {
 	return (platforms)
 }
 
+func getIGDBKeys() []string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT * FROM IgdbAPIKeys"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	keys := []string{}
+	for rows.Next() {
+		var clientID string
+		var clientSecret string
+		rows.Scan(&clientID, &clientSecret)
+		keys = append(keys, clientID)
+		keys = append(keys, clientSecret)
+	}
+	return (keys)
+}
+
+func updateIGDBKeys(clientID string, clientSecret string) {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "DELETE FROM IgdbAPIKeys"
+	_, err = db.Exec(QueryString)
+	if err != nil {
+		panic(err)
+	}
+
+	QueryString = "INSERT INTO IgdbAPIKeys (clientID, clientSecret) VALUES (?, ?)"
+	_, err = db.Exec(QueryString, clientID, clientSecret)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func getNpsso() string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT * FROM PlayStationNpsso"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var Npsso string
+	for rows.Next() {
+		rows.Scan(&Npsso)
+	}
+	return (Npsso)
+}
+
+func getSteamCreds() []string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT * FROM SteamCreds"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	creds := []string{}
+	for rows.Next() {
+		var steamID string
+		var steamAPIKey string
+		rows.Scan(&steamID, &steamAPIKey)
+		creds = append(creds, steamID)
+		creds = append(creds, steamAPIKey)
+	}
+	return (creds)
+}
+
+func updateSteamCreds(steamID string, steamAPIKey string) {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "DELETE FROM SteamCreds"
+	_, err = db.Exec(QueryString)
+	if err != nil {
+		panic(err)
+	}
+
+	QueryString = "INSERT INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)"
+	_, err = db.Exec(QueryString, steamID, steamAPIKey)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func updateNpsso(Npsso string) {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "DELETE FROM PlayStationNpsso"
+	_, err = db.Exec(QueryString)
+	if err != nil {
+		panic(err)
+	}
+
+	QueryString = "INSERT INTO PlayStationNpsso (Npsso) VALUES (?)"
+	_, err = db.Exec(QueryString, Npsso)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func getManualGamePath(uid string) string {
 	fmt.Println("To launch ", uid)
 
@@ -807,6 +967,27 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
+	r.GET("/IGDBKeys", func(c *gin.Context) {
+		fmt.Println("Recieved IGDBKeys")
+		IGDBKeys := getIGDBKeys()
+		fmt.Println(IGDBKeys)
+		c.JSON(http.StatusOK, gin.H{"IGDBKeys": IGDBKeys})
+	})
+
+	r.GET("/Npsso", func(c *gin.Context) {
+		fmt.Println("Recieved Npsso")
+		Npsso := getNpsso()
+		fmt.Println(Npsso)
+		c.JSON(http.StatusOK, gin.H{"Npsso": Npsso})
+	})
+
+	r.GET("/SteamCreds", func(c *gin.Context) {
+		fmt.Println("Recieved SteamCreds")
+		SteamCreds := getSteamCreds()
+		fmt.Println(SteamCreds)
+		c.JSON(http.StatusOK, gin.H{"SteamCreds": SteamCreds})
+	})
+
 	r.GET("/LaunchGame", func(c *gin.Context) {
 		fmt.Println("Received Launch Game")
 		uid := c.Query("uid")
@@ -835,6 +1016,13 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	r.GET("/AddScreenshot", func(c *gin.Context) {
+		fmt.Println("Received AddScreenshot")
+		screenshotString := c.Query("string")
+		findLinksForScreenshot(screenshotString)
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
 	r.POST("/IGDBsearch", func(c *gin.Context) {
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -843,6 +1031,7 @@ func setupRouter() *gin.Engine {
 		fmt.Println(data.ClientID, "  ", data.ClientSecret)
 		clientID = data.ClientID
 		clientSecret = data.ClientSecret
+		updateIGDBKeys(clientID, clientSecret)
 		gameToFind := data.NameToSearch
 		accessToken = getAccessToken(clientID, clientSecret)
 		gameStruct = searchGame(accessToken, gameToFind)
@@ -892,6 +1081,7 @@ func setupRouter() *gin.Engine {
 		}
 		SteamID := data.SteamID
 		APIkey := data.APIkey
+		updateSteamCreds(SteamID, APIkey)
 		fmt.Println("Received", SteamID)
 		fmt.Println("Recieved", APIkey)
 		steamImportUserGames(SteamID, APIkey)
@@ -911,6 +1101,8 @@ func setupRouter() *gin.Engine {
 		npsso := data.Npsso
 		clientID = data.ClientID
 		clientSecret = data.ClientSecret
+		updateIGDBKeys(clientID, clientSecret)
+		updateNpsso(npsso)
 		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
 		playstationImportUserGames(npsso, clientID, clientSecret)
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
