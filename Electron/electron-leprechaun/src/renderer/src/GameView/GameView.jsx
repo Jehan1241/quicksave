@@ -7,17 +7,35 @@ import { TiTick } from 'react-icons/ti'
 import { RxCross2 } from 'react-icons/rx'
 import { useNavigate } from 'react-router-dom'
 import AddGamePath from './AddGamePath'
+import Customize from './Customize'
 
 function GameView(props) {
   const navigate = useNavigate()
   const [companies, setCompanies] = useState('')
+  const [customizeClicked, setCustomizeClicked] = useState(false)
   const [tags, setTags] = useState('')
   const [screenshots, setScreenshots] = useState('')
   const [metadata, setMetadata] = useState('')
   const [deleteClicked, setDeleteClicked] = useState(false)
   const [toAddGamePath, setToAddGamePath] = useState(false)
+  const [rerenderTrigger, setRerenderTrigger] = useState(false)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const re_renderTrigger = () => {
+    console.log('here  aa')
+    setRerenderTrigger((prev) => !prev) // Toggle to force re-render
+  }
+
+  useEffect(() => {
+    fetchData()
+    console.log('rerenderTrigger state changed:', rerenderTrigger)
+  }, [rerenderTrigger])
 
   const deleteGameClickHandler = () => {
+    re_renderTrigger()
     setDeleteClicked(!deleteClicked)
   }
 
@@ -36,6 +54,10 @@ function GameView(props) {
   const addGamePathClickHandler = () => {
     console.log('here')
     setToAddGamePath(!toAddGamePath)
+  }
+
+  const customizeClickHandler = () => {
+    setCustomizeClicked(!customizeClicked)
   }
 
   const sendGamePathtoDB = async (path) => {
@@ -66,10 +88,6 @@ function GameView(props) {
       console.error(error)
     }
   }
-
-  useEffect(() => {
-    fetchData()
-  }, [])
 
   const playClicked = async () => {
     try {
@@ -123,6 +141,14 @@ function GameView(props) {
                 </div>
               ) : null}
             </div>
+            <button onClick={customizeClickHandler}>Customize</button>
+            {customizeClicked ? (
+              <Customize
+                uid={props.uid}
+                customizeClickHandler={customizeClickHandler}
+                re_renderTrigger={re_renderTrigger}
+              />
+            ) : null}
           </div>
           <div className="text-2xl">Time Played : {metadata.TimePlayed} Hrs</div>
         </div>

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -120,6 +121,10 @@ func createTables(db *sql.DB) {
 		"SteamAPIKey"	TEXT NOT NULL
 	);`
 
+	createFilterTable := `CREATE TABLE "Filter" (
+		"Tag"	TEXT NOT NULL
+	);`
+
 	_, err := db.Exec(createGameMetaDataTable)
 	if err != nil {
 		panic(err)
@@ -176,6 +181,11 @@ func createTables(db *sql.DB) {
 	}
 
 	_, err = db.Exec(createSteamCredsTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createFilterTable)
 	if err != nil {
 		panic(err)
 	}
@@ -260,6 +270,30 @@ func displayEntireDB() map[string]interface{} {
 	MetaData["m"] = m
 	return (MetaData)
 }
+func getAllTags() []string {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT DISTINCT Tags FROM Tags"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var tags []string
+
+	for rows.Next() {
+		var tag string
+		rows.Scan(&tag)
+		tags = append(tags, tag)
+	}
+
+	return (tags)
+}
 func getGameDetails(UID string) map[string]interface{} {
 
 	//Inelegant Solution Why did a struct not work?
@@ -313,6 +347,35 @@ func getGameDetails(UID string) map[string]interface{} {
 		m[UID]["TimePlayed"] = TimePlayed
 		m[UID]["AggregatedRating"] = AggregatedRating
 		//FIGURE OUT HOW TO MAKE(STRUCT)
+	}
+
+	// Override meta-data with user prefs
+	QueryString = fmt.Sprintf(`SELECT * FROM GamePreferences Where GamePreferences.UID = "%s"`, UID)
+	rows, err = db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var storedUID, customTitle string
+	var customTime, customTimeOffset float64
+	var useCustomTitle, useCustomTime, useCustomTimeOffset int
+
+	for rows.Next() {
+		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if useCustomTitle == 1 {
+			m[UID]["Name"] = customTitle
+		}
+		if useCustomTime == 1 {
+			m[UID]["TimePlayed"] = customTime
+		} else if useCustomTimeOffset == 1 {
+			dbTimePlayed := m[UID]["TimePlayed"].(float64)
+			calculatedTime := dbTimePlayed + customTimeOffset
+			m[UID]["TimePlayed"] = calculatedTime
+		}
 	}
 
 	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`, UID)
@@ -408,6 +471,49 @@ func getGameDetails(UID string) map[string]interface{} {
 	MetaData["companies"] = companies
 	MetaData["screenshots"] = screenshots
 	return (MetaData)
+}
+func addTagToFilter(tag string) {
+	var duplicate = false
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	preparedStatement, err := db.Prepare("SELECT * FROM Filter WHERE Tag=?")
+	if err != nil {
+		panic(err)
+	}
+	rows, err := preparedStatement.Query(tag)
+	if err != nil {
+		panic(err)
+	}
+	for rows.Next() {
+		var DBtag string
+		rows.Scan(&DBtag)
+		if DBtag == tag {
+			duplicate = true
+		}
+	}
+
+	if !duplicate {
+		preparedStatement, err = db.Prepare("INSERT INTO Filter (Tag) VALUES (?)")
+		if err != nil {
+			panic(err)
+		}
+		defer preparedStatement.Close()
+		preparedStatement.Exec(tag)
+	}
+}
+func clearFilter() {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "DELETE FROM Filter"
+	db.Exec(QueryString)
 }
 
 // Repeated Call Funcs
@@ -565,8 +671,27 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		panic(err)
 	}
 
-	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`, sortType, order)
+	var FilterSet bool = false
+	QueryString = "SELECT * FROM Filter"
 	rows, err := db.Query(QueryString)
+	for rows.Next() {
+		FilterSet = true
+	}
+
+	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`, sortType, order)
+
+	if FilterSet {
+		QueryString = fmt.Sprintf(`	
+		SELECT gmd.*
+		FROM Tags t
+		JOIN Filter f ON t.Tags = f.Tag
+		JOIN GameMetaData gmd ON gmd.uid = t.uid
+		GROUP BY t.UID
+		HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM Filter)
+		ORDER BY gmd.%s %s;`, sortType, order)
+	}
+
+	rows, err = db.Query(QueryString)
 	if err != nil {
 		panic(err)
 	}
@@ -863,6 +988,101 @@ func addPathToDB(uid string, path string) {
 	preparedStatement.Exec(uid, path)
 }
 
+func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
+	fmt.Println(uid)
+	fmt.Println(checkedParams["titleChecked"])
+	fmt.Println(params["time"])
+
+	title := params["title"]
+	time := params["time"]
+	timeOffset := params["timeOffset"]
+
+	titleChecked := checkedParams["titleChecked"]
+	timeChecked := checkedParams["timeChecked"]
+	timeOffsetChecked := checkedParams["timeOffsetChecked"]
+
+	titleCheckedNumeric := 0
+	timeCheckedNumeric := 0
+	timeOffsetCheckedNumeric := 0
+
+	if titleChecked {
+		titleCheckedNumeric = 1
+	}
+	if timeChecked {
+		timeCheckedNumeric = 1
+	}
+	if timeOffsetChecked {
+		timeOffsetCheckedNumeric = 1
+	}
+
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := `
+    INSERT OR REPLACE INTO GamePreferences 
+    (UID, CustomTitle, UseCustomTitle, CustomTime, UseCustomTime, CustomTimeOffset, UseCustomTimeOffset)
+    VALUES (?, ?, ?, ?, ?, ?, ?);
+    `
+	preparedStatement, err := db.Prepare(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+	_, err = preparedStatement.Exec(uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func getPreferences(uid string) map[string]interface{} {
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := `SELECT * FROM GamePreferences WHERE UID=?`
+	preparedStatement, err := db.Prepare(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer preparedStatement.Close()
+
+	rows, err := preparedStatement.Query(uid)
+	if err != nil {
+		panic(err)
+	}
+
+	var storedUID, customTitle, customTime, customTimeOffset string
+	var useCustomTitle, useCustomTime, useCustomTimeOffset int
+
+	for rows.Next() {
+		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	params := make(map[string]string)
+	paramsChecked := make(map[string]int)
+
+	params["title"] = customTitle
+	params["time"] = customTime
+	params["timeOffset"] = customTimeOffset
+	paramsChecked["title"] = useCustomTitle
+	paramsChecked["time"] = useCustomTime
+	paramsChecked["timeOffset"] = useCustomTimeOffset
+
+	preferences := make(map[string]interface{})
+	preferences["params"] = params
+	preferences["paramsChecked"] = paramsChecked
+
+	return (preferences)
+}
+
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
 var sseBroadcast = make(chan string)        // Used to broadcast messages to all connected clients
 // Function runs indefinately, waits for a SSE messages and sends to all connected clients
@@ -946,6 +1166,28 @@ func setupRouter() *gin.Engine {
 	})
 
 	r.GET("/getBasicInfo", basicInfoHandler)
+
+	r.GET("/getAllTags", func(c *gin.Context) {
+		fmt.Println("Recieved Get All Tags")
+		tags := getAllTags()
+		c.JSON(http.StatusOK, gin.H{"tags": tags})
+	})
+
+	r.GET("/setFilter", func(c *gin.Context) {
+		fmt.Println("Recieved Set Filter")
+		tag := c.Query("tag")
+		fmt.Println(tag)
+		addTagToFilter(tag)
+		sendSSEMessage("Game added: Set Filter")
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+	})
+
+	r.GET("/clearFilter", func(c *gin.Context) {
+		fmt.Println("Recieved Clear Filter")
+		clearFilter()
+		sendSSEMessage("Game added: Clear Filter")
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+	})
 
 	r.GET("/GameDetails", func(c *gin.Context) {
 		fmt.Println("Recieved Game Details")
@@ -1107,6 +1349,57 @@ func setupRouter() *gin.Engine {
 		playstationImportUserGames(npsso, clientID, clientSecret)
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
+
+	r.GET("/LoadPreferences", func(c *gin.Context) {
+		fmt.Println("Received Load Preferences")
+		uid := c.Query("uid")
+		preferences := getPreferences(uid)
+		params := preferences["params"].(map[string]string)
+		paramsChecked := preferences["paramsChecked"].(map[string]int)
+
+		preferencesJSON := make(map[string]map[string]interface{})
+
+		for key, value := range params {
+			preferencesJSON[key] = map[string]interface{}{
+				"value":   value,
+				"checked": paramsChecked[key],
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"preferences": preferencesJSON})
+	})
+
+	r.POST("/SavePreferences", func(c *gin.Context) {
+		var data struct {
+			// int string / string int error
+			CustomTitleChecked      bool   `json:"customTitleChecked"`
+			Title                   string `json:"customTitle"`
+			CustomTimeChecked       bool   `json:"customTimeChecked"`
+			Time                    string `json:"customTime"`
+			CustomTimeOffsetChecked bool   `json:"customTimeOffsetChecked"`
+			TimeOffset              string `json:"customTimeOffset"`
+			UID                     string `json:"UID"`
+		}
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		checkedParams := make(map[string]bool)
+		params := make(map[string]string)
+
+		checkedParams["titleChecked"] = data.CustomTitleChecked
+		checkedParams["timeChecked"] = data.CustomTimeChecked
+		checkedParams["timeOffsetChecked"] = data.CustomTimeOffsetChecked
+		params["title"] = data.Title
+		params["time"] = data.Time
+		params["timeOffset"] = data.TimeOffset
+
+		uid := data.UID
+		fmt.Println("Received Save Preferences : ", uid)
+		updatePreferences(uid, checkedParams, params)
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	})
+
 	return r
 }
 

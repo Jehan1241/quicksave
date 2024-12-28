@@ -7,12 +7,27 @@ import { GoPlus } from 'react-icons/go'
 import ImportPopUp from './ImportPopUp'
 
 function NavBar(props) {
+  const [tagsList, setTagsList] = useState()
   const [importClicked, setImportClicked] = useState(false)
   const [libraryClicked, setLibraryClicked] = useState(false)
   const [sortClicked, setSortClicked] = useState(false)
+  const [filterClicked, setFilterClicked] = useState(false)
   const [order, setOrder] = useState(props.sortOrder)
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
+
+  const getAllTags = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/getAllTags`)
+      const json = await response.json()
+      setTagsList(json.tags)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  useEffect(() => {
+    getAllTags()
+  }, [])
 
   useEffect(() => {
     setOrder(props.sortOrder)
@@ -25,6 +40,34 @@ function NavBar(props) {
 
   const sortClickHandler = () => {
     setSortClicked(!sortClicked)
+  }
+
+  const filterClickHandler = () => {
+    setFilterClicked(!filterClicked)
+  }
+
+  const clearFilterClickHandler = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/clearFilter`)
+      const json = await response.json()
+      console.log(json)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const tagClickHandler = (tag) => {
+    console.log(tag)
+    setFilter(tag)
+  }
+
+  const setFilter = async (tag) => {
+    try {
+      const response = await fetch(`http://localhost:8080/setFilter?tag=${tag}`)
+      const json = await response.json()
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   const sortOptionSelect = async (type) => {
@@ -123,6 +166,19 @@ function NavBar(props) {
                 >
                   Rating
                 </button>
+              </div>
+            ) : null}
+          </div>
+          <div>
+            <button className="m-2" onClick={filterClickHandler}>
+              filter
+            </button>
+            <button onClick={clearFilterClickHandler}>clear_filter</button>
+            {filterClicked ? (
+              <div className="flex overflow-y-scroll absolute top-14 flex-col gap-2 p-1 h-[75vh] text-sm rounded-lg bg-gameView">
+                {tagsList.map((tag) => (
+                  <button onClick={() => tagClickHandler(tag)}>{tag}</button>
+                ))}
               </div>
             ) : null}
           </div>
