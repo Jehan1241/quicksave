@@ -17,17 +17,19 @@ function MetaData(props) {
       const response = await fetch(`http://localhost:8080/LoadPreferences?uid=${props.uid}`)
       const json = await response.json()
       console.log(json)
+      setCustomTitle(json.preferences.title.value)
+      setCustomTime(json.preferences.time.value)
+      setCustomTimeOffset(json.preferences.timeOffset.value)
+      setCustomRating(json.preferences.rating.value)
+
       if (json.preferences.title.checked == '1') {
         setCustomTitleChecked(true)
-        setCustomTitle(json.preferences.title.value)
       }
       if (json.preferences.time.checked == '1') {
         setCustomTimeChecked(true)
-        setCustomTime(json.preferences.time.value)
       }
       if (json.preferences.timeOffset.checked == '1') {
         setCustomTimeOffsetChecked(true)
-        setCustomTimeOffset(json.preferences.timeOffset.value)
       }
       if (json.preferences.releaseDate.checked == '1') {
         setCustomReleaseDateChecked(true)
@@ -35,7 +37,6 @@ function MetaData(props) {
       }
       if (json.preferences.rating.checked == '1') {
         setCustomRatingChecked(true)
-        setCustomRating(json.preferences.rating.value)
       }
     } catch (error) {
       console.error(error)
@@ -162,15 +163,15 @@ function MetaData(props) {
               onChange={(event) => handleCheckboxChange(event, 'title')}
               className="px-2 rounded-lg bg-gray-500/20"
             />
-            {customTitleChecked && (
-              <input
-                type="text"
-                id="customTitle"
-                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
-                value={customTitle}
-                onChange={(e) => setCustomTitle(e.target.value)}
-              />
-            )}
+
+            <input
+              disabled={!customTitleChecked}
+              type="text"
+              id="customTitle"
+              className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-row gap-4 items-center">
@@ -181,15 +182,14 @@ function MetaData(props) {
               onChange={(event) => handleCheckboxChange(event, 'time')}
               className="px-2 rounded-lg bg-gray-500/20"
             />
-            {customTimeChecked && (
-              <input
-                type="number"
-                id="customTime"
-                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
-                value={customTime}
-                onChange={(e) => setCustomTime(e.target.value)}
-              />
-            )}
+            <input
+              disabled={!customTimeChecked}
+              type="number"
+              id="customTime"
+              className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+              value={customTime}
+              onChange={(e) => setCustomTime(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-row gap-4 items-center">
@@ -200,15 +200,14 @@ function MetaData(props) {
               onChange={(event) => handleCheckboxChange(event, 'timeOffset')}
               className="px-2 rounded-lg bg-gray-500/20"
             />
-            {customTimeOffsetChecked && (
-              <input
-                type="number"
-                id="customTimeOffset"
-                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
-                value={customTimeOffset}
-                onChange={(e) => setCustomTimeOffset(e.target.value)}
-              />
-            )}
+            <input
+              disabled={!customTimeOffsetChecked}
+              type="number"
+              id="customTimeOffset"
+              className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+              value={customTimeOffset}
+              onChange={(e) => setCustomTimeOffset(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-row gap-4 items-center">
@@ -219,15 +218,14 @@ function MetaData(props) {
               onChange={(event) => handleCheckboxChange(event, 'releaseDate')}
               className="px-2 rounded-lg bg-gray-500/20"
             />
-            {customReleaseDateChecked && (
-              <input
-                type="date"
-                id="releaseDate"
-                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
-                value={customReleaseDate}
-                onChange={(e) => setCustomReleaseDate(e.target.value)}
-              />
-            )}
+            <input
+              disabled={!customReleaseDateChecked}
+              type="date"
+              id="releaseDate"
+              className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+              value={customReleaseDate}
+              onChange={(e) => setCustomReleaseDate(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-row gap-4 items-center">
@@ -238,15 +236,14 @@ function MetaData(props) {
               onChange={(event) => handleCheckboxChange(event, 'rating')}
               className="px-2 rounded-lg bg-gray-500/20"
             />
-            {customRatingChecked && (
-              <input
-                type="number"
-                id="rating"
-                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
-                value={customRating}
-                onChange={(e) => setCustomRating(e.target.value)}
-              />
-            )}
+            <input
+              disabled={!customRatingChecked}
+              type="number"
+              id="rating"
+              className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+              value={customRating}
+              onChange={(e) => setCustomRating(e.target.value)}
+            />
           </div>
         </div>
       </div>
