@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -125,6 +125,17 @@ func createTables(db *sql.DB) {
 		"Tag"	TEXT NOT NULL
 	);`
 
+	createGamePreferencesTable := `CREATE TABLE "GamePreferences" (
+		"UID"	TEXT NOT NULL UNIQUE,
+		"CustomTitle"	TEXT NOT NULL,
+		"UseCustomTitle"	NUMERIC NOT NULL,
+		"CustomTime"	NUMERIC NOT NULL,
+		"UseCustomTime"	NUMERIC NOT NULL,
+		"CustomTimeOffset"	NUMERIC NOT NULL,
+		"UseCustomTimeOffset"	NUMERIC NOT NULL,
+		PRIMARY KEY("UID")
+	);`
+
 	_, err := db.Exec(createGameMetaDataTable)
 	if err != nil {
 		panic(err)
@@ -186,6 +197,11 @@ func createTables(db *sql.DB) {
 	}
 
 	_, err = db.Exec(createFilterTable)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = db.Exec(createGamePreferencesTable)
 	if err != nil {
 		panic(err)
 	}
@@ -277,6 +293,12 @@ func getAllTags() []string {
 	}
 	defer db.Close()
 
+	_, err = db.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		fmt.Println("WAL Error Get all Tags")
+		panic(err)
+	}
+
 	QueryString := "SELECT DISTINCT Tags FROM Tags"
 	rows, err := db.Query(QueryString)
 	if err != nil {
@@ -357,14 +379,15 @@ func getGameDetails(UID string) map[string]interface{} {
 	}
 	defer rows.Close()
 
-	var storedUID, customTitle string
+	var storedUID, customTitle, customReleaseDate string
 	var customTime, customTimeOffset float64
-	var useCustomTitle, useCustomTime, useCustomTimeOffset int
+	var customRating float32
+	var useCustomTitle, useCustomTime, useCustomTimeOffset, useCustomReleaseDate, useCustomRating int
 
 	for rows.Next() {
-		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset)
+		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset, &customReleaseDate, &useCustomReleaseDate, &customRating, &useCustomRating)
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 		if useCustomTitle == 1 {
 			m[UID]["Name"] = customTitle
@@ -375,6 +398,12 @@ func getGameDetails(UID string) map[string]interface{} {
 			dbTimePlayed := m[UID]["TimePlayed"].(float64)
 			calculatedTime := dbTimePlayed + customTimeOffset
 			m[UID]["TimePlayed"] = calculatedTime
+		}
+		if useCustomRating == 1 {
+			m[UID]["AggregatedRating"] = customRating
+		}
+		if useCustomReleaseDate == 1 {
+			m[UID]["ReleaseDate"] = customReleaseDate
 		}
 	}
 
@@ -634,6 +663,12 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	}
 	defer db.Close()
 
+	_, err = db.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		fmt.Println("WAL Error")
+		panic(err)
+	}
+
 	if sortType == "default" {
 		QueryString := "SELECT * FROM SortState"
 		rows, err := db.Query(QueryString)
@@ -674,21 +709,65 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	var FilterSet bool = false
 	QueryString = "SELECT * FROM Filter"
 	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
 	for rows.Next() {
 		FilterSet = true
 	}
 
-	QueryString = fmt.Sprintf(`SELECT * FROM GameMetaData ORDER by %s %s`, sortType, order)
+	QueryString = fmt.Sprintf(`
+	SELECT
+    	gmd.*,
+    	CASE
+        	WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
+        	ELSE gmd.Name
+    	END AS CustomTitle,
+    	CASE
+        	WHEN gp.useCustomRating = 1 THEN gp.CustomRating
+        	ELSE gmd.AggregatedRating
+    	END AS CustomRating,
+    	CASE
+        	WHEN gp.useCustomTime = 1 THEN gp.CustomTime
+			WHEN gp.UseCustomTimeOffset = 1 THEN (gp.CustomTimeOffset + gmd.TimePlayed)
+        	ELSE gmd.TimePlayed
+    	END AS CustomTimePlayed,
+    	CASE
+        	WHEN gp.UseCustomReleaseDate = 1 THEN gp.CustomReleaseDate
+        	ELSE gmd.ReleaseDate
+    	END AS CustomReleaseDate
+	FROM GameMetaData gmd
+	LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
+	ORDER BY %s %s`, sortType, order)
 
 	if FilterSet {
 		QueryString = fmt.Sprintf(`	
-		SELECT gmd.*
-		FROM Tags t
+		SELECT 
+    		gmd.*, 
+    		CASE
+        		WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
+        		ELSE gmd.Name
+			END AS CustomTitle,
+			CASE
+				WHEN gp.useCustomRating = 1 THEN gp.CustomRating
+				ELSE gmd.AggregatedRating
+			END AS CustomRating,
+			CASE
+				WHEN gp.useCustomTime = 1 THEN gp.CustomTime
+				WHEN gp.UseCustomTimeOffset = 1 THEN (gp.CustomTimeOffset + gmd.TimePlayed)
+				ELSE gmd.TimePlayed
+			END AS CustomTimePlayed,
+			CASE
+				WHEN gp.UseCustomReleaseDate = 1 THEN gp.CustomReleaseDate
+				ELSE gmd.ReleaseDate
+			END AS CustomReleaseDate
+		FROM GameMetaData gmd
+		LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
+		JOIN Tags t ON gmd.uid = t.uid
 		JOIN Filter f ON t.Tags = f.Tag
-		JOIN GameMetaData gmd ON gmd.uid = t.uid
 		GROUP BY t.UID
 		HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM Filter)
-		ORDER BY gmd.%s %s;`, sortType, order)
+		ORDER BY %s %s;`, sortType, order)
 	}
 
 	rows, err = db.Query(QueryString)
@@ -700,19 +779,18 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	m := make(map[int]map[string]interface{})
 	i := 0
 	for rows.Next() {
-		var UID string
-		var Name string
-		var ReleaseDate string
-		var CoverArtPath string
-		var Description string
+		var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform, CustomTitle, CustomReleaseDate string
 		var isDLC int
-		var OwnedPlatform string
-		var TimePlayed float64
-		var AggregatedRating float32
-		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
+		var TimePlayed, CustomTimePlayed float64
+		var AggregatedRating, CustomRating float32
+		err = rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &CustomTitle, &CustomRating, &CustomTimePlayed, &CustomReleaseDate)
+		if err != nil {
+			panic(err)
+		}
 		m[i] = make(map[string]interface{})
 		m[i]["Name"] = Name
 		m[i]["UID"] = UID
+		m[i]["ReleaseDate"] = ReleaseDate
 		m[i]["CoverArtPath"] = CoverArtPath
 		m[i]["isDLC"] = isDLC
 		m[i]["OwnedPlatform"] = OwnedPlatform
@@ -732,6 +810,12 @@ func storeSize(FrontEndSize string) string {
 		panic(err)
 	}
 	defer db.Close()
+
+	_, err = db.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		fmt.Println("WAL Error Store Size")
+		panic(err)
+	}
 
 	if FrontEndSize == "default" {
 		QueryString := "SELECT * FROM TileSize"
@@ -996,14 +1080,20 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 	title := params["title"]
 	time := params["time"]
 	timeOffset := params["timeOffset"]
+	releaseDate := params["releaseDate"]
+	rating := params["rating"]
 
 	titleChecked := checkedParams["titleChecked"]
 	timeChecked := checkedParams["timeChecked"]
 	timeOffsetChecked := checkedParams["timeOffsetChecked"]
+	releaseDateChecked := checkedParams["releaseDateChecked"]
+	ratingChecked := checkedParams["ratingChecked"]
 
 	titleCheckedNumeric := 0
 	timeCheckedNumeric := 0
 	timeOffsetCheckedNumeric := 0
+	releaseDateCheckedNumeric := 0
+	ratingCheckedNumeric := 0
 
 	if titleChecked {
 		titleCheckedNumeric = 1
@@ -1014,6 +1104,12 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 	if timeOffsetChecked {
 		timeOffsetCheckedNumeric = 1
 	}
+	if releaseDateChecked {
+		releaseDateCheckedNumeric = 1
+	}
+	if ratingChecked {
+		ratingCheckedNumeric = 1
+	}
 
 	db, err := sql.Open("sqlite", "IGDB_Database.db")
 	if err != nil {
@@ -1023,15 +1119,15 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 
 	QueryString := `
     INSERT OR REPLACE INTO GamePreferences 
-    (UID, CustomTitle, UseCustomTitle, CustomTime, UseCustomTime, CustomTimeOffset, UseCustomTimeOffset)
-    VALUES (?, ?, ?, ?, ?, ?, ?);
+    (UID, CustomTitle, UseCustomTitle, CustomTime, UseCustomTime, CustomTimeOffset, UseCustomTimeOffset, CustomReleaseDate, UseCustomReleaseDate, CustomRating, UseCustomRating)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `
 	preparedStatement, err := db.Prepare(QueryString)
 	if err != nil {
 		panic(err)
 	}
 	defer preparedStatement.Close()
-	_, err = preparedStatement.Exec(uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric)
+	_, err = preparedStatement.Exec(uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric, releaseDate, releaseDateCheckedNumeric, rating, ratingCheckedNumeric)
 	if err != nil {
 		panic(err)
 	}
@@ -1056,11 +1152,11 @@ func getPreferences(uid string) map[string]interface{} {
 		panic(err)
 	}
 
-	var storedUID, customTitle, customTime, customTimeOffset string
-	var useCustomTitle, useCustomTime, useCustomTimeOffset int
+	var storedUID, customTitle, customTime, customTimeOffset, customReleaseDate, customRating string
+	var useCustomTitle, useCustomTime, useCustomTimeOffset, useCustomReleaseDate, useCustomRating int
 
 	for rows.Next() {
-		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset)
+		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset, &customReleaseDate, &useCustomReleaseDate, &customRating, &useCustomRating)
 		if err != nil {
 			panic(err)
 		}
@@ -1072,15 +1168,36 @@ func getPreferences(uid string) map[string]interface{} {
 	params["title"] = customTitle
 	params["time"] = customTime
 	params["timeOffset"] = customTimeOffset
+	params["releaseDate"] = customReleaseDate
+	params["rating"] = customRating
 	paramsChecked["title"] = useCustomTitle
 	paramsChecked["time"] = useCustomTime
 	paramsChecked["timeOffset"] = useCustomTimeOffset
+	paramsChecked["releaseDate"] = useCustomReleaseDate
+	paramsChecked["rating"] = useCustomRating
 
 	preferences := make(map[string]interface{})
 	preferences["params"] = params
 	preferences["paramsChecked"] = paramsChecked
 
 	return (preferences)
+}
+
+func normalizeReleaseDate(input string) string {
+	if input == "" {
+		return ""
+	}
+
+	layout := "2006-01-02"
+	parsedDate, err := time.Parse(layout, input)
+	if err != nil {
+		panic(err)
+	}
+
+	// Format the parsed date to "01/02/06" format (mm/dd/yy)
+	output := parsedDate.Format("2 Jan, 2006")
+	return output
+
 }
 
 var sseClients = make(map[chan string]bool) // List of clients for SSE notifications
@@ -1372,13 +1489,17 @@ func setupRouter() *gin.Engine {
 	r.POST("/SavePreferences", func(c *gin.Context) {
 		var data struct {
 			// int string / string int error
-			CustomTitleChecked      bool   `json:"customTitleChecked"`
-			Title                   string `json:"customTitle"`
-			CustomTimeChecked       bool   `json:"customTimeChecked"`
-			Time                    string `json:"customTime"`
-			CustomTimeOffsetChecked bool   `json:"customTimeOffsetChecked"`
-			TimeOffset              string `json:"customTimeOffset"`
-			UID                     string `json:"UID"`
+			CustomTitleChecked       bool   `json:"customTitleChecked"`
+			Title                    string `json:"customTitle"`
+			CustomTimeChecked        bool   `json:"customTimeChecked"`
+			Time                     string `json:"customTime"`
+			CustomTimeOffsetChecked  bool   `json:"customTimeOffsetChecked"`
+			TimeOffset               string `json:"customTimeOffset"`
+			UID                      string `json:"UID"`
+			CustomRatingChecked      bool   `json:"customRatingChecked"`
+			CustomRating             string `json:"customRating"`
+			CustomReleaseDateChecked bool   `json:"customReleaseDateChecked"`
+			CustomReleaseDate        string `json:"customReleaseDate"`
 		}
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1387,15 +1508,21 @@ func setupRouter() *gin.Engine {
 		checkedParams := make(map[string]bool)
 		params := make(map[string]string)
 
+		normalizedDate := normalizeReleaseDate(data.CustomReleaseDate)
+
 		checkedParams["titleChecked"] = data.CustomTitleChecked
 		checkedParams["timeChecked"] = data.CustomTimeChecked
 		checkedParams["timeOffsetChecked"] = data.CustomTimeOffsetChecked
+		checkedParams["ratingChecked"] = data.CustomRatingChecked
+		checkedParams["releaseDateChecked"] = data.CustomReleaseDateChecked
 		params["title"] = data.Title
 		params["time"] = data.Time
 		params["timeOffset"] = data.TimeOffset
+		params["releaseDate"] = normalizedDate
+		params["rating"] = data.CustomRating
 
 		uid := data.UID
-		fmt.Println("Received Save Preferences : ", uid)
+		fmt.Println("Received Save Preferences : ", data.CustomRating, data.CustomReleaseDate)
 		updatePreferences(uid, checkedParams, params)
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})

@@ -7,6 +7,10 @@ function MetaData(props) {
   const [customTimeOffset, setCustomTimeOffset] = useState('')
   const [customTimeChecked, setCustomTimeChecked] = useState(false)
   const [customTimeOffsetChecked, setCustomTimeOffsetChecked] = useState(false)
+  const [customReleaseDate, setCustomReleaseDate] = useState('')
+  const [customReleaseDateChecked, setCustomReleaseDateChecked] = useState(false)
+  const [customRating, setCustomRating] = useState('')
+  const [customRatingChecked, setCustomRatingChecked] = useState(false)
 
   const loadPreferences = async () => {
     try {
@@ -25,7 +29,14 @@ function MetaData(props) {
         setCustomTimeOffsetChecked(true)
         setCustomTimeOffset(json.preferences.timeOffset.value)
       }
-      console.log(json.preferences.title.value)
+      if (json.preferences.releaseDate.checked == '1') {
+        setCustomReleaseDateChecked(true)
+        setCustomReleaseDate(json.preferences.releaseDate.value)
+      }
+      if (json.preferences.rating.checked == '1') {
+        setCustomRatingChecked(true)
+        setCustomRating(json.preferences.rating.value)
+      }
     } catch (error) {
       console.error(error)
     }
@@ -37,13 +48,25 @@ function MetaData(props) {
 
   const saveClickHandler = () => {
     const customTitleElement = document.getElementById('customTitle')
+    const customRatingElement = document.getElementById('rating')
+    const customReleaseDateElement = document.getElementById('releaseDate')
     let title = ''
+    let rating = '0'
+    let releaseDate = ''
     let time = '0'
     let timeOffset = '0'
     const uid = props.uid
 
     if (customTitleElement && customTitleElement.value.trim() !== '') {
       title = customTitleElement.value
+    }
+
+    if (customRatingElement && customRatingElement.value.trim() !== '') {
+      rating = customRatingElement.value
+    }
+
+    if (customReleaseDateElement && customReleaseDateElement.value.trim() !== '') {
+      releaseDate = customReleaseDateElement.value
     }
 
     if (customTimeChecked) {
@@ -53,7 +76,7 @@ function MetaData(props) {
       timeOffset = document.getElementById('customTimeOffset').value.toString()
     }
 
-    console.log(title, time, timeOffset)
+    console.log(title, time, timeOffset, releaseDate, rating)
 
     const postData = {
       customTitleChecked: customTitleChecked,
@@ -62,6 +85,10 @@ function MetaData(props) {
       customTime: time,
       customTimeOffsetChecked: customTimeOffsetChecked,
       customTimeOffset: timeOffset,
+      customRatingChecked: customRatingChecked,
+      customRating: rating,
+      customReleaseDateChecked: customReleaseDateChecked,
+      customReleaseDate: releaseDate,
       UID: uid
     }
     savePreferences(postData)
@@ -108,6 +135,14 @@ function MetaData(props) {
           setCustomTimeOffsetChecked(true)
           setCustomTimeChecked(false)
         }
+        break
+
+      case 'releaseDate':
+        setCustomReleaseDateChecked(checked)
+        break
+
+      case 'rating':
+        setCustomRatingChecked(checked)
         break
 
       default:
@@ -172,6 +207,44 @@ function MetaData(props) {
                 className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
                 value={customTimeOffset}
                 onChange={(e) => setCustomTimeOffset(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="flex flex-row gap-4 items-center">
+            <p>Set Custom Release Date?</p>
+            <input
+              type="checkbox"
+              checked={customReleaseDateChecked}
+              onChange={(event) => handleCheckboxChange(event, 'releaseDate')}
+              className="px-2 rounded-lg bg-gray-500/20"
+            />
+            {customReleaseDateChecked && (
+              <input
+                type="date"
+                id="releaseDate"
+                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+                value={customReleaseDate}
+                onChange={(e) => setCustomReleaseDate(e.target.value)}
+              />
+            )}
+          </div>
+
+          <div className="flex flex-row gap-4 items-center">
+            <p>Set Custom Rating?</p>
+            <input
+              type="checkbox"
+              checked={customRatingChecked}
+              onChange={(event) => handleCheckboxChange(event, 'rating')}
+              className="px-2 rounded-lg bg-gray-500/20"
+            />
+            {customRatingChecked && (
+              <input
+                type="number"
+                id="rating"
+                className="px-2 w-52 h-6 rounded-lg bg-gray-500/20"
+                value={customRating}
+                onChange={(e) => setCustomRating(e.target.value)}
               />
             )}
           </div>

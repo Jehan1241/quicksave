@@ -148,21 +148,21 @@ function NavBar(props) {
               >
                 <button
                   className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
-                  onClick={() => sortOptionSelect('Name')}
+                  onClick={() => sortOptionSelect('CustomTitle')}
                 >
                   Alphabetical {order == 'ASC' ? 'A Z' : 'Z A'}
                 </button>
 
                 <button
                   className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
-                  onClick={() => sortOptionSelect('TimePlayed')}
+                  onClick={() => sortOptionSelect('CustomTimePlayed')}
                 >
                   Time Played
                 </button>
 
                 <button
                   className="px-3 py-2 rounded-lg hover:bg-gray-600/30"
-                  onClick={() => sortOptionSelect('AggregatedRating')}
+                  onClick={() => sortOptionSelect('CustomRating')}
                 >
                   Rating
                 </button>
