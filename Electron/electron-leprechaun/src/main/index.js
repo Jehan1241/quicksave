@@ -2,13 +2,17 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { spawn } from 'child_process' // Node.js module for spawning processes
+import waitOn from 'wait-on' // Make sure to install this with: npm install wait-on
+
+let goServer
 
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
-    show: false,
+    show: false, // Don't show until Go server is ready
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -20,7 +24,8 @@ function createWindow() {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    console.log('Window is ready to show')
+    mainWindow.show() // Show the window once the server is ready
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -28,25 +33,68 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    console.log('Loading URL: ', process.env['ELECTRON_RENDERER_URL'])
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
+    console.log('Loading local index.html')
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+function startGoServer() {
+  // Start the Go server as a child process
+  const goServer = spawn('go', ['run', '.'], { cwd: '../../backend' })
+  // Listen for Go server output (stdout and stderr)
+  goServer.stdout.on('data', (data) => {
+    console.log(`Go server stdout: ${data}`)
+  })
+
+  goServer.stderr.on('data', (data) => {
+    console.error(`Go server stderr: ${data}`)
+  })
+
+  return goServer
+}
+
+function waitForGoServer() {
+  // Wait for the Go server to be available
+  return new Promise((resolve, reject) => {
+    waitOn(
+      {
+        resources: ['http://localhost:8080'], // Make sure this is the correct URL
+        timeout: 30000 // Wait max 30 seconds for the Go server to start
+      },
+      (err) => {
+        if (err) {
+          reject('Go server did not start in time!')
+        } else {
+          resolve()
+        }
+      }
+    )
+  })
+}
+
+app.whenReady().then(async () => {
+  try {
+    // Start the Go server
+    goServer = startGoServer()
+
+    // Wait for the Go server to be ready
+    //await waitForGoServer()
+    createWindow()
+
+    // Once the server is ready, create the Electron window
+  } catch (error) {
+    console.error('Error starting Go server or Electron app:', error)
+  }
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
   // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
@@ -54,23 +102,62 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  createWindow()
-
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+app.on('before-quit', () => {
+  // Kill Go server process before quitting the app
+  if (goServer) {
+    console.log('Killing Go server...')
+    goServer.kill('SIGKILL') // Use SIGKILL to forcefully terminate
+  }
+
+  // Ensure the Go process is killed by checking for lingering processes on port 8080
+  const { exec } = require('child_process')
+
+  console.log('Attempting to run lsof command...')
+  exec('sh -c "lsof -t -i :8080"', (err, stdout, stderr) => {
+    console.log('inside exec') // This will show if the exec is being called
+
+    // Log error if there's an issue executing the command
+    if (err) {
+      console.error('Error executing lsof command:', err) // This will print more details if there's an error with exec
+    }
+
+    // Log stderr if any error occurred with lsof itself
+    if (stderr) {
+      console.error('stderr from lsof:', stderr)
+    }
+
+    // Log stdout to see the result of lsof
+    if (stdout) {
+      console.log('stdout from lsof:', stdout) // This will print the process IDs or an empty string
+      console.log('Go server might still be running, killing processes on port 8080...')
+      // Split the PIDs into an array and kill each one
+      const pids = stdout.split('\n').filter(Boolean) // Split stdout into PIDs, and remove any empty entries
+      pids.forEach((pid) => {
+        exec(`kill -9 ${pid}`, (killErr, killStdout, killStderr) => {
+          if (killErr) {
+            console.error(`Error killing Go server process with PID ${pid}:`, killErr)
+          } else {
+            console.log(`Killed process with PID ${pid}`)
+          }
+
+          if (killStderr) {
+            console.error('stderr from kill command:', killStderr) // Print stderr from kill command
+          }
+        })
+      })
+    } else {
+      console.log('No processes found on port 8080')
+    }
+  })
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.

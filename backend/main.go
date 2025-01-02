@@ -133,6 +133,10 @@ func createTables(db *sql.DB) {
 		"UseCustomTime"	NUMERIC NOT NULL,
 		"CustomTimeOffset"	NUMERIC NOT NULL,
 		"UseCustomTimeOffset"	NUMERIC NOT NULL,
+		"CustomReleaseDate"	NUMERIC NOT NULL,
+		"UseCustomReleaseDate"	NUMERIC NOT NULL,
+		"CustomRating"	NUMERIC NOT NULL,
+		"UseCustomRating"	NUMERIC NOT NULL,
 		PRIMARY KEY("UID")
 	);`
 
@@ -1275,6 +1279,12 @@ func setupRouter() *gin.Engine {
 		sizeData := storeSize(tileSize)
 		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData})
 	}
+
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Go server is up!",
+		})
+	})
 
 	r.GET("/getSortOrder", func(c *gin.Context) {
 		fmt.Println("Recieved Sort Order Req")
