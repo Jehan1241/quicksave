@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import NavBar from './NavBar/NavBar'
 import LibraryView from './LibraryView/LibraryView'
 import { Route, Routes, useLocation } from 'react-router-dom'
@@ -15,6 +15,8 @@ function App() {
   const [sortOrder, setSortOrder] = useState('default')
   const [sse, setSse] = useState(null) // State to hold SSE connection
   const [timer, setTimer] = useState(null) // Timer state
+  const [renderCounter, setRenderCounter] = useState(0) // New flag to check if it's the initial render
+  const fetchDataRunningRef = useRef(false)
 
   const sortTypeChangeHandler = (type, order) => {
     setSortType(type)
@@ -42,6 +44,8 @@ function App() {
   }
 
   useEffect(() => {
+    fetchData()
+    console.log('3')
     const eventSource = new EventSource('http://localhost:8080/sse-steam-updates')
 
     eventSource.onmessage = (event) => {
@@ -58,27 +62,34 @@ function App() {
   }, [])
 
   const fetchData = async () => {
+    console.log('Sending Get Basic Info')
+    if (fetchDataRunningRef.current) return
+    fetchDataRunningRef.current = true // Set flag to true
     try {
       const response = await fetch(
         `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}&size=${debouncedTileSize}`
       )
       const json = await response.json()
+      console.log(json)
       setMetaData(json.MetaData)
       setSortOrder(json.SortOrder)
       setTileSize(json.Size)
     } catch (error) {
       console.error(error)
+    } finally {
+      fetchDataRunningRef.current = false // Reset the flag once fetch is done
     }
   }
 
-  // Fetch data when debouncedTileSize changes
   useEffect(() => {
-    fetchData()
-  }, [debouncedTileSize]) // Only depend on debouncedTileSize
-
-  useEffect(() => {
-    fetchData()
-  }, [sortType, sortOrder]) // Keep existing dependency for sortType and sortOrder
+    if (renderCounter < 2) {
+      setRenderCounter(renderCounter + 1)
+      console.log(renderCounter)
+    } else {
+      console.log('Here')
+      fetchData()
+    }
+  }, [sortType, sortOrder, debouncedTileSize]) // Keep existing dependency for sortType and sortOrder
 
   const DataArray = Object.values(metaData)
 

@@ -17,6 +17,7 @@ function NavBar(props) {
   const dropdownRef = useRef(null)
 
   const getAllTags = async () => {
+    console.log('Sending Get All Tags')
     try {
       const response = await fetch(`http://localhost:8080/getAllTags`)
       const json = await response.json()
@@ -108,10 +109,6 @@ function NavBar(props) {
     setImportClicked(false)
     navigate('/AddGameSteam')
   }
-
-  useEffect(() => {
-    console.log('Current tileSize in NavBar:', props.tileSize) // Debugging log
-  }, [props.tileSize])
 
   return (
     <>

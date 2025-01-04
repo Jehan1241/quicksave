@@ -45,36 +45,22 @@ function createWindow() {
 
 function startGoServer() {
   // Start the Go server as a child process
-  const goServer = spawn('go', ['run', '.'], { cwd: '../../backend' })
+  goServer = spawn('go', ['run', '.'], { cwd: '../../backend' })
+
   // Listen for Go server output (stdout and stderr)
   goServer.stdout.on('data', (data) => {
-    console.log(`Go server stdout: ${data}`)
+    console.log(`Go server stdout: ${data.toString()}`) // Print the standard output
   })
 
   goServer.stderr.on('data', (data) => {
-    console.error(`Go server stderr: ${data}`)
+    console.error(`Go server stderr: ${data.toString()}`) // Print the error output
+  })
+
+  goServer.on('exit', (code, signal) => {
+    console.log(`Go server exited with code ${code} and signal ${signal}`)
   })
 
   return goServer
-}
-
-function waitForGoServer() {
-  // Wait for the Go server to be available
-  return new Promise((resolve, reject) => {
-    waitOn(
-      {
-        resources: ['http://localhost:8080'], // Make sure this is the correct URL
-        timeout: 30000 // Wait max 30 seconds for the Go server to start
-      },
-      (err) => {
-        if (err) {
-          reject('Go server did not start in time!')
-        } else {
-          resolve()
-        }
-      }
-    )
-  })
 }
 
 app.whenReady().then(async () => {
