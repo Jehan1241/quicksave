@@ -103,7 +103,6 @@ func SQLiteWriteConfig(dbFile string) (*sql.DB, error) {
 	// Return the configured write database connection
 	return db, nil
 }
-
 func SQLiteConfig(dbFile string) (*sql.DB, error) {
 	connStr := fmt.Sprintf("file:%s?_txlock=immediate", dbFile)
 	db, err := sql.Open("sqlite", connStr)
@@ -150,7 +149,18 @@ func checkAndCreateDB() {
 	}
 }
 func createTables(db *sql.DB) {
-	createGameMetaDataTable := `CREATE TABLE IF NOT EXISTS "GameMetaData" (
+	tx, err := db.Begin()
+	bail(err)
+
+	defer func() {
+		if err != nil {
+			tx.Rollback() // Rollback in case of error
+		} else {
+			err = tx.Commit() // Commit the transaction if no error
+		}
+	}()
+
+	queries := []string{`CREATE TABLE IF NOT EXISTS "GameMetaData" (
 	"UID"	TEXT NOT NULL UNIQUE,
 	"Name"	TEXT NOT NULL,
 	"ReleaseDate"	TEXT NOT NULL,
@@ -161,75 +171,75 @@ func createTables(db *sql.DB) {
 	"TimePlayed"	INTEGER NOT NULL,
 	"AggregatedRating"	INTEGER NOT NULL,
 	PRIMARY KEY("UID")
-	);`
+	);`,
 
-	createInvolvedCompaniesTable := `CREATE TABLE IF NOT EXISTS "InvolvedCompanies" (
+		`CREATE TABLE IF NOT EXISTS "InvolvedCompanies" (
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
 	"Name"	TEXT NOT NULL,
 	PRIMARY KEY("UUID")
-	);`
+	);`,
 
-	createManualGameLaunchPathTable := `CREATE TABLE IF NOT EXISTS "ManualGameLaunchPath" (
+		`CREATE TABLE IF NOT EXISTS "ManualGameLaunchPath" (
 	"uid"	TEXT NOT NULL UNIQUE,
 	"path"	TEXT NOT NULL,
 	PRIMARY KEY("uid")
-	);`
+	);`,
 
-	createPlatformsTable := `CREATE TABLE IF NOT EXISTS "Platforms" (
+		`CREATE TABLE IF NOT EXISTS "Platforms" (
 	"UID"	INTEGER NOT NULL UNIQUE,
 	"Name"	TEXT NOT NULL UNIQUE,
 	PRIMARY KEY("UID")
-	);`
+	);`,
 
-	createScreenshotsTable := `CREATE TABLE IF NOT EXISTS "ScreenShots" (
+		`CREATE TABLE IF NOT EXISTS "ScreenShots" (
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
 	"ScreenshotPath"	TEXT NOT NULL,
 	PRIMARY KEY("UUID")
-	);`
+	);`,
 
-	createSortStateTable := `CREATE TABLE IF NOT EXISTS "SortState" (
+		`CREATE TABLE IF NOT EXISTS "SortState" (
 	"Type"	TEXT,
 	"Value"	TEXT
-	);`
+	);`,
 
-	createSteamAppIdsTable := `CREATE TABLE IF NOT EXISTS "SteamAppIds" (
+		`CREATE TABLE IF NOT EXISTS "SteamAppIds" (
 	"UID"	TEXT NOT NULL UNIQUE,
 	"AppID"	INTEGER NOT NULL UNIQUE,
 	PRIMARY KEY("UID")
-	);`
+	);`,
 
-	createTagsTable := `CREATE TABLE IF NOT EXISTS "Tags" (
+		`CREATE TABLE IF NOT EXISTS "Tags" (
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
 	"Tags"	TEXT NOT NULL,
 	PRIMARY KEY("UUID")
-	);`
+	);`,
 
-	createTileSizeTable := `CREATE TABLE IF NOT EXISTS "TileSize" (
+		`CREATE TABLE IF NOT EXISTS "TileSize" (
 	"Size"	TEXT NOT NULL
-	);`
+	);`,
 
-	createIgdbAPIKeysTable := `CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
+		`CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
 		"ClientID"	TEXT NOT NULL,
 		"ClientSecret"	TEXT NOT NULL
-	);`
+	);`,
 
-	createPlayStationNpssoTable := `CREATE TABLE IF NOT EXISTS "PlayStationNpsso" (
+		`CREATE TABLE IF NOT EXISTS "PlayStationNpsso" (
 		"Npsso"	TEXT NOT NULL
-	);`
+	);`,
 
-	createSteamCredsTable := `CREATE TABLE IF NOT EXISTS "SteamCreds" (
+		`CREATE TABLE IF NOT EXISTS "SteamCreds" (
 		"SteamID"	TEXT NOT NULL,
 		"SteamAPIKey"	TEXT NOT NULL
-	);`
+	);`,
 
-	createFilterTable := `CREATE TABLE "Filter" (
+		`CREATE TABLE "Filter" (
 		"Tag"	TEXT NOT NULL
-	);`
+	);`,
 
-	createGamePreferencesTable := `CREATE TABLE "GamePreferences" (
+		`CREATE TABLE "GamePreferences" (
 		"UID"	TEXT NOT NULL UNIQUE,
 		"CustomTitle"	TEXT NOT NULL,
 		"UseCustomTitle"	NUMERIC NOT NULL,
@@ -242,51 +252,29 @@ func createTables(db *sql.DB) {
 		"CustomRating"	NUMERIC NOT NULL,
 		"UseCustomRating"	NUMERIC NOT NULL,
 		PRIMARY KEY("UID")
-	);`
+	);`,
+	}
 
-	_, err := db.Exec(createGameMetaDataTable)
-	bail(err)
+	for _, query := range queries {
+		_, err := tx.Exec(query)
+		bail(err)
+	}
 
-	_, err = db.Exec(createTagsTable)
-	bail(err)
-
-	_, err = db.Exec(createInvolvedCompaniesTable)
-	bail(err)
-
-	_, err = db.Exec(createManualGameLaunchPathTable)
-	bail(err)
-
-	_, err = db.Exec(createPlatformsTable)
-	bail(err)
-
-	_, err = db.Exec(createScreenshotsTable)
-	bail(err)
-
-	_, err = db.Exec(createSortStateTable)
-	bail(err)
-
-	_, err = db.Exec(createSteamAppIdsTable)
-	bail(err)
-
-	_, err = db.Exec(createTileSizeTable)
-	bail(err)
-
-	_, err = db.Exec(createIgdbAPIKeysTable)
-	bail(err)
-
-	_, err = db.Exec(createPlayStationNpssoTable)
-	bail(err)
-
-	_, err = db.Exec(createSteamCredsTable)
-	bail(err)
-
-	_, err = db.Exec(createFilterTable)
-	bail(err)
-
-	_, err = db.Exec(createGamePreferencesTable)
+	err = tx.Commit()
 	bail(err)
 }
 func initializeDefaultDBValues(db *sql.DB) {
+	tx, err := db.Begin()
+	bail(err)
+
+	defer func() {
+		if err != nil {
+			tx.Rollback() // Rollback in case of error
+		} else {
+			err = tx.Commit() // Commit the transaction if no error
+		}
+	}()
+
 	platforms := []string{
 		"Sony Playstation 1",
 		"Sony Playstation 2",
@@ -299,17 +287,17 @@ func initializeDefaultDBValues(db *sql.DB) {
 		"PC",
 	}
 	for _, platform := range platforms {
-		_, err := db.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
+		_, err := tx.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
 		bail(err)
 	}
 
-	_, err := db.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Type', 'TimePlayed')`)
+	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Type', 'TimePlayed')`)
 	bail(err)
 
-	_, err = db.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
+	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
 	bail(err)
 
-	_, err = db.Exec(`INSERT OR REPLACE INTO TileSize (Size) VALUES ('37')`)
+	_, err = tx.Exec(`INSERT OR REPLACE INTO TileSize (Size) VALUES ('37')`)
 	bail(err)
 
 	fmt.Println("DB Default Values Initialized.")
@@ -328,14 +316,8 @@ func displayEntireDB() map[string]interface{} {
 
 	m := make(map[string]map[string]interface{})
 	for rows.Next() {
-		var UID string
-		var Name string
-		var ReleaseDate string
-		var CoverArtPath string
-		var Description string
-		var isDLC int
-		var OwnedPlatform string
-		var TimePlayed int
+		var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform string
+		var isDLC, TimePlayed int
 		var AggregatedRating float32
 		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
 		//GameData[0].Name = Name
@@ -800,14 +782,14 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		err = rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &CustomTitle, &CustomRating, &CustomTimePlayed, &CustomReleaseDate)
 		bail(err)
 		metadata[i] = make(map[string]interface{})
-		metadata[i]["Name"] = Name
+		metadata[i]["Name"] = CustomTitle
 		metadata[i]["UID"] = UID
-		metadata[i]["ReleaseDate"] = ReleaseDate
+		metadata[i]["ReleaseDate"] = CustomReleaseDate
 		metadata[i]["CoverArtPath"] = CoverArtPath
 		metadata[i]["isDLC"] = isDLC
 		metadata[i]["OwnedPlatform"] = OwnedPlatform
-		metadata[i]["TimePlayed"] = TimePlayed
-		metadata[i]["AggregatedRating"] = AggregatedRating
+		metadata[i]["TimePlayed"] = CustomTimePlayed
+		metadata[i]["AggregatedRating"] = CustomRating
 		i++
 	}
 
@@ -1485,6 +1467,7 @@ func setupRouter() *gin.Engine {
 		uid := data.UID
 		fmt.Println("Received Save Preferences : ", data.CustomRating, data.CustomReleaseDate)
 		updatePreferences(uid, checkedParams, params)
+		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
 

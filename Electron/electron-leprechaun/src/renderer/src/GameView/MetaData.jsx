@@ -51,6 +51,8 @@ function MetaData(props) {
     const customTitleElement = document.getElementById('customTitle')
     const customRatingElement = document.getElementById('rating')
     const customReleaseDateElement = document.getElementById('releaseDate')
+    const timeElement = document.getElementById('customTime')
+    const timeOffsetElement = document.getElementById('customTimeOffset')
     let title = ''
     let rating = '0'
     let releaseDate = ''
@@ -70,11 +72,11 @@ function MetaData(props) {
       releaseDate = customReleaseDateElement.value
     }
 
-    if (customTimeChecked) {
-      time = document.getElementById('customTime').value.toString()
+    if (timeElement && timeElement.value.trim() !== '') {
+      time = timeElement.value.toString()
     }
-    if (customTimeOffsetChecked) {
-      timeOffset = document.getElementById('customTimeOffset').value.toString()
+    if (timeOffsetElement && timeOffsetElement.value.trim() !== '') {
+      timeOffset = timeOffsetElement.value.toString()
     }
 
     console.log(title, time, timeOffset, releaseDate, rating)
