@@ -4,6 +4,8 @@ leprechaun-backend/screenshots/**
 leprechaun-backend/IGDB_Databasecopy.db
 leprechaun-backend/IGDB_Database.db
 *.db
+*.db-shm
+*.db-wal
 backend/artworks/**
 backend/coverArt/**
 backend/screenshots/**
