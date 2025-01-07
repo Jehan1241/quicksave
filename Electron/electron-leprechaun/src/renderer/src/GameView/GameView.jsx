@@ -40,7 +40,6 @@ function GameView(props) {
   }
 
   const confirmDeleteClickHandler = async () => {
-    console.log('ABC')
     try {
       const response = await fetch(`http://localhost:8080/DeleteGame?uid=${props.uid}`)
       const json = await response.json()

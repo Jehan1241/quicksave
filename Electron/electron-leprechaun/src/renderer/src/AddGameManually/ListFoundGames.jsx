@@ -1,43 +1,44 @@
-import { useState } from "react";
+import { useState } from 'react'
 
 function ListFoundGames(props) {
-  const [commiting, setCommiting] = useState(false);
+  const [commiting, setCommiting] = useState(false)
 
   const selectedGameClickHandler = async (appid) => {
-    setCommiting(true);
-    console.log(props.time);
-    console.log(appid);
-    console.log(props.SelectedPlatform);
+    setCommiting(true)
+    console.log(props.time)
+    console.log(appid)
+    console.log(props.SelectedPlatform)
     try {
-      const response = await fetch("http://localhost:8080/InsertGameInDB", {
-        method: "POST",
+      const response = await fetch('http://localhost:8080/InsertGameInDB', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           key: appid,
           platform: props.SelectedPlatform,
-          time: props.time,
-        }),
-      });
-      props.onGameAdded();
-      setCommiting(false);
+          time: props.time
+        })
+      })
+      console.log(response)
+      //props.onGameAdded()
+      setCommiting(false)
     } catch (error) {
-      console.error("Error:", error);
-      setCommiting(false);
+      console.error('Error:', error)
+      setCommiting(false)
     }
-  };
+  }
 
-  if (props.FoundGames === "") {
-    return;
+  if (props.FoundGames === '') {
+    return
   } else {
-    const data = JSON.parse(props.FoundGames.foundGames);
+    const data = JSON.parse(props.FoundGames.foundGames)
     if (Object.keys(data).length === 0) {
       return (
         <div className="text-left bg-gameView h-[28vh] w-auto overflow-scroll flex justify-center">
           No Games Found
         </div>
-      );
+      )
     } else {
       return commiting ? (
         <div className="text-left bg-gameView h-[28vh] w-auto overflow-scroll flex justify-center">
@@ -53,16 +54,14 @@ function ListFoundGames(props) {
                 onClick={() => selectedGameClickHandler(game.appid)}
               >
                 <div className="flex justify-start text-left">{game.name}</div>
-                <div className="flex justify-end">
-                  {new Date(game.date).getFullYear()}
-                </div>
+                <div className="flex justify-end">{new Date(game.date).getFullYear()}</div>
               </button>
             ))}
           </div>
         </div>
-      );
+      )
     }
   }
 }
 
-export default ListFoundGames;
+export default ListFoundGames

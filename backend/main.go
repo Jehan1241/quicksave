@@ -173,6 +173,10 @@ func createTables(db *sql.DB) {
 	PRIMARY KEY("UID")
 	);`,
 
+		`CREATE TABLE IF NOT EXISTS "HiddenGames" (
+	"UID"	TEXT NOT NULL UNIQUE
+	);`,
+
 		`CREATE TABLE IF NOT EXISTS "InvolvedCompanies" (
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
@@ -303,38 +307,40 @@ func initializeDefaultDBValues(db *sql.DB) {
 	fmt.Println("DB Default Values Initialized.")
 }
 
-func displayEntireDB() map[string]interface{} {
+/*
+	 func displayEntireDB() map[string]interface{} {
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
+		db, err := SQLiteReadConfig("IGDB_Database.db")
+		bail(err)
+		defer db.Close()
 
-	QueryString := "SELECT * FROM GameMetaData"
-	rows, err := db.Query(QueryString)
-	bail(err)
-	defer rows.Close()
+		QueryString := `SELECT gmd.*
+						FROM GameMetaData gmd
+						WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID);`
+		rows, err := db.Query(QueryString)
+		bail(err)
+		defer rows.Close()
 
-	m := make(map[string]map[string]interface{})
-	for rows.Next() {
-		var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform string
-		var isDLC, TimePlayed int
-		var AggregatedRating float32
-		rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
-		//GameData[0].Name = Name
-		m[UID] = make(map[string]interface{})
-		m[UID]["Name"] = Name
-		m[UID]["UID"] = UID
-		m[UID]["CoverArtPath"] = CoverArtPath
-		m[UID]["isDLC"] = isDLC
-		m[UID]["OwnedPlatform"] = OwnedPlatform
-		m[UID]["TimePlayed"] = TimePlayed
-		m[UID]["AggregatedRating"] = AggregatedRating
-		//FIGURE OUT HOW TO MAKE(STRUCT)
+		m := make(map[string]map[string]interface{})
+		for rows.Next() {
+			var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform string
+			var isDLC, TimePlayed int
+			var AggregatedRating float32
+			rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
+			m[UID] = make(map[string]interface{})
+			m[UID]["Name"] = Name
+			m[UID]["UID"] = UID
+			m[UID]["CoverArtPath"] = CoverArtPath
+			m[UID]["isDLC"] = isDLC
+			m[UID]["OwnedPlatform"] = OwnedPlatform
+			m[UID]["TimePlayed"] = TimePlayed
+			m[UID]["AggregatedRating"] = AggregatedRating
+		}
+		MetaData := make(map[string]interface{})
+		MetaData["m"] = m
+		return (MetaData)
 	}
-	MetaData := make(map[string]interface{})
-	MetaData["m"] = m
-	return (MetaData)
-}
+*/
 func getAllTags() []string {
 	db, err := SQLiteReadConfig("IGDB_Database.db")
 	bail(err)
@@ -637,21 +643,24 @@ func deleteGameFromDB(uid string) {
 		_, err = preparedStatement.Exec(uid)
 		bail(err)
 	}
-
-	// Delete from GameMetaData table
 	executeDelete("DELETE FROM GameMetaData WHERE UID=?", uid)
-
-	// Delete from SteamAppIds table
-	executeDelete("DELETE FROM SteamAppIds WHERE UID=?", uid)
-
-	// Delete from InvolvedCompanies table
+	executeDelete("DELETE FROM GamePreferences WHERE UID=?", uid)
 	executeDelete("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
-
-	// Delete from ScreenShots table
+	executeDelete("DELETE FROM ManualGameLaunchPath WHERE UID=?", uid)
 	executeDelete("DELETE FROM ScreenShots WHERE UID=?", uid)
-
-	// Delete from Tags table
+	executeDelete("DELETE FROM SteamAppIds WHERE UID=?", uid)
 	executeDelete("DELETE FROM Tags WHERE UID=?", uid)
+}
+
+func hideGame(uid string) {
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	// Query to check if the game with the specified UID exists
+	QueryStatement := `INSERT INTO HiddenGames (UID) VALUES (?)`
+	_, err = db.Exec(QueryStatement, uid)
+	bail(err)
 }
 
 func sortDB(sortType string, order string) map[string]interface{} {
@@ -731,7 +740,8 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			END AS CustomReleaseDate
 		FROM GameMetaData gmd
 		LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
-		ORDER BY %s %s`, sortType, order)
+		WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
+		ORDER BY %s %s;`, sortType, order)
 
 	if FilterSet {
 		QueryString = fmt.Sprintf(`	
@@ -758,6 +768,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
 			JOIN Tags t ON gmd.uid = t.uid
 			JOIN Filter f ON t.Tags = f.Tag
+			WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
 			GROUP BY t.UID
 			HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM Filter)
 			ORDER BY %s %s;`, sortType, order)
@@ -1262,6 +1273,15 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Recieved Delete Game")
 		UID := c.Query("uid")
 		deleteGameFromDB(UID)
+		sendSSEMessage("Deleted Game")
+		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
+	})
+
+	r.GET("/HideGame", func(c *gin.Context) {
+		fmt.Println("Recieved Hide Game")
+		UID := c.Query("uid")
+		hideGame(UID)
+		sendSSEMessage("Hidden Game")
 		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
 	})
 
@@ -1363,13 +1383,15 @@ func setupRouter() *gin.Engine {
 		fmt.Println(appID)
 		getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
 		insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
-		MetaData := displayEntireDB()
+		// Keep incase errs found later
+		/* MetaData := displayEntireDB()
 		m := MetaData["m"].(map[string]map[string]interface{})
 		basicInfoHandler = func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"MetaData": m})
-		}
+		} */
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
-		basicInfoHandler(c)
+		sendSSEMessage("Inserted Game")
+		/* basicInfoHandler(c) */
 	})
 
 	r.POST("/SteamImport", func(c *gin.Context) {
