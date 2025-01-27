@@ -1,5 +1,12 @@
 package main
 
+type FilterStruct struct {
+	Tags      []string `json:"tags"`
+	Name      []string `json:"name"`
+	Platforms []string `json:"platforms"`
+	Devs      []string `json:"devs"`
+}
+
 type allSteamGamesStruct struct {
 	Response struct {
 		GameCount int `json:"game_count"`
@@ -286,6 +293,16 @@ var coverStruct []struct {
 var screenshotStruct []struct {
 	ID  int    `json:"id"`
 	URL string `json:"url"`
+}
+
+type SteamWishlistStruct struct {
+	Response struct {
+		Items []struct {
+			Appid     int `json:"appid"`
+			Priority  int `json:"priority"`
+			DateAdded int `json:"date_added"`
+		} `json:"items"`
+	} `json:"response"`
 }
 
 var summary string

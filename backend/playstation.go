@@ -126,15 +126,14 @@ func getAuthCode(npsso string) string {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", requestURL, nil)
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
+	bail(err)
 
 	req.Header.Add("Cookie", "npsso="+npsso)
 
 	resp, err := client.Do(req)
+	// The req is supposed to fail, we want it to go here
 	if err != nil {
-		log.Printf("Request failed: %v", err)
+		log.Printf("Request failed(This means it passed): %v", err)
 
 		// Use regex to extract the code from the error message
 		re := regexp.MustCompile(`code=(v3\.[^&]+)`)
@@ -150,10 +149,13 @@ func getAuthCode(npsso string) string {
 
 	}
 	defer resp.Body.Close()
-	fmt.Println("----------")
+	fmt.Println("There was an error in getting auth code")
 	return ("Error")
 }
 func getAuthToken(code string) string {
+	if code == "Error" {
+		return ("Error")
+	}
 	body := url.Values{}
 	body.Add("code", code)
 	body.Add("redirect_uri", "com.scee.psxandroid.scecompcall://redirect")
@@ -164,17 +166,13 @@ func getAuthToken(code string) string {
 	tokenURL := "https://ca.account.sony.com/api/authz/v3/oauth/token"
 
 	req, err := http.NewRequest("POST", tokenURL, bytes.NewBufferString(body.Encode()))
-	if err != nil {
-		fmt.Println(err)
-	}
+	bail(err)
 
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Authorization", "Basic MDk1MTUxNTktNzIzNy00MzcwLTliNDAtMzgwNmU2N2MwODkxOnVjUGprYTV0bnRCMktxc1A=")
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Println(err)
-	}
+	bail(err)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -190,13 +188,17 @@ func getAuthToken(code string) string {
 
 	if result.AccessToken == "" {
 		fmt.Println("Cant obtain authToken")
+		return ("Error")
 	}
 
-	log.Println("Authentication Token successfully granted")
+	fmt.Println("Authentication Token successfully granted")
 	return result.AccessToken
 }
 
-func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret string) []string {
+func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret string) map[string]interface{} {
+
+	returnMap := make(map[string]interface{})
+
 	url := "https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=0"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -303,7 +305,11 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 		}
 	}
 	fmt.Println("Games Not Added, ", gamesNotMatched)
-	return (PSgameList_NormalAPI_Normalized)
+
+	returnMap["gamesNotMatched"] = gamesNotMatched
+	returnMap["NormalApiGamesList"] = PSgameList_NormalAPI_Normalized
+
+	return (returnMap)
 }
 
 func getGameTrophyAPI(token string) []map[string]string {
@@ -381,7 +387,7 @@ func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGame
 	return unmatchedTrophyGames
 }
 
-func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID string, clientSecret string) {
+func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID string, clientSecret string) []string {
 	var gamesNotMatched []string
 	for i := range FilteredTrophyGames {
 		title := FilteredTrophyGames[i]["Title"]
@@ -466,16 +472,33 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 	fmt.Println(gamesNotMatched)
 	msg := fmt.Sprintf("Game added: %s", "finished")
 	sendSSEMessage(msg)
+	return (gamesNotMatched)
 }
 
-func playstationImportUserGames(npsso string, clientID string, clientSecret string) {
-	fmt.Println(npsso)
+func playstationImportUserGames(npsso string, clientID string, clientSecret string) map[string]interface{} {
+	returnMap := make(map[string]interface{})
 	authCode := getAuthCode(npsso)
 	authToken := getAuthToken(authCode)
-	NormalAPIGamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
-	TrophyAPIGamesList := getGameTrophyAPI(authToken)
-	FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
-	insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
+	if authToken != "Error" {
+		gamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
+		NormalAPIGamesList := gamesList["NormalApiGamesList"].([]string)
+		gamesNotMatched := gamesList["gamesNotMatched"].([]string)
+
+		TrophyAPIGamesList := getGameTrophyAPI(authToken)
+		FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
+		trophyApiGamesNotMatched := insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
+
+		allGamesNotMatched := append(gamesNotMatched, trophyApiGamesNotMatched...)
+		fmt.Println("All Games Not Matched", allGamesNotMatched)
+		returnMap["error"] = false
+		returnMap["gamesNotMatched"] = allGamesNotMatched
+
+		return (returnMap) // Returns non matched games and error
+	} else {
+		returnMap["error"] = true
+		returnMap["gamesNotMatched"] = []string{}
+		return (returnMap) // To indicate that auth code has an error
+	}
 }
 
 // Normalizer and hour Conversion funcs
@@ -602,10 +625,10 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 		gameID = gameStruct[gameIndex].ID
 		UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
 		tempTime := time.Unix(int64(UNIX_releaseDate), 0)
-		releaseDateTime = tempTime.Format("2 Jan, 2006")
+		releaseDateTime = tempTime.Format("2006-01-02")
 		AggregatedRating = gameStruct[gameIndex].AggregatedRating
-		Name = gameStruct[gameIndex].Name
-		UID := GetMD5Hash(Title + strings.Split(releaseDateTime, " ")[2] + platform)
+		Name = Title
+		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
 
 		db, err := sql.Open("sqlite", "IGDB_Database.db")
 		if err != nil {
@@ -653,12 +676,133 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 
 			postString = "https://api.igdb.com/v4/covers"
 			folderName := "coverArt"
-			coverStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+			coverStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 
 			postString = "https://api.igdb.com/v4/screenshots"
 			folderName = "screenshots"
-			screenshotStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+			screenshotStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 		}
 
 	}
+
+}
+
+func insertMetaDataInDB(title string, platform string, time string) {
+	//gameID := gameIndex
+	if title != "" {
+		Name = title
+	}
+
+	UID := GetMD5Hash(title + strings.Split(releaseDateTime, "-")[0] + platform)
+
+	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	QueryString := "SELECT UID FROM GameMetaData"
+	rows, err := db.Query(QueryString)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	insert := true
+	for rows.Next() {
+		var UIDdb string
+		rows.Scan(&UIDdb)
+		if UIDdb == UID {
+			insert = false
+		}
+	}
+
+	if insert {
+		fmt.Println("Inserting", title)
+		pathLength := len(screenshotStruct)
+		ScreenshotPaths := make([]string, pathLength)
+		for i := range len(ScreenshotPaths) {
+			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
+		}
+
+		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
+
+		// Incase its a new Platforms, its added
+		preparedStatement, err := db.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
+		if err != nil {
+			panic(err)
+		}
+		preparedStatement.Exec(platform)
+
+		//Insert to GameMetaData Table
+		preparedStatement, err = db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			panic(err)
+		}
+		preparedStatement.Exec(UID, title, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
+
+		//Insert to Screenshots Table
+		for i := range len(ScreenshotPaths) {
+			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, ScreenshotPaths[i])
+		}
+
+		//Insert to InvolvedCompanies table
+		for i := range len(involvedCompaniesStruct) {
+			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, involvedCompaniesStruct[i].Name)
+		}
+
+		//Insert to Tags Table
+		for i := range len(themeStruct) {
+			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, themeStruct[i].Name)
+		}
+		for i := range len(playerPerspectiveStruct) {
+			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, playerPerspectiveStruct[i].Name)
+		}
+		for i := range len(genresStruct) {
+			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, genresStruct[i].Name)
+		}
+		for i := range len(gameModesStruct) {
+			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+			if err != nil {
+				panic(err)
+			}
+			preparedStatement.Exec(UID, gameModesStruct[i].Name)
+		}
+		defer preparedStatement.Close()
+	}
+}
+
+func getMetaData_ImagesPSN(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
+	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
+	body := post(postString, bodyString, accessToken)
+	json.Unmarshal(body, &GeneralStruct)
+	for i := range len(GeneralStruct) {
+		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
+		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
+		getString := GeneralStruct[i].URL
+		location := fmt.Sprintf(`%s/%s/`, folderName, UID)
+		filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
+		getImageFromURL(getString, location, filename)
+	}
+	return (GeneralStruct)
 }

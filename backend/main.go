@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -239,8 +240,20 @@ func createTables(db *sql.DB) {
 		"SteamAPIKey"	TEXT NOT NULL
 	);`,
 
-		`CREATE TABLE "Filter" (
+		`CREATE TABLE "FilterTags" (
 		"Tag"	TEXT NOT NULL
+	);`,
+
+		`CREATE TABLE "FilterDevs" (
+		"Dev"	TEXT NOT NULL
+	);`,
+
+		`CREATE TABLE "FilterName" (
+		"Name"	TEXT NOT NULL
+	);`,
+
+		`CREATE TABLE "FilterPlatform" (
+		"Platform"	TEXT NOT NULL
 	);`,
 
 		`CREATE TABLE "GamePreferences" (
@@ -289,6 +302,7 @@ func initializeDefaultDBValues(db *sql.DB) {
 		"Xbox One",
 		"Xbox Series X",
 		"PC",
+		"Steam",
 	}
 	for _, platform := range platforms {
 		_, err := tx.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
@@ -361,6 +375,28 @@ func getAllTags() []string {
 
 	return (tags)
 }
+
+func getAllDevelopers() []string {
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	QueryString := "SELECT DISTINCT Name FROM InvolvedCompanies"
+	rows, err := db.Query(QueryString)
+	bail(err)
+	defer rows.Close()
+
+	var devs []string
+
+	for rows.Next() {
+		var dev string
+		rows.Scan(&dev)
+		devs = append(devs, dev)
+	}
+
+	return (devs)
+}
+
 func getGameDetails(UID string) map[string]interface{} {
 
 	db, err := SQLiteReadConfig("IGDB_Database.db")
@@ -525,55 +561,141 @@ func getGameDetails(UID string) map[string]interface{} {
 	MetaData["screenshots"] = screenshots
 	return (MetaData)
 }
-func addTagToFilter(tag string) {
-	var duplicate = false
 
-	dbRead, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer dbRead.Close()
-
-	// To see if tag already exists in filter
-	preparedStatement, err := dbRead.Prepare("SELECT * FROM Filter WHERE Tag=?")
-	bail(err)
-	defer preparedStatement.Close()
-
-	rows, err := preparedStatement.Query(tag)
-	bail(err)
-	defer rows.Close()
-
-	// if tag is found set as duplicate
-	for rows.Next() {
-		var DBtag string
-		err := rows.Scan(&DBtag)
-		bail(err)
-		if DBtag == tag {
-			duplicate = true
-		}
-
-	}
-
+func setTagsFilter(FilterStruct FilterStruct) {
+	// Open the database for reading and writing
 	dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
 	bail(err)
-	defer dbRead.Close()
+	defer dbWrite.Close()
 
-	// if not duplicate insert to DB
-	if !duplicate {
-		preparedStatement, err = dbWrite.Prepare("INSERT INTO Filter (Tag) VALUES (?)")
+	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterTags")
+	bail(err)
+	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterPlatform")
+	bail(err)
+	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterDevs")
+	bail(err)
+	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterName")
+	bail(err)
+
+	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterTags (Tag TEXT NOT NULL)")
+	bail(err)
+	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterPlatform (Platform TEXT NOT NULL)")
+	bail(err)
+	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterDevs (Dev TEXT NOT NULL)")
+	bail(err)
+	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterName (Name TEXT NOT NULL)")
+	bail(err)
+
+	insertStmtTags, err := dbWrite.Prepare("INSERT INTO FilterTags (Tag) VALUES (?)")
+	bail(err)
+	defer insertStmtTags.Close()
+
+	insertStmtPlats, err := dbWrite.Prepare("INSERT INTO FilterPlatform (Platform) VALUES (?)")
+	bail(err)
+	defer insertStmtPlats.Close()
+
+	insertStmtDevs, err := dbWrite.Prepare("INSERT INTO FilterDevs (Dev) VALUES (?)")
+	bail(err)
+	defer insertStmtDevs.Close()
+
+	insertStmtName, err := dbWrite.Prepare("INSERT INTO FilterName (Name) VALUES (?)")
+	bail(err)
+	defer insertStmtName.Close()
+
+	// Insert each tag into the table
+	for _, tag := range FilterStruct.Tags {
+		_, err := insertStmtTags.Exec(tag)
 		bail(err)
-		defer preparedStatement.Close()
-
-		_, err := preparedStatement.Exec(tag)
+	}
+	for _, tag := range FilterStruct.Name {
+		_, err := insertStmtName.Exec(tag)
+		bail(err)
+	}
+	for _, tag := range FilterStruct.Platforms {
+		_, err := insertStmtPlats.Exec(tag)
+		bail(err)
+	}
+	for _, tag := range FilterStruct.Devs {
+		_, err := insertStmtDevs.Exec(tag)
 		bail(err)
 	}
 }
+
 func clearFilter() {
 	db, err := SQLiteWriteConfig("IGDB_Database.db")
 	bail(err)
 	defer db.Close()
 
-	QueryString := "DELETE FROM Filter"
+	QueryString := "DELETE FROM FilterDevs"
 	_, err = db.Exec(QueryString)
 	bail(err)
+	QueryString = "DELETE FROM FilterName"
+	_, err = db.Exec(QueryString)
+	bail(err)
+	QueryString = "DELETE FROM FilterPlatform"
+	_, err = db.Exec(QueryString)
+	bail(err)
+	QueryString = "DELETE FROM FilterTags"
+	_, err = db.Exec(QueryString)
+	bail(err)
+}
+
+func getFilterState() map[string][]string {
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	var filterDevs, filterName, filterPlatform, filterTags []string
+	returnMap := make(map[string][]string)
+	QueryString := "SELECT * FROM FilterDevs"
+	rows, err := db.Query(QueryString)
+	for rows.Next() {
+		var temp string
+		err := rows.Scan(&temp)
+		bail(err)
+		filterDevs = append(filterDevs, temp)
+	}
+	bail(err)
+
+	QueryString = "SELECT * FROM FilterName"
+	rows, err = db.Query(QueryString)
+	for rows.Next() {
+		var temp string
+		err := rows.Scan(&temp)
+		bail(err)
+		filterName = append(filterName, temp)
+	}
+	bail(err)
+
+	QueryString = "SELECT * FROM FilterPlatform"
+	rows, err = db.Query(QueryString)
+	for rows.Next() {
+		var temp string
+		err := rows.Scan(&temp)
+		bail(err)
+		filterPlatform = append(filterPlatform, temp)
+
+	}
+	bail(err)
+
+	QueryString = "SELECT * FROM FilterTags"
+	rows, err = db.Query(QueryString)
+	for rows.Next() {
+		var temp string
+		err := rows.Scan(&temp)
+		bail(err)
+		filterTags = append(filterTags, temp)
+
+	}
+	bail(err)
+	returnMap["Devs"] = filterDevs
+	returnMap["Name"] = filterName
+	returnMap["Platform"] = filterPlatform
+	returnMap["Tags"] = filterTags
+	fmt.Println("This", returnMap["Devs"])
+
+	return (returnMap)
+
 }
 
 // Repeated Call Funcs
@@ -645,6 +767,7 @@ func deleteGameFromDB(uid string) {
 	}
 	executeDelete("DELETE FROM GameMetaData WHERE UID=?", uid)
 	executeDelete("DELETE FROM GamePreferences WHERE UID=?", uid)
+	executeDelete("DELETE FROM HiddenGames WHERE UID=?", uid)
 	executeDelete("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
 	executeDelete("DELETE FROM ManualGameLaunchPath WHERE UID=?", uid)
 	executeDelete("DELETE FROM ScreenShots WHERE UID=?", uid)
@@ -708,17 +831,40 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	_, err = stmt.Exec(order, "Sort Order")
 	bail(err)
 
-	var FilterSet bool = false
-	QueryString = "SELECT * FROM Filter"
-	rows, err := dbRead.Query(QueryString)
+	var tagsFilterSet, devsFilterSet, platsFilterSet, nameFilterSet bool
+
+	// Check FilterTags
+	rows, err := dbRead.Query("SELECT * FROM FilterTags")
 	bail(err)
 	defer rows.Close()
-
-	for rows.Next() {
-		FilterSet = true
+	if rows.Next() {
+		tagsFilterSet = true
 	}
 
-	QueryString = fmt.Sprintf(`
+	// Check FilterDevs
+	rows, err = dbRead.Query("SELECT * FROM FilterDevs")
+	bail(err)
+	defer rows.Close()
+	if rows.Next() {
+		devsFilterSet = true
+	}
+
+	//Check FilterPlatforms
+	rows, err = dbRead.Query("SELECT * FROM FilterPlatform")
+	bail(err)
+	defer rows.Close()
+	if rows.Next() {
+		platsFilterSet = true
+	}
+
+	rows, err = dbRead.Query("SELECT * FROM FilterName")
+	bail(err)
+	defer rows.Close()
+	if rows.Next() {
+		nameFilterSet = true
+	}
+
+	BaseQuery := `
 		SELECT
 			gmd.*,
 			CASE
@@ -740,13 +886,108 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			END AS CustomReleaseDate
 		FROM GameMetaData gmd
 		LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
-		WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-		ORDER BY %s %s;`, sortType, order)
+		`
 
-	if FilterSet {
-		QueryString = fmt.Sprintf(`	
-			SELECT 
-				gmd.*, 
+	if tagsFilterSet {
+		BaseQuery += `
+		JOIN Tags t ON gmd.uid = t.uid
+		JOIN FilterTags f ON t.Tags = f.Tag
+		`
+	}
+	if devsFilterSet {
+		BaseQuery += `
+		JOIN InvolvedCompanies i ON gmd.uid = i.uid
+		JOIN FilterDevs d ON i.Name = d.Dev
+		`
+	}
+	if platsFilterSet {
+		BaseQuery += `
+		JOIN FilterPlatform p ON gmd.OwnedPlatform = p.Platform
+		`
+	}
+
+	BaseQuery += `
+	WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
+	AND gmd.isDLC = 0
+	`
+	if nameFilterSet {
+		BaseQuery += `
+		AND gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1)`
+	}
+
+	if tagsFilterSet {
+		BaseQuery += `
+			AND f.Tag IN (SELECT Tag FROM FilterTags)
+		`
+	}
+	if devsFilterSet {
+		BaseQuery += `
+			AND d.Dev IN (SELECT Dev FROM FilterDevs)
+		`
+	}
+	if platsFilterSet {
+		BaseQuery += `
+			AND p.Platform IN (SELECT Platform FROM FilterPlatform)
+		`
+	}
+
+	BaseQuery += `  
+	GROUP BY gmd.UID
+	`
+
+	// Initialize an empty HAVING clause
+	havingClauses := []string{}
+
+	// Conditionally add the HAVING clause for FilterTags if tagsFilterSet is true
+	if tagsFilterSet {
+		havingClauses = append(havingClauses, `COUNT(DISTINCT f.Tag) = (SELECT COUNT(*) FROM FilterTags) `)
+	}
+
+	// Conditionally add the HAVING clause for FilterDevs if devFilterSet is true
+	if devsFilterSet {
+		havingClauses = append(havingClauses, `COUNT(DISTINCT d.Dev) = (SELECT COUNT(*) FROM FilterDevs)`)
+	}
+
+	if platsFilterSet {
+		havingClauses = append(havingClauses, `COUNT(DISTINCT p.Platform) = (SELECT COUNT(*) FROM FilterPlatform)`)
+	}
+
+	// If there are any HAVING clauses, join them with 'AND' and add to the query
+	if len(havingClauses) > 0 {
+		BaseQuery += " HAVING " + strings.Join(havingClauses, " AND ")
+	}
+
+	BaseQuery += fmt.Sprintf(`ORDER BY %s %s;`, sortType, order)
+
+	/* 	QueryString = fmt.Sprintf(`
+	SELECT
+		gmd.*,
+		CASE
+			WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
+			ELSE gmd.Name
+		END AS CustomTitle,
+		CASE
+			WHEN gp.useCustomRating = 1 THEN gp.CustomRating
+			ELSE gmd.AggregatedRating
+		END AS CustomRating,
+		CASE
+			WHEN gp.useCustomTime = 1 THEN gp.CustomTime
+			WHEN gp.UseCustomTimeOffset = 1 THEN (gp.CustomTimeOffset + gmd.TimePlayed)
+			ELSE gmd.TimePlayed
+		END AS CustomTimePlayed,
+		CASE
+			WHEN gp.UseCustomReleaseDate = 1 THEN gp.CustomReleaseDate
+			ELSE gmd.ReleaseDate
+		END AS CustomReleaseDate
+	FROM GameMetaData gmd
+	LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
+	WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
+	ORDER BY %s %s;`, sortType, order) */
+
+	/* if tagsFilterSet {
+		QueryString = fmt.Sprintf(`
+			SELECT
+				gmd.*,
 				CASE
 					WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
 					ELSE gmd.Name
@@ -767,14 +1008,14 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			FROM GameMetaData gmd
 			LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
 			JOIN Tags t ON gmd.uid = t.uid
-			JOIN Filter f ON t.Tags = f.Tag
+			JOIN FilterTags f ON t.Tags = f.Tag
 			WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
 			GROUP BY t.UID
-			HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM Filter)
+			HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM FilterTags)
 			ORDER BY %s %s;`, sortType, order)
-	}
+	} */
 
-	rows, err = dbRead.Query(QueryString)
+	rows, err = dbRead.Query(BaseQuery)
 	bail(err)
 	defer rows.Close()
 
@@ -812,19 +1053,19 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	return (metaDataAndSortInfo)
 }
 
-func storeSize(FrontEndSize string) string {
+func storeSize(FrontEndSize int) int {
 	dbRead, err := SQLiteReadConfig("IGDB_Database.db")
 	bail(err)
 	defer dbRead.Close()
 
 	// if frontend size is default then get size from DB
-	if FrontEndSize == "default" {
+	if FrontEndSize == -1 {
 		QueryString := "SELECT * FROM TileSize"
 		rows, err := dbRead.Query(QueryString)
 		bail(err)
 		defer rows.Close()
 
-		var NewSize string
+		var NewSize int
 		for rows.Next() {
 			err = rows.Scan(&NewSize)
 			if err != nil {
@@ -1138,15 +1379,45 @@ func getPreferences(uid string) map[string]interface{} {
 
 func normalizeReleaseDate(input string) string {
 	if input == "" {
-		return ""
+		return "1970-01-01"
 	}
 
-	layout := "2006-01-02"
-	parsedDate, err := time.Parse(layout, input)
-	bail(err)
+	layouts := []string{
+		"2 Jan, 2006",
+		"Jan 2, 2006",
+		"2006 Jan, 2",
+		"Jan 2 2006",
+		"2 January 2006",
+		"January 2, 2006",
+		"2006-01-02",
+		"02/01/2006",
+		"01/02/2006",
+		"2006/01/02",
+		"2/1/2006",
+		"1/2/2006",
+		"Jan. 2, 2006",
+		"January 2. 2006",
+		"2006.01.02",
+	}
 
-	// Format the parsed date to "01/02/06" format (mm/dd/yy)
-	output := parsedDate.Format("2 Jan, 2006")
+	var parsedDate time.Time
+	var err error
+
+	// Try parsing the input using each layout
+	for _, layout := range layouts {
+		parsedDate, err = time.Parse(layout, input)
+		if err == nil {
+			break
+		}
+	}
+
+	// If no valid date was found, return default
+	if err != nil {
+		return "1970-01-01"
+	}
+
+	// Format the parsed date to "yyyy-mm-dd" format
+	output := parsedDate.Format("2006-01-02")
 	return output
 }
 
@@ -1221,8 +1492,10 @@ func setupRouter() *gin.Engine {
 		sortType := c.Query("type")
 		order := c.Query("order")
 		tileSize := c.Query("size")
+		tileSizeInt, err := strconv.Atoi(tileSize)
+		bail(err)
 		metaData := sortDB(sortType, order)
-		sizeData := storeSize(tileSize)
+		sizeData := storeSize(tileSizeInt)
 		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData})
 	}
 
@@ -1246,20 +1519,51 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"tags": tags})
 	})
 
-	r.GET("/setFilter", func(c *gin.Context) {
-		fmt.Println("Recieved Set Filter")
-		tag := c.Query("tag")
-		fmt.Println(tag)
-		addTagToFilter(tag)
-		sendSSEMessage("Game added: Set Filter")
+	r.GET("/getAllDevelopers", func(c *gin.Context) {
+		fmt.Println("Recieved Get All Devs")
+		devs := getAllDevelopers()
+		c.JSON(http.StatusOK, gin.H{"devs": devs})
+	})
+
+	r.GET("/getAllPlatforms", func(c *gin.Context) {
+		fmt.Println("Recieved Platforms")
+		PlatformList := getPlatforms()
+		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
+	})
+
+	r.POST("/setFilter", func(c *gin.Context) {
+		// Define the structure of the filter data
+		var FilterStruct FilterStruct
+
+		fmt.Println("Received Set Filter")
+
+		// Bind JSON from the request body
+		err := c.ShouldBindJSON(&FilterStruct)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filter JSON"})
+			return
+		}
+
+		setTagsFilter(FilterStruct)
+
+		// Respond back to the client
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+		sendSSEMessage("Set Filter")
+
+	})
+
+	r.GET("/clearAllFilters", func(c *gin.Context) {
+		fmt.Println("Recieved Clear Filter")
+		clearFilter()
+		sendSSEMessage("Clear Filter")
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 	})
 
-	r.GET("/clearFilter", func(c *gin.Context) {
-		fmt.Println("Recieved Clear Filter")
-		clearFilter()
-		sendSSEMessage("Game added: Clear Filter")
-		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+	r.GET("/LoadFilters", func(c *gin.Context) {
+		fmt.Println("Recieved Load Filters")
+		filterState := getFilterState()
+		fmt.Println("aaa", filterState["Name"])
+		c.JSON(http.StatusOK, gin.H{"name": filterState["Name"], "platform": filterState["Platform"], "developers": filterState["Devs"], "tags": filterState["Tags"]})
 	})
 
 	r.GET("/GameDetails", func(c *gin.Context) {
@@ -1283,12 +1587,6 @@ func setupRouter() *gin.Engine {
 		hideGame(UID)
 		sendSSEMessage("Hidden Game")
 		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
-	})
-
-	r.GET("/Platforms", func(c *gin.Context) {
-		fmt.Println("Recieved Platforms")
-		PlatformList := getPlatforms()
-		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
 	r.GET("/IGDBKeys", func(c *gin.Context) {
@@ -1394,6 +1692,75 @@ func setupRouter() *gin.Engine {
 		/* basicInfoHandler(c) */
 	})
 
+	r.POST("/GetIgdbInfo", func(c *gin.Context) {
+		var data struct {
+			Key int `json:"key"`
+		}
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Received Get IGDB Info", data.Key)
+		appID = data.Key
+		metaData := getMetaData(appID, gameStruct, accessToken, "PlayStation 4")
+		c.JSON(http.StatusOK, gin.H{"metadata": metaData})
+	})
+
+	r.POST("/addGameToDB", func(c *gin.Context) {
+		var gameData struct {
+			Title             string `json:"title"`
+			ReleaseDate       string `json:"releaseDate"`
+			SelectedPlatforms []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedPlatforms"`
+			TimePlayed   string `json:"timePlayed"`
+			Rating       string `json:"rating"`
+			SelectedDevs []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedDevs"`
+			SelectedTags []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedTags"`
+			Description string   `json:"description"`
+			CoverImage  string   `json:"coverImage"`
+			SSImage     []string `json:"ssImage"`
+		}
+
+		if err := c.BindJSON(&gameData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		title := gameData.Title
+		releaseDate := gameData.ReleaseDate
+		timePlayed := gameData.TimePlayed
+		platform := gameData.SelectedPlatforms[0].Value
+		rating := gameData.Rating
+		selectedDevs := gameData.SelectedDevs
+		selectedTags := gameData.SelectedTags
+		descripton := gameData.Description
+		coverImage := gameData.CoverImage
+		screenshots := gameData.SSImage
+
+		var devs []string
+		var tags []string
+
+		for _, item := range selectedDevs {
+			devs = append(devs, item.Value)
+		}
+		for _, item := range selectedTags {
+			tags = append(tags, item.Value)
+		}
+
+		fmt.Println("Received Add Game To DB", title, releaseDate, platform, timePlayed, rating, "\n", devs, tags, descripton, coverImage, screenshots)
+
+		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots)
+		c.JSON(http.StatusOK, gin.H{"insertionStatus": insertionStatus})
+		sendSSEMessage("Inserted Game")
+	})
+
 	r.POST("/SteamImport", func(c *gin.Context) {
 		var data struct {
 			SteamID string `json:"SteamID"`
@@ -1405,11 +1772,10 @@ func setupRouter() *gin.Engine {
 		}
 		SteamID := data.SteamID
 		APIkey := data.APIkey
+		fmt.Println("Received Steam Import", SteamID, APIkey)
 		updateSteamCreds(SteamID, APIkey)
-		fmt.Println("Received", SteamID)
-		fmt.Println("Recieved", APIkey)
-		steamImportUserGames(SteamID, APIkey)
-		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+		error := steamImportUserGames(SteamID, APIkey)
+		c.JSON(http.StatusOK, gin.H{"error": error})
 	})
 
 	r.POST("/PlayStationImport", func(c *gin.Context) {
@@ -1428,8 +1794,10 @@ func setupRouter() *gin.Engine {
 		updateIGDBKeys(clientID, clientSecret)
 		updateNpsso(npsso)
 		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
-		playstationImportUserGames(npsso, clientID, clientSecret)
-		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+		gamesAndError := playstationImportUserGames(npsso, clientID, clientSecret)
+		psnError := gamesAndError["error"].(bool)
+		gamesNotMatched := gamesAndError["gamesNotMatched"].([]string)
+		c.JSON(http.StatusOK, gin.H{"error": psnError, "gamesNotMatched": gamesNotMatched})
 	})
 
 	r.GET("/LoadPreferences", func(c *gin.Context) {
@@ -1472,6 +1840,7 @@ func setupRouter() *gin.Engine {
 		}
 		checkedParams := make(map[string]bool)
 		params := make(map[string]string)
+		fmt.Println("AAAA", data.CustomRating, "AAAA", data.CustomReleaseDate)
 
 		normalizedDate := normalizeReleaseDate(data.CustomReleaseDate)
 
