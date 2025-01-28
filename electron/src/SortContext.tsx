@@ -28,7 +28,7 @@ const SortContext = createContext<SortContextType | undefined>(undefined);
 
 export const SortProvider = ({ children }: { children: ReactNode }) => {
     const [sortType, setSortType] = useState("default");
-    const [viewState, setViewState] = useState("grid");
+    const [viewState, setViewState] = useState("library");
     const [tileSize, setTileSize] = useState(-1);
     const [sortOrder, setSortOrder] = useState<"ASC" | "DESC" | "default">("default");
     const [metaData, setMetaData] = useState([]);

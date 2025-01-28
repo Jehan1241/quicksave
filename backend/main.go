@@ -906,9 +906,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		`
 	}
 
+	//AND gmd.isDLC = 0
 	BaseQuery += `
 	WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-	AND gmd.isDLC = 0
 	`
 	if nameFilterSet {
 		BaseQuery += `

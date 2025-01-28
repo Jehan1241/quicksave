@@ -4,14 +4,16 @@ import { darkMode } from "./ToggleTheme";
 import { BrowserRouter, data, useLocation, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import CustomTitleBar from "./CustomTitleBar";
-import GridView from "./GridView/GridView";
+import GridView from "./LibraryView/LibraryView";
 import { SortProvider } from "./SortContext"; // Import the SortProvider
 import { useSortContext } from "./SortContext";
-import DetialsView from "./DetailsView/DetailsView";
+import DetialsView from "./WishlistView/WishlistView";
 import AddGameManuallyDialog from "./Dialogs/AddGameManually";
 import { Toaster } from "./components/ui/toaster";
 import Integrations from "./Dialogs/Integrations";
 import GameView from "./GameView/GameView";
+import LibraryView from "./LibraryView/LibraryView";
+import WishlistView from "./WishlistView/WishlistView";
 
 export default function App() {
     const {
@@ -31,6 +33,7 @@ export default function App() {
         isIntegrationsDialogOpen,
     } = useSortContext();
     const [dataArray, setDataArray] = useState<any[]>([]); // Track dataArray in local state\
+    const [wishlistArray, setWishlistArray] = useState<any[]>([]); // Track dataArray in local state\
     const [integrationsPreviouslyOpened, setIntegrationsPreviouslyOpened] =
         useState<boolean>(false);
     const [addGameDialogHasBeenOpened, setAddGameDialogHasBeenOpened] = useState<boolean>(false);
@@ -44,11 +47,20 @@ export default function App() {
             );
             const json = await response.json();
             console.log(json);
-            setDataArray(Object.values(json.MetaData));
+
+            const filteredLibraryGames = Object.values(json.MetaData).filter(
+                (item: any) => item.isDLC === 0
+            );
+            setDataArray(filteredLibraryGames);
             setMetaData(json.MetaData);
             setSortOrder(json.SortOrder);
             setSortType(json.SortType);
             setTileSize(json.Size);
+
+            const filteredWishlistGames = Object.values(json.MetaData).filter(
+                (item: any) => item.isDLC === 1
+            );
+            setWishlistArray(filteredWishlistGames);
         } catch (error) {
             console.error(error);
         }
@@ -72,12 +84,23 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        if (randomGameClicked) {
+        if (randomGameClicked && viewState == "library") {
             console.log("randomGameClicked");
             setRandomGameClicked(false);
             const len = dataArray.length;
             const randomNumber = Math.floor(Math.random() * (len + 1));
             const uid = dataArray[randomNumber].UID;
+            navigate(`gameview`, {
+                state: { data: uid },
+            });
+            setRandomGameClicked(false);
+        }
+        if (randomGameClicked && viewState == "wishlist") {
+            console.log("randomGameClicked");
+            setRandomGameClicked(false);
+            const len = wishlistArray.length;
+            const randomNumber = Math.floor(Math.random() * (len + 1));
+            const uid = wishlistArray[randomNumber].UID;
             navigate(`gameview`, {
                 state: { data: uid },
             });
@@ -112,11 +135,11 @@ export default function App() {
                 {addGameDialogHasBeenOpened && <AddGameManuallyDialog />}
                 {integrationsPreviouslyOpened && <Integrations />}
                 <Routes>
-                    {viewState === "grid" && (
-                        <Route element={<GridView data={dataArray} />} path="/" />
+                    {viewState === "library" && (
+                        <Route element={<LibraryView data={dataArray} />} path="/" />
                     )}
-                    {viewState === "details" && (
-                        <Route element={<DetialsView data={dataArray} />} path="/" />
+                    {viewState === "wishlist" && (
+                        <Route element={<WishlistView data={wishlistArray} />} path="/" />
                     )}
                     <Route element={<GameView />} path="/gameview" />
                 </Routes>

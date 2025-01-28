@@ -46,18 +46,18 @@ export default function DetialsMaker({
 
     return (
         <div
-            className="mx-10 my-1 flex h-8 justify-between gap-4 rounded-sm bg-background px-5 text-sm hover:bg-transparent"
+            className="flex gap-4 justify-between px-5 mx-10 my-1 h-8 text-sm rounded-sm bg-background hover:bg-transparent"
             onClick={tileClickHandler}
         >
-            <div className="flex w-1/4 items-center overflow-hidden text-ellipsis whitespace-nowrap">
+            <div className="flex overflow-hidden items-center w-1/4 whitespace-nowrap text-ellipsis">
                 {name}
             </div>
-            <div className="flex w-60 items-center justify-center text-center">{platform}</div>
-            <div className="flex w-60 items-center justify-center text-center">{ratingDecimal}</div>
-            <div className="flex w-60 items-center justify-center text-center">
+            <div className="flex justify-center items-center w-60 text-center">{platform}</div>
+            <div className="flex justify-center items-center w-60 text-center">{ratingDecimal}</div>
+            <div className="flex justify-center items-center w-60 text-center">
                 {timePlayedDecimal}
             </div>
-            <div className="flex w-60 items-center justify-center text-center">{releaseDate}</div>
+            <div className="flex justify-center items-center w-60 text-center">{releaseDate}</div>
         </div>
     );
 }

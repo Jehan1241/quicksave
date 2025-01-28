@@ -1,26 +1,19 @@
 import React, { useRef, useState, useEffect } from "react";
 import GridMaker from "./GridMaker";
 import { useSortContext } from "@/SortContext";
-import {
-    ChevronDown,
-    ChevronUp,
-    Grid2X2,
-    Grid2X2Icon,
-    LibraryBig,
-    ListCheckIcon,
-    ListIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Grid2X2, ListIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import DetialsMaker from "@/DetailsView/DetailsMaker";
-import { GrCatalogOption } from "react-icons/gr";
-interface GridViewProps {
+import DetialsMaker from "@/LibraryView/DetailsMaker";
+interface libraryViewProps {
     data: any[];
 }
 
-export default function GridView({ data }: GridViewProps) {
-    const scrollRef = useRef<HTMLDivElement | null>(null);
-    const [scrollPosition, setScrollPosition] = useState(0);
-    const [view, setView] = useState("grid");
+export default function LibraryView({ data }: libraryViewProps) {
+    const gridScrollRef = useRef<HTMLDivElement | null>(null);
+    const listScrollRef = useRef<HTMLDivElement | null>(null);
+    const [gridScrollPosition, setGridScrollPosition] = useState(0);
+    const [listScrollPosition, setListScrollPosition] = useState(0);
+    const [view, setView] = useState<string | null>(null);
 
     const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
         useSortContext();
@@ -40,42 +33,62 @@ export default function GridView({ data }: GridViewProps) {
     };
 
     const scrollHandler = () => {
-        if (scrollRef.current) {
-            const CurrentScrollPos = scrollRef.current.scrollTop;
-            localStorage.setItem("ScrollPosition", CurrentScrollPos.toString()); // Convert number to string
-            setScrollPosition(CurrentScrollPos);
+        if (gridScrollRef.current) {
+            const currentScrollPos = gridScrollRef.current.scrollTop;
+            localStorage.setItem("libraryGridScrollPosition", currentScrollPos.toString());
+            setGridScrollPosition(currentScrollPos);
+        }
+
+        if (listScrollRef.current) {
+            const currentScrollPos = listScrollRef.current.scrollTop;
+            localStorage.setItem("libraryListScrollPosition", currentScrollPos.toString());
+            setListScrollPosition(currentScrollPos);
         }
     };
 
     useEffect(() => {
-        const savedScrollPos = localStorage.getItem("ScrollPosition");
-        if (savedScrollPos !== null && scrollRef.current) {
-            const scrollPosition = parseInt(savedScrollPos, 10);
-            scrollRef.current.scrollTop = scrollPosition;
-            setScrollPosition(scrollPosition);
+        const savedGridScrollPos = localStorage.getItem("libraryGridScrollPosition");
+        const savedListScrollPos = localStorage.getItem("libraryListScrollPosition");
+
+        if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
+            const scrollPosition = parseInt(savedGridScrollPos, 10);
+            gridScrollRef.current.scrollTop = scrollPosition;
+            setGridScrollPosition(scrollPosition);
+        } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
+            const scrollPosition = parseInt(savedListScrollPos, 10);
+            listScrollRef.current.scrollTop = scrollPosition;
+            setListScrollPosition(scrollPosition);
         }
-    }, []);
+        const layout = localStorage.getItem("layout");
+        if (layout) {
+            setView(layout);
+        } else {
+            setView("grid");
+        }
+    }, [view]);
 
     return (
         <>
-            <div
-                className="absolute flex h-full w-full flex-col justify-center"
-                onScroll={scrollHandler}
-                ref={scrollRef}
-            >
-                <div className="mx-5 flex items-center justify-between p-2 text-xl font-bold tracking-wide">
-                    <div className="flex items-center gap-2">Library</div>
+            <div className="flex absolute flex-col justify-center w-full h-full">
+                <div className="flex justify-between items-center p-2 mx-5 text-xl font-bold tracking-wide">
+                    <div className="flex gap-2 items-center">Library</div>
                     <div className="flex gap-2">
                         <Button
-                            className="h-8 w-8"
-                            onClick={() => setView("grid")}
+                            className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
+                            onClick={() => {
+                                setView("grid");
+                                localStorage.setItem("layout", "grid");
+                            }}
                             variant={"ghost"}
                         >
                             <Grid2X2 strokeWidth={1.7} size={20} />
                         </Button>
                         <Button
-                            className="h-8 w-8"
-                            onClick={() => setView("list")}
+                            className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
+                            onClick={() => {
+                                setView("list");
+                                localStorage.setItem("layout", "list");
+                            }}
                             variant={"ghost"}
                         >
                             <ListIcon size={20} />
@@ -83,7 +96,11 @@ export default function GridView({ data }: GridViewProps) {
                     </div>
                 </div>
                 {view === "grid" && (
-                    <div className="flex h-full w-full select-none flex-wrap justify-center gap-8 overflow-y-auto pb-10 pt-4">
+                    <div
+                        onScroll={scrollHandler}
+                        ref={gridScrollRef}
+                        className="flex overflow-y-auto flex-wrap gap-8 justify-center pt-4 pb-10 w-full h-full select-none"
+                    >
                         {data.map((item, key) => {
                             const cleanedName = item.Name.toLowerCase()
                                 .replace("'", "")
@@ -111,15 +128,19 @@ export default function GridView({ data }: GridViewProps) {
                     </div>
                 )}
                 {view === "list" && (
-                    <div className="mb-5 h-full w-full select-none overflow-y-auto pt-4">
-                        <div className="mx-10 flex h-10 justify-between gap-4 rounded-sm bg-background px-5">
-                            <div className="flex w-1/4 items-center justify-center">
+                    <div
+                        onScroll={scrollHandler}
+                        ref={listScrollRef}
+                        className="overflow-y-auto pt-4 mb-5 w-full h-full select-none"
+                    >
+                        <div className="flex gap-4 justify-between px-5 mx-10 h-10 rounded-sm bg-background">
+                            <div className="flex justify-center items-center w-1/4">
                                 <Button
                                     onClick={() => {
                                         handleSortChange("CustomTitle");
                                     }}
                                     variant={"ghost"}
-                                    className="h-8 w-full"
+                                    className="w-full h-8"
                                 >
                                     Title
                                     {sortType == "CustomTitle" && sortOrder == "DESC" && (
@@ -130,13 +151,13 @@ export default function GridView({ data }: GridViewProps) {
                                     )}
                                 </Button>
                             </div>
-                            <div className="flex w-60 items-center justify-center bg-transparent text-center">
+                            <div className="flex justify-center items-center w-60 text-center bg-transparent">
                                 <Button
                                     onClick={() => {
                                         handleSortChange("OwnedPlatform");
                                     }}
                                     variant={"ghost"}
-                                    className="h-8 w-full"
+                                    className="w-full h-8"
                                 >
                                     Platform
                                     {sortType == "OwnedPlatform" && sortOrder == "DESC" && (
@@ -147,10 +168,10 @@ export default function GridView({ data }: GridViewProps) {
                                     )}
                                 </Button>
                             </div>
-                            <div className="flex w-60 items-center justify-center text-center">
+                            <div className="flex justify-center items-center w-60 text-center">
                                 <Button
                                     variant={"ghost"}
-                                    className="h-8 w-full"
+                                    className="w-full h-8"
                                     onClick={() => {
                                         handleSortChange("CustomRating");
                                     }}
@@ -164,13 +185,13 @@ export default function GridView({ data }: GridViewProps) {
                                     )}
                                 </Button>
                             </div>
-                            <div className="flex w-60 cursor-pointer items-center justify-center text-center">
+                            <div className="flex justify-center items-center w-60 text-center cursor-pointer">
                                 <Button
                                     onClick={() => {
                                         handleSortChange("CustomTimePlayed");
                                     }}
                                     variant={"ghost"}
-                                    className="h-8 w-full"
+                                    className="w-full h-8"
                                 >
                                     Hours Played
                                     {sortType == "CustomTimePlayed" && sortOrder == "DESC" && (
@@ -181,13 +202,13 @@ export default function GridView({ data }: GridViewProps) {
                                     )}
                                 </Button>
                             </div>
-                            <div className="flex w-60 items-center justify-center text-center">
+                            <div className="flex justify-center items-center w-60 text-center">
                                 <Button
                                     onClick={() => {
                                         handleSortChange("CustomReleaseDate");
                                     }}
                                     variant={"ghost"}
-                                    className="h-8 w-full"
+                                    className="w-full h-8"
                                 >
                                     Release Date
                                     {sortType == "CustomReleaseDate" && sortOrder == "DESC" && (
