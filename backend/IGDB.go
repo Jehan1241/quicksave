@@ -282,7 +282,7 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		json.Unmarshal(body, &involvedCompaniesStruct)
 	}
 }
-func addGameToDB(title string, releaseDate string, platform string, timePlayed string, rating string, devs []string, tags []string, descripton string, coverImage string, screenshots []string) bool {
+func addGameToDB(title string, releaseDate string, platform string, timePlayed string, rating string, devs []string, tags []string, descripton string, coverImage string, screenshots []string, isWishlist int) bool {
 	releaseDate = strings.Split(releaseDate, "T")[0]
 	releaseYear := strings.Split(releaseDate, "-")[0]
 	fmt.Println(releaseYear)
@@ -356,7 +356,7 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 		if err != nil {
 			panic(err)
 		}
-		preparedStatement.Exec(UID, title, releaseDate, coverArtPath, descripton, 0, platform, timePlayed, rating)
+		preparedStatement.Exec(UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
 
 		//Insert to Screenshots Table
 		for i := range len(ScreenshotPaths) {

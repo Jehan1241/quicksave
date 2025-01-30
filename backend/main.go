@@ -1743,6 +1743,7 @@ func setupRouter() *gin.Engine {
 		descripton := gameData.Description
 		coverImage := gameData.CoverImage
 		screenshots := gameData.SSImage
+		isWishlist := 0
 
 		var devs []string
 		var tags []string
@@ -1756,7 +1757,62 @@ func setupRouter() *gin.Engine {
 
 		fmt.Println("Received Add Game To DB", title, releaseDate, platform, timePlayed, rating, "\n", devs, tags, descripton, coverImage, screenshots)
 
-		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots)
+		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
+		c.JSON(http.StatusOK, gin.H{"insertionStatus": insertionStatus})
+		sendSSEMessage("Inserted Game")
+	})
+
+	r.POST("/addGameToDBWishlist", func(c *gin.Context) {
+		var gameData struct {
+			Title             string `json:"title"`
+			ReleaseDate       string `json:"releaseDate"`
+			SelectedPlatforms []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedPlatforms"`
+			Rating       string `json:"rating"`
+			SelectedDevs []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedDevs"`
+			SelectedTags []struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"selectedTags"`
+			Description string   `json:"description"`
+			CoverImage  string   `json:"coverImage"`
+			SSImage     []string `json:"ssImage"`
+		}
+
+		if err := c.BindJSON(&gameData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		title := gameData.Title
+		releaseDate := gameData.ReleaseDate
+		timePlayed := "0"
+		platform := gameData.SelectedPlatforms[0].Value
+		rating := gameData.Rating
+		selectedDevs := gameData.SelectedDevs
+		selectedTags := gameData.SelectedTags
+		descripton := gameData.Description
+		coverImage := gameData.CoverImage
+		screenshots := gameData.SSImage
+		isWishlist := 1
+
+		var devs []string
+		var tags []string
+
+		for _, item := range selectedDevs {
+			devs = append(devs, item.Value)
+		}
+		for _, item := range selectedTags {
+			tags = append(tags, item.Value)
+		}
+
+		fmt.Println("Received Add Game To DB Wishlist", title, releaseDate, platform, timePlayed, rating, "\n", devs, tags, descripton, coverImage, screenshots)
+
+		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
 		c.JSON(http.StatusOK, gin.H{"insertionStatus": insertionStatus})
 		sendSSEMessage("Inserted Game")
 	})
