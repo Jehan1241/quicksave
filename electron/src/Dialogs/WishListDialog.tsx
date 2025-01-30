@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -7,10 +7,12 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useSortContext } from "@/SortContext";
-import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { Carousel, CarouselApi, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
     CalendarIcon,
     Globe,
@@ -18,64 +20,34 @@ import {
     Loader2,
     LucideArrowLeft,
     LucideArrowRight,
+    Plus,
     Trash2,
 } from "lucide-react";
-
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-
-import { useEffect } from "react";
-import MultipleSelector from "@/components/ui/multiple-selector";
-
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus } from "lucide-react";
-
+import { format } from "date-fns";
+import MultipleSelector from "@/components/ui/multiple-selector";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Carousel, CarouselApi, CarouselContent, CarouselItem } from "@/components/ui/carousel";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { AspectRatio } from "@radix-ui/react-aspect-ratio";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
-import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { number } from "zod";
-
-export default function AddGameManuallyDialog() {
-    const { isAddGameDialogOpen, setIsAddGameDialogOpen } = useSortContext();
-
-    // State variables
+export default function WishlistDialog() {
+    const { isWishlistAddDialogOpen, setIsWishlistAddDialogOpen } = useSortContext();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [title, setTitle] = useState<string>("");
     const [releaseDate, setReleaseDate] = useState<any>("");
     const [rating, setRating] = useState<any>("");
     const [developers, setDevelopers] = useState<any>("");
-    const [timePlayed, setTimePlayed] = useState<any>("");
     const [description, setDescription] = useState<any>("");
 
     return (
-        <Dialog open={isAddGameDialogOpen} onOpenChange={setIsAddGameDialogOpen}>
+        <Dialog open={isWishlistAddDialogOpen} onOpenChange={setIsWishlistAddDialogOpen}>
             <DialogContent className="block h-[75vh] max-h-[75vh] max-w-[75vw]">
                 <DialogHeader className="h-full max-h-full">
-                    <DialogTitle>Add a Game</DialogTitle>
-                    <MetaDataView
-                        data={data}
-                        setData={setData}
-                        loading={loading}
-                        setLoading={setLoading}
-                        title={title}
-                        setTitle={setTitle}
-                        releaseDate={releaseDate}
-                        setReleaseDate={setReleaseDate}
-                        rating={rating}
-                        setRating={setRating}
-                        developers={developers}
-                        setDevelopers={setDevelopers}
-                        timePlayed={timePlayed}
-                        setTimePlayed={setTimePlayed}
-                        description={description}
-                        setDescription={setDescription}
-                    />
+                    <DialogTitle>Add to Wishlist</DialogTitle>
+                    <MetaDataView />
                 </DialogHeader>
                 <DialogFooter></DialogFooter>
             </DialogContent>
@@ -83,41 +55,14 @@ export default function AddGameManuallyDialog() {
     );
 }
 
-function MetaDataView({
-    data,
-    setData,
-    loading,
-    setLoading,
-    title,
-    setTitle,
-    releaseDate,
-    setReleaseDate,
-    rating,
-    setRating,
-    developers,
-    setDevelopers,
-    timePlayed,
-    setTimePlayed,
-    description,
-    setDescription,
-}: {
-    data: any;
-    setData: React.Dispatch<React.SetStateAction<any>>;
-    loading: boolean;
-    setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-    title: string;
-    setTitle: React.Dispatch<React.SetStateAction<string>>;
-    releaseDate: any;
-    setReleaseDate: React.Dispatch<React.SetStateAction<any>>;
-    rating: any;
-    setRating: React.Dispatch<React.SetStateAction<any>>;
-    developers: any;
-    setDevelopers: React.Dispatch<React.SetStateAction<any>>;
-    timePlayed: any;
-    setTimePlayed: React.Dispatch<React.SetStateAction<any>>;
-    description: any;
-    setDescription: React.Dispatch<React.SetStateAction<any>>;
-}) {
+function MetaDataView() {
+    const [data, setData] = useState<any>(null);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [title, setTitle] = useState<string>("");
+    const [releaseDate, setReleaseDate] = useState<any>("");
+    const [rating, setRating] = useState<any>("");
+    const [developers, setDevelopers] = useState<any>("");
+    const [description, setDescription] = useState<any>("");
     const [tagOptions, setTagOptions] = useState([]);
     const [devOptions, setDevOptions] = useState([]);
     const [platformOptions, setPlatformOptions] = useState([]);
@@ -216,8 +161,6 @@ function MetaDataView({
             fetchData(title);
         }
     };
-
-    const [date, setDate] = React.useState<Date>();
 
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [ssImage, setSsImage] = useState<(string | null)[]>([null]); // Three empty image slots
@@ -328,11 +271,6 @@ function MetaDataView({
                 ratingNormal = String(ratingNormal);
             }
 
-            let timePlayedNormal = timePlayed;
-
-            if (timePlayedNormal == "") {
-                timePlayedNormal = "0";
-            }
             console.log(ratingNormal);
 
             setTitleEmpty(false);
@@ -342,7 +280,6 @@ function MetaDataView({
                 title,
                 releaseDate,
                 selectedPlatforms,
-                timePlayedNormal,
                 ratingNormal,
                 selectedDevs,
                 selectedTags,
@@ -357,7 +294,6 @@ function MetaDataView({
         title: string,
         releaseDate: any,
         selectedPlatforms: any,
-        timePlayed: any,
         rating: any,
         selectedDevs: any,
         selectedTags: any,
@@ -367,14 +303,13 @@ function MetaDataView({
     ) => {
         try {
             setAddGameLoading(true);
-            const response = await fetch(`http://localhost:8080/addGameToDB`, {
+            const response = await fetch(`http://localhost:8080/addGameToDBWishlist`, {
                 method: "POST",
                 headers: { "Content-type": "application/json" },
                 body: JSON.stringify({
                     title: title,
                     releaseDate: releaseDate,
                     selectedPlatforms: selectedPlatforms,
-                    timePlayed: timePlayed,
                     rating: rating,
                     selectedDevs: selectedDevs,
                     selectedTags: selectedTags,
@@ -569,7 +504,7 @@ function MetaDataView({
                             }
                         />
                     </div>
-                    <div className="flex row-span-2 gap-4 items-start w-full h-full text-sm grow-0">
+                    <div className="flex gap-4 items-start w-full h-full text-sm k grow-0">
                         <label className="min-w-24">Tags</label>
                         <div className="flex-1 h-full max-h-24">
                             <MultipleSelector
@@ -589,26 +524,6 @@ function MetaDataView({
                         </div>
                     </div>
 
-                    <div className="flex gap-4 items-center text-sm">
-                        <label className="min-w-24">Time Played</label>
-                        <Input
-                            value={timePlayed}
-                            onChange={(e) => {
-                                const value = e.target.value;
-
-                                // Allow only positive numbers with up to two decimal points
-                                if (/^\d*\.?\d{0,2}$/.test(value) && parseFloat(value) >= 0) {
-                                    setTimePlayed(value);
-                                } else if (value === "") {
-                                    setTimePlayed(""); // Allow clearing the input
-                                }
-                            }}
-                            id="username"
-                            placeholder="Enter time played in hours"
-                            className="col-span-3"
-                            inputMode="decimal"
-                        />
-                    </div>
                     <div className="flex gap-4 items-start text-sm 2xl:col-span-2">
                         <label className="mt-2 min-w-24">Description</label>
                         <Textarea
@@ -847,13 +762,11 @@ function MetaDataView({
                     releaseDate={releaseDate}
                     rating={rating}
                     developers={developers}
-                    timePlayed={timePlayed}
                     description={description}
                     setTitle={setTitle}
                     setReleaseDate={setReleaseDate}
                     setRating={setRating}
                     setDevelopers={setDevelopers}
-                    setTimePlayed={setTimePlayed}
                     setDescription={setDescription}
                     tagOptions={tagOptions}
                     setTagOptions={setTagOptions}
@@ -880,8 +793,6 @@ function FoundGames({
     setRating,
     developers,
     setDevelopers,
-    timePlayed,
-    setTimePlayed,
     description,
     setDescription,
     tagOptions,
@@ -903,8 +814,6 @@ function FoundGames({
     setRating: React.Dispatch<React.SetStateAction<any>>;
     developers: any;
     setDevelopers: React.Dispatch<React.SetStateAction<any>>;
-    timePlayed: any;
-    setTimePlayed: React.Dispatch<React.SetStateAction<any>>;
     description: any;
     setDescription: React.Dispatch<React.SetStateAction<any>>;
     tagOptions: { value: string; label: string }[];

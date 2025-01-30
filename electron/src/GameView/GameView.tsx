@@ -76,6 +76,7 @@ export default function GameView() {
     const companiesArray = Object.values(companies);
     const screenshotsArray = Object.values(screenshots);
     const timePlayed = metadata?.TimePlayed?.toFixed(1);
+    const isWishlist = metadata?.isDLC;
     const rating = metadata?.AggregatedRating?.toFixed(1);
     const releaseDate = metadata?.ReleaseDate;
     const [carouselIndex, setCarouselIndex] = useState(0);
@@ -124,7 +125,10 @@ export default function GameView() {
                     <div className="flex h-full w-1/3 flex-col overflow-y-auto">
                         <div className="mt-2 flex w-full flex-row items-center gap-4 text-base font-normal xl:flex-row">
                             <div className="flex gap-2">
-                                <Button className="h-10 lg:w-20 xl:w-40 2xl:w-48">
+                                <Button
+                                    disabled={isWishlist === 0 ? false : true}
+                                    className="h-10 lg:w-20 xl:w-40 2xl:w-48"
+                                >
                                     <FaPlay /> Play
                                 </Button>
 
@@ -173,7 +177,12 @@ export default function GameView() {
                                 </div>
                                 <div>
                                     <Star size={18} className="mb-1 inline" /> {rating}
-                                    <Clock className="mb-1 ml-2 inline" size={18} /> {timePlayed}
+                                    {isWishlist === 0 && (
+                                        <span>
+                                            <Clock className="mb-1 ml-2 inline" size={18} />
+                                            {timePlayed}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>

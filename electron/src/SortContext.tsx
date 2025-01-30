@@ -16,6 +16,8 @@ interface SortContextType {
     setViewState: React.Dispatch<React.SetStateAction<string>>;
     isAddGameDialogOpen: boolean;
     setIsAddGameDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isWishlistAddDialogOpen: boolean;
+    setIsWishlistAddDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isIntegrationsDialogOpen: boolean;
     setIsIntegrationsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
     searchText: string;
@@ -34,6 +36,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
     const [metaData, setMetaData] = useState([]);
     const [sortStateUpdate, setSortStateUpdate] = useState(false);
     const [isAddGameDialogOpen, setIsAddGameDialogOpen] = useState(false);
+    const [isWishlistAddDialogOpen, setIsWishlistAddDialogOpen] = useState(false);
     const [isIntegrationsDialogOpen, setIsIntegrationsDialogOpen] = useState(false);
     const [searchText, setSearchText] = useState<string>("");
     const [randomGameClicked, setRandomGameClicked] = useState<boolean>(false);
@@ -77,6 +80,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
                 setSearchText,
                 randomGameClicked,
                 setRandomGameClicked,
+                isWishlistAddDialogOpen,
+                setIsWishlistAddDialogOpen,
             }}
         >
             {children}

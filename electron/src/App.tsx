@@ -14,6 +14,7 @@ import Integrations from "./Dialogs/Integrations";
 import GameView from "./GameView/GameView";
 import LibraryView from "./LibraryView/LibraryView";
 import WishlistView from "./WishlistView/WishlistView";
+import WishlistDialog from "./Dialogs/WishListDialog";
 
 export default function App() {
     const {
@@ -31,10 +32,13 @@ export default function App() {
         setRandomGameClicked,
         isAddGameDialogOpen,
         isIntegrationsDialogOpen,
+        isWishlistAddDialogOpen,
     } = useSortContext();
     const [dataArray, setDataArray] = useState<any[]>([]); // Track dataArray in local state\
     const [wishlistArray, setWishlistArray] = useState<any[]>([]); // Track dataArray in local state\
     const [integrationsPreviouslyOpened, setIntegrationsPreviouslyOpened] =
+        useState<boolean>(false);
+    const [wishListAddDialogPreviouslyOpened, setWishlistAddDialogPreviouslyOpened] =
         useState<boolean>(false);
     const [addGameDialogHasBeenOpened, setAddGameDialogHasBeenOpened] = useState<boolean>(false);
     const navigate = useNavigate();
@@ -128,12 +132,18 @@ export default function App() {
             setIntegrationsPreviouslyOpened(true);
         }
     }, [isIntegrationsDialogOpen]);
+    useEffect(() => {
+        if (isWishlistAddDialogOpen) {
+            setWishlistAddDialogPreviouslyOpened(true);
+        }
+    }, [isWishlistAddDialogOpen]);
 
     return (
         <>
             <CustomTitleBar>
                 {addGameDialogHasBeenOpened && <AddGameManuallyDialog />}
                 {integrationsPreviouslyOpened && <Integrations />}
+                {wishListAddDialogPreviouslyOpened && <WishlistDialog />}
                 <Routes>
                     {viewState === "library" && (
                         <Route element={<LibraryView data={dataArray} />} path="/" />

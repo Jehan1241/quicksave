@@ -228,7 +228,8 @@ function WindowButtons() {
 }
 
 function QuicksaveMenu() {
-    const { setIsAddGameDialogOpen, setIsIntegrationsDialogOpen } = useSortContext();
+    const { setIsAddGameDialogOpen, setIsIntegrationsDialogOpen, setIsWishlistAddDialogOpen } =
+        useSortContext();
 
     return (
         <div className="flex justify-center items-center w-16">
@@ -240,9 +241,21 @@ function QuicksaveMenu() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56">
                     <DropdownMenuGroup>
-                        <DropdownMenuItem onClick={() => setIsAddGameDialogOpen(true)}>
-                            Add a Game
-                        </DropdownMenuItem>
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>Add a Game</DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onClick={() => setIsAddGameDialogOpen(true)}>
+                                        Add to Library
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => setIsWishlistAddDialogOpen(true)}
+                                    >
+                                        Add to Wishlist
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                        </DropdownMenuSub>
                         <DropdownMenuItem onClick={() => setIsIntegrationsDialogOpen(true)}>
                             Integrate Libraries
                         </DropdownMenuItem>
