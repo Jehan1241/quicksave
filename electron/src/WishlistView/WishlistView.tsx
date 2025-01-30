@@ -10,11 +10,11 @@ interface wishlistViewProps {
 }
 
 export default function WishlistView({ data }: wishlistViewProps) {
-    const [view, setView] = useState<string | null>(null);
     const gridScrollRef = useRef<HTMLDivElement | null>(null);
     const listScrollRef = useRef<HTMLDivElement | null>(null);
-    const [gridScrollPosition, setGridScrollPosition] = useState(0);
-    const [listScrollPosition, setListScrollPosition] = useState(0);
+    const gridScrollPositionRef = useRef(0);
+    const listScrollPositionRef = useRef(0);
+    const [view, setView] = useState<string | null>(null);
     const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
         useSortContext();
 
@@ -35,37 +35,49 @@ export default function WishlistView({ data }: wishlistViewProps) {
     const scrollHandler = () => {
         if (gridScrollRef.current) {
             const currentScrollPos = gridScrollRef.current.scrollTop;
-            localStorage.setItem("wishlistGridScrollPosition", currentScrollPos.toString());
-            setGridScrollPosition(currentScrollPos);
+            gridScrollPositionRef.current = currentScrollPos
         }
 
         if (listScrollRef.current) {
             const currentScrollPos = listScrollRef.current.scrollTop;
-            localStorage.setItem("wishlistListScrollPosition", currentScrollPos.toString());
-            setListScrollPosition(currentScrollPos);
+            listScrollPositionRef.current = currentScrollPos
         }
     };
 
     useEffect(() => {
-        const savedGridScrollPos = localStorage.getItem("wishlistGridScrollPosition");
-        const savedListScrollPos = localStorage.getItem("wishlistListScrollPosition");
-
-        if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
-            const scrollPosition = parseInt(savedGridScrollPos, 10);
-            gridScrollRef.current.scrollTop = scrollPosition;
-            setGridScrollPosition(scrollPosition);
-        } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
-            const scrollPosition = parseInt(savedListScrollPos, 10);
-            listScrollRef.current.scrollTop = scrollPosition;
-            setListScrollPosition(scrollPosition);
-        }
-        const layout = localStorage.getItem("layout");
-        if (layout) {
-            setView(layout);
-        } else {
-            setView("grid");
-        }
-    }, [view]);
+            const savedGridScrollPos = sessionStorage.getItem("wishlistGridScrollPosition");
+            const savedListScrollPos = sessionStorage.getItem("wishlistListScrollPosition");
+    
+            if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
+                const scrollPosition = parseInt(savedGridScrollPos, 10);
+                gridScrollRef.current.scrollTop = scrollPosition;
+            } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
+                const scrollPosition = parseInt(savedListScrollPos, 10);
+                listScrollRef.current.scrollTop = scrollPosition;
+            }
+            const layout = sessionStorage.getItem("layout");
+            if (layout) {
+                setView(layout);
+            } else {
+                setView("grid");
+            }
+    
+            return () => {
+                if (view === "grid") {
+                    sessionStorage.setItem(
+                        "wishlistGridScrollPosition",
+                        gridScrollPositionRef.current.toString()
+                    );
+                }
+                if (view === "list"){
+                    sessionStorage.setItem(
+                        "wishlistListScrollPosition",
+                        listScrollPositionRef.current.toString()
+                    );
+                }
+            };
+    
+        }, [view]);
 
     return (
         <div className="absolute flex h-full w-full flex-col justify-center">
@@ -76,7 +88,7 @@ export default function WishlistView({ data }: wishlistViewProps) {
                         className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
                         onClick={() => {
                             setView("grid");
-                            localStorage.setItem("layout", "grid");
+                            sessionStorage.setItem("layout", "grid");
                         }}
                         variant={"ghost"}
                     >
@@ -86,7 +98,7 @@ export default function WishlistView({ data }: wishlistViewProps) {
                         className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
                         onClick={() => {
                             setView("list");
-                            localStorage.setItem("layout", "list");
+                            sessionStorage.setItem("layout", "list");
                         }}
                         variant={"ghost"}
                     >

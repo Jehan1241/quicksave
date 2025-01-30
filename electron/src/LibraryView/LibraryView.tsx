@@ -11,8 +11,8 @@ interface libraryViewProps {
 export default function LibraryView({ data }: libraryViewProps) {
     const gridScrollRef = useRef<HTMLDivElement | null>(null);
     const listScrollRef = useRef<HTMLDivElement | null>(null);
-    const [gridScrollPosition, setGridScrollPosition] = useState(0);
-    const [listScrollPosition, setListScrollPosition] = useState(0);
+    const gridScrollPositionRef = useRef(0);
+    const listScrollPositionRef = useRef(0);
     const [view, setView] = useState<string | null>(null);
 
     const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
@@ -32,40 +32,57 @@ export default function LibraryView({ data }: libraryViewProps) {
         setSortStateUpdate(true);
     };
 
+
+    
+
     const scrollHandler = () => {
         if (gridScrollRef.current) {
             const currentScrollPos = gridScrollRef.current.scrollTop;
-            localStorage.setItem("libraryGridScrollPosition", currentScrollPos.toString());
-            setGridScrollPosition(currentScrollPos);
+            gridScrollPositionRef.current = currentScrollPos
         }
 
         if (listScrollRef.current) {
             const currentScrollPos = listScrollRef.current.scrollTop;
-            localStorage.setItem("libraryListScrollPosition", currentScrollPos.toString());
-            setListScrollPosition(currentScrollPos);
+            listScrollPositionRef.current = currentScrollPos
         }
     };
 
+
     useEffect(() => {
-        const savedGridScrollPos = localStorage.getItem("libraryGridScrollPosition");
-        const savedListScrollPos = localStorage.getItem("libraryListScrollPosition");
+        const savedGridScrollPos = sessionStorage.getItem("libraryGridScrollPosition");
+        const savedListScrollPos = sessionStorage.getItem("libraryListScrollPosition");
 
         if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
             const scrollPosition = parseInt(savedGridScrollPos, 10);
             gridScrollRef.current.scrollTop = scrollPosition;
-            setGridScrollPosition(scrollPosition);
         } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
             const scrollPosition = parseInt(savedListScrollPos, 10);
             listScrollRef.current.scrollTop = scrollPosition;
-            setListScrollPosition(scrollPosition);
         }
-        const layout = localStorage.getItem("layout");
+        const layout = sessionStorage.getItem("layout");
         if (layout) {
             setView(layout);
         } else {
             setView("grid");
         }
+
+        return () => {
+            if (view === "grid") {
+                sessionStorage.setItem(
+                    "libraryGridScrollPosition",
+                    gridScrollPositionRef.current.toString()
+                );
+            }
+            if (view === "list"){
+                sessionStorage.setItem(
+                    "libraryListScrollPosition",
+                    listScrollPositionRef.current.toString()
+                );
+            }
+        };
+
     }, [view]);
+
 
     return (
         <>
@@ -77,7 +94,7 @@ export default function LibraryView({ data }: libraryViewProps) {
                             className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
                             onClick={() => {
                                 setView("grid");
-                                localStorage.setItem("layout", "grid");
+                                sessionStorage.setItem("layout", "grid");
                             }}
                             variant={"ghost"}
                         >
@@ -87,7 +104,7 @@ export default function LibraryView({ data }: libraryViewProps) {
                             className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
                             onClick={() => {
                                 setView("list");
-                                localStorage.setItem("layout", "list");
+                                sessionStorage.setItem("layout", "list");
                             }}
                             variant={"ghost"}
                         >
@@ -121,6 +138,7 @@ export default function LibraryView({ data }: libraryViewProps) {
                                         cover={item.CoverArtPath}
                                         uid={item.UID}
                                         platform={item.OwnedPlatform}
+                                        hidden={false}
                                     />
                                 );
                             }

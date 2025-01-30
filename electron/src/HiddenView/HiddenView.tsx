@@ -10,62 +10,74 @@ interface hiddenViewProps {
 }
 
 export default function HiddenView({ data }: hiddenViewProps) {
-    const [view, setView] = useState<string | null>(null);
-    const gridScrollRef = useRef<HTMLDivElement | null>(null);
-    const listScrollRef = useRef<HTMLDivElement | null>(null);
-    const [gridScrollPosition, setGridScrollPosition] = useState(0);
-    const [listScrollPosition, setListScrollPosition] = useState(0);
-    const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
-        useSortContext();
-
-    const handleSortChange = (incomingSort: string) => {
-        if (incomingSort != sortType) {
-            setSortType(incomingSort);
-        } else {
-            if (sortOrder == "ASC") {
-                setSortOrder("DESC");
-            }
-            if (sortOrder == "DESC") {
-                setSortOrder("ASC");
-            }
-        }
-        setSortStateUpdate(true);
-    };
-
-    const scrollHandler = () => {
-        if (gridScrollRef.current) {
-            const currentScrollPos = gridScrollRef.current.scrollTop;
-            localStorage.setItem("hiddenGridScrollPosition", currentScrollPos.toString());
-            setGridScrollPosition(currentScrollPos);
-        }
-
-        if (listScrollRef.current) {
-            const currentScrollPos = listScrollRef.current.scrollTop;
-            localStorage.setItem("hiddenListScrollPosition", currentScrollPos.toString());
-            setListScrollPosition(currentScrollPos);
-        }
-    };
-
-    useEffect(() => {
-        const savedGridScrollPos = localStorage.getItem("hiddenGridScrollPosition");
-        const savedListScrollPos = localStorage.getItem("hiddenListScrollPosition");
-
-        if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
-            const scrollPosition = parseInt(savedGridScrollPos, 10);
-            gridScrollRef.current.scrollTop = scrollPosition;
-            setGridScrollPosition(scrollPosition);
-        } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
-            const scrollPosition = parseInt(savedListScrollPos, 10);
-            listScrollRef.current.scrollTop = scrollPosition;
-            setListScrollPosition(scrollPosition);
-        }
-        const layout = localStorage.getItem("layout");
-        if (layout) {
-            setView(layout);
-        } else {
-            setView("grid");
-        }
-    }, [view]);
+   const gridScrollRef = useRef<HTMLDivElement | null>(null);
+       const listScrollRef = useRef<HTMLDivElement | null>(null);
+       const gridScrollPositionRef = useRef(0);
+       const listScrollPositionRef = useRef(0);
+       const [view, setView] = useState<string | null>(null);
+       const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
+           useSortContext();
+   
+       const handleSortChange = (incomingSort: string) => {
+           if (incomingSort != sortType) {
+               setSortType(incomingSort);
+           } else {
+               if (sortOrder == "ASC") {
+                   setSortOrder("DESC");
+               }
+               if (sortOrder == "DESC") {
+                   setSortOrder("ASC");
+               }
+           }
+           setSortStateUpdate(true);
+       };
+   
+       const scrollHandler = () => {
+           if (gridScrollRef.current) {
+               const currentScrollPos = gridScrollRef.current.scrollTop;
+               gridScrollPositionRef.current = currentScrollPos
+           }
+   
+           if (listScrollRef.current) {
+               const currentScrollPos = listScrollRef.current.scrollTop;
+               listScrollPositionRef.current = currentScrollPos
+           }
+       };
+   
+       useEffect(() => {
+               const savedGridScrollPos = sessionStorage.getItem("hiddenGridScrollPosition");
+               const savedListScrollPos = sessionStorage.getItem("hiddenListScrollPosition");
+       
+               if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
+                   const scrollPosition = parseInt(savedGridScrollPos, 10);
+                   gridScrollRef.current.scrollTop = scrollPosition;
+               } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
+                   const scrollPosition = parseInt(savedListScrollPos, 10);
+                   listScrollRef.current.scrollTop = scrollPosition;
+               }
+               const layout = sessionStorage.getItem("layout");
+               if (layout) {
+                   setView(layout);
+               } else {
+                   setView("grid");
+               }
+       
+               return () => {
+                   if (view === "grid") {
+                       sessionStorage.setItem(
+                           "hiddenGridScrollPosition",
+                           gridScrollPositionRef.current.toString()
+                       );
+                   }
+                   if (view === "list"){
+                       sessionStorage.setItem(
+                           "hiddenListScrollPosition",
+                           listScrollPositionRef.current.toString()
+                       );
+                   }
+               };
+       
+           }, [view]);
 
     return (
         <div className="absolute flex h-full w-full flex-col justify-center">
@@ -76,7 +88,7 @@ export default function HiddenView({ data }: hiddenViewProps) {
                         className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
                         onClick={() => {
                             setView("grid");
-                            localStorage.setItem("layout", "grid");
+                            sessionStorage.setItem("layout", "grid");
                         }}
                         variant={"ghost"}
                     >
@@ -86,7 +98,7 @@ export default function HiddenView({ data }: hiddenViewProps) {
                         className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
                         onClick={() => {
                             setView("list");
-                            localStorage.setItem("layout", "list");
+                            sessionStorage.setItem("layout", "list");
                         }}
                         variant={"ghost"}
                     >
