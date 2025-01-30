@@ -8,9 +8,17 @@ interface GridMakerProps {
     cover: string;
     uid: string;
     platform: string;
+    hidden: boolean;
 }
 
-export default function GridMaker({ cleanedName, name, cover, uid, platform }: GridMakerProps) {
+export default function GridMaker({
+    cleanedName,
+    name,
+    cover,
+    uid,
+    platform,
+    hidden,
+}: GridMakerProps) {
     let { tileSize } = useSortContext(); // Access context
     let tileSizeInt = Number(tileSize);
 
@@ -21,7 +29,7 @@ export default function GridMaker({ cleanedName, name, cover, uid, platform }: G
     const tileClickHandler = () => {
         console.log(uid);
         navigate(`gameview`, {
-            state: { data: uid },
+            state: { data: uid, hidden: hidden },
         });
     };
 

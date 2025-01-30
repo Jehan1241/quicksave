@@ -16,7 +16,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +28,6 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { GearIcon } from "@radix-ui/react-icons";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -42,6 +40,7 @@ import {
 export default function GameView() {
     const location = useLocation();
     const uid = location.state.data;
+    const hidden = location.state.hidden;
     const [companies, setCompanies] = useState("");
     const [customizeClicked, setCustomizeClicked] = useState(false);
     const [tags, setTags] = useState("");
@@ -50,6 +49,7 @@ export default function GameView() {
     const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
     const [hideDialogOpen, setHideDialogOpen] = useState<boolean>(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+    const navigate = useNavigate();
 
     // Its on UID change to accomodate randomGamesClicked
     useEffect(() => {
@@ -112,6 +112,18 @@ export default function GameView() {
         }
     };
 
+    const unhideGame = async () => {
+        try {
+            console.log("Sending Get Game Details");
+            const response = await fetch(`http://localhost:8080/unhideGame?uid=${uid}`);
+            const json = await response.json();
+            console.log(json);
+        } catch (error) {
+            console.error(error);
+        }
+        navigate("/", { replace: true });
+    };
+
     return (
         <>
             <img
@@ -144,9 +156,17 @@ export default function GameView() {
                                         <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
                                             Edit Metadata
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setHideDialogOpen(true)}>
-                                            Hide Game
-                                        </DropdownMenuItem>
+                                        {hidden ? (
+                                            <DropdownMenuItem onClick={unhideGame}>
+                                                Unhide Game
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            <DropdownMenuItem
+                                                onClick={() => setHideDialogOpen(true)}
+                                            >
+                                                Hide Game
+                                            </DropdownMenuItem>
+                                        )}
                                         <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)}>
                                             Delete Game
                                         </DropdownMenuItem>

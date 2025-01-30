@@ -786,6 +786,17 @@ func hideGame(uid string) {
 	bail(err)
 }
 
+func unhideGame(uid string) {
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	// Query to check if the game with the specified UID exists
+	QueryStatement := `DELETE FROM HiddenGames WHERE UID = ?`
+	_, err = db.Exec(QueryStatement, uid)
+	bail(err)
+}
+
 func sortDB(sortType string, order string) map[string]interface{} {
 
 	dbRead, err := SQLiteReadConfig("IGDB_Database.db")
@@ -907,12 +918,12 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	}
 
 	//AND gmd.isDLC = 0
-	BaseQuery += `
-	WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-	`
+	// BaseQuery += `
+	// WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
+	// `
 	if nameFilterSet {
 		BaseQuery += `
-		AND gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1)`
+		WHERE gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1)`
 	}
 
 	if tagsFilterSet {
@@ -1045,10 +1056,24 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		i++
 	}
 
+	QueryString = "SELECT * FROM HiddenGames"
+	rows, err = dbRead.Query(QueryString)
+	bail(err)
+	defer rows.Close()
+
+	var hiddenUidArr []string
+	for rows.Next() {
+		var UID string
+		err = rows.Scan(&UID)
+		hiddenUidArr = append(hiddenUidArr, UID)
+		bail(err)
+	}
+
 	// results to response map
 	metaDataAndSortInfo["MetaData"] = metadata
 	metaDataAndSortInfo["SortOrder"] = order
 	metaDataAndSortInfo["SortType"] = sortType
+	metaDataAndSortInfo["HiddenUIDs"] = hiddenUidArr
 
 	return (metaDataAndSortInfo)
 }
@@ -1496,7 +1521,7 @@ func setupRouter() *gin.Engine {
 		bail(err)
 		metaData := sortDB(sortType, order)
 		sizeData := storeSize(tileSizeInt)
-		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData})
+		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData, "HiddenUIDs": metaData["HiddenUIDs"]})
 	}
 
 	r.GET("/", func(c *gin.Context) {
@@ -1587,6 +1612,14 @@ func setupRouter() *gin.Engine {
 		hideGame(UID)
 		sendSSEMessage("Hidden Game")
 		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
+	})
+
+	r.GET("/unhideGame", func(c *gin.Context) {
+		fmt.Println("Recieved UnHide Game")
+		UID := c.Query("uid")
+		unhideGame(UID)
+		sendSSEMessage("Un-Hidden Game")
+		c.JSON(http.StatusOK, gin.H{"Hidden": "Success Var?"})
 	})
 
 	r.GET("/IGDBKeys", func(c *gin.Context) {

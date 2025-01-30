@@ -1,15 +1,15 @@
-import React, { useRef, useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import DetialsMaker from "@/LibraryView/DetailsMaker";
 import GridMaker from "@/LibraryView/GridMaker";
 import { useSortContext } from "@/SortContext";
 import { ChevronDown, ChevronUp, Grid2X2, ListIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import DetialsMaker from "@/LibraryView/DetailsMaker";
+import React, { useEffect, useRef, useState } from "react";
 
-interface wishlistViewProps {
+interface hiddenViewProps {
     data: any[];
 }
 
-export default function WishlistView({ data }: wishlistViewProps) {
+export default function HiddenView({ data }: hiddenViewProps) {
     const [view, setView] = useState<string | null>(null);
     const gridScrollRef = useRef<HTMLDivElement | null>(null);
     const listScrollRef = useRef<HTMLDivElement | null>(null);
@@ -35,20 +35,20 @@ export default function WishlistView({ data }: wishlistViewProps) {
     const scrollHandler = () => {
         if (gridScrollRef.current) {
             const currentScrollPos = gridScrollRef.current.scrollTop;
-            localStorage.setItem("wishlistGridScrollPosition", currentScrollPos.toString());
+            localStorage.setItem("hiddenGridScrollPosition", currentScrollPos.toString());
             setGridScrollPosition(currentScrollPos);
         }
 
         if (listScrollRef.current) {
             const currentScrollPos = listScrollRef.current.scrollTop;
-            localStorage.setItem("wishlistListScrollPosition", currentScrollPos.toString());
+            localStorage.setItem("hiddenListScrollPosition", currentScrollPos.toString());
             setListScrollPosition(currentScrollPos);
         }
     };
 
     useEffect(() => {
-        const savedGridScrollPos = localStorage.getItem("wishlistGridScrollPosition");
-        const savedListScrollPos = localStorage.getItem("wishlistListScrollPosition");
+        const savedGridScrollPos = localStorage.getItem("hiddenGridScrollPosition");
+        const savedListScrollPos = localStorage.getItem("hiddenListScrollPosition");
 
         if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
             const scrollPosition = parseInt(savedGridScrollPos, 10);
@@ -70,7 +70,7 @@ export default function WishlistView({ data }: wishlistViewProps) {
     return (
         <div className="absolute flex h-full w-full flex-col justify-center">
             <div className="mx-5 flex items-center justify-between p-2 text-xl font-bold tracking-wide">
-                <div className="flex items-center gap-2">Wishlist</div>
+                <div className="flex items-center gap-2">Hidden Games</div>
                 <div className="flex gap-2">
                     <Button
                         className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
@@ -116,7 +116,7 @@ export default function WishlistView({ data }: wishlistViewProps) {
                                     cover={item.CoverArtPath}
                                     uid={item.UID}
                                     platform={item.OwnedPlatform}
-                                    hidden={false}
+                                    hidden={true}
                                 />
                             );
                         }

@@ -15,6 +15,8 @@ import GameView from "./GameView/GameView";
 import LibraryView from "./LibraryView/LibraryView";
 import WishlistView from "./WishlistView/WishlistView";
 import WishlistDialog from "./Dialogs/WishListDialog";
+import HiddenView from "./HiddenView/HiddenView";
+import { Item } from "@radix-ui/react-dropdown-menu";
 
 export default function App() {
     const {
@@ -36,6 +38,7 @@ export default function App() {
     } = useSortContext();
     const [dataArray, setDataArray] = useState<any[]>([]); // Track dataArray in local state\
     const [wishlistArray, setWishlistArray] = useState<any[]>([]); // Track dataArray in local state\
+    const [hiddenArray, setHiddenArray] = useState<any[]>([]); // Track dataArray in local state\
     const [integrationsPreviouslyOpened, setIntegrationsPreviouslyOpened] =
         useState<boolean>(false);
     const [wishListAddDialogPreviouslyOpened, setWishlistAddDialogPreviouslyOpened] =
@@ -52,19 +55,31 @@ export default function App() {
             const json = await response.json();
             console.log(json);
 
-            const filteredLibraryGames = Object.values(json.MetaData).filter(
-                (item: any) => item.isDLC === 0
-            );
+            // Extract the Hidden UIDs
+            const hiddenUIDs = json.HiddenUIDs || [];
+
+            // Filter out games with Hidden UIDs and separate them into hiddenArray
+            const filteredLibraryGames = Object.values(json.MetaData).filter((item: any) => {
+                return item.isDLC === 0 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
+            });
+
+            const filteredWishlistGames = Object.values(json.MetaData).filter((item: any) => {
+                return item.isDLC === 1 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
+            });
+
+            const hiddenGames = Object.values(json.MetaData).filter((item: any) =>
+                hiddenUIDs.includes(item.UID)
+            ); // Include games with hidden UIDs
+
+            // Update state with filtered data
             setDataArray(filteredLibraryGames);
             setMetaData(json.MetaData);
             setSortOrder(json.SortOrder);
             setSortType(json.SortType);
             setTileSize(json.Size);
 
-            const filteredWishlistGames = Object.values(json.MetaData).filter(
-                (item: any) => item.isDLC === 1
-            );
             setWishlistArray(filteredWishlistGames);
+            setHiddenArray(hiddenGames); // Store games with hidden UIDs
         } catch (error) {
             console.error(error);
         }
@@ -150,6 +165,9 @@ export default function App() {
                     )}
                     {viewState === "wishlist" && (
                         <Route element={<WishlistView data={wishlistArray} />} path="/" />
+                    )}
+                    {viewState === "hidden" && (
+                        <Route element={<HiddenView data={hiddenArray} />} path="/" />
                     )}
                     <Route element={<GameView />} path="/gameview" />
                 </Routes>

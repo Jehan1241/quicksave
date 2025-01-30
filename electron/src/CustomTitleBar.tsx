@@ -53,7 +53,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
 
     console.log(location.pathname);
-    const handleViewClick = (view: "library" | "wishlist" | "statistics") => {
+    const handleViewClick = (view: "library" | "wishlist" | "hidden") => {
         navigate("/", { replace: true });
         console.log(`${view} View Clicked`);
         setViewState(view);
@@ -75,13 +75,13 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
 
     return (
         <>
-            <div className="flex flex-row w-screen h-screen">
-                <div className="flex flex-col w-14 h-full">
-                    <div className="flex m-auto w-14 h-12">
-                        <QuicksaveMenu />
+            <div className="flex h-screen w-screen flex-row">
+                <div className="flex h-full w-14 flex-col">
+                    <div className="m-auto flex h-12 w-14">
+                        <QuicksaveMenu handleViewClick={handleViewClick} />
                     </div>
-                    <div className="w-14 h-full">
-                        <div className="flex flex-col gap-4 justify-start items-center my-4 align-middle">
+                    <div className="h-full w-14">
+                        <div className="my-4 flex flex-col items-center justify-start gap-4 align-middle">
                             <Button
                                 variant={"ghost"}
                                 onClick={() => handleViewClick("library")}
@@ -102,24 +102,14 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                                     size={22}
                                 />
                             </Button>
-                            <Button
-                                variant={"ghost"}
-                                onClick={() => handleViewClick("statistics")}
-                                className={`group h-auto hover:bg-transparent ${viewState === "statistics" && location.pathname === "/" ? "rounded-none border-r-2 border-white" : ""}`}
-                            >
-                                <ListCollapse
-                                    className={`group-hover:scale-125 ${viewState === "statistics" ? "scale-150 group-hover:scale-150" : ""}`}
-                                    size={22}
-                                />
-                            </Button>
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col w-full h-full">
-                    <div className="flex flex-row bg">
-                        <div className="flex flex-row justify-between p-1 w-full h-10">
-                            <div className="flex flex-row w-full">
-                                <div className="flex-1 h-full draglayer"></div>
+                <div className="flex h-full w-full flex-col">
+                    <div className="bg flex flex-row">
+                        <div className="flex h-10 w-full flex-row justify-between p-1">
+                            <div className="flex w-full flex-row">
+                                <div className="draglayer h-full flex-1"></div>
                                 <div className="relative flex h-full w-[50rem] max-w-[60vw] flex-row gap-3">
                                     <Input
                                         onChange={(e) => {
@@ -140,14 +130,14 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                                         onClick={() => {
                                             setFilterDialogOpen(!filterDialogOpen);
                                         }}
-                                        className="my-auto w-8 h-8"
+                                        className="my-auto h-8 w-8"
                                     >
                                         <Filter size={18} strokeWidth={1} />
                                     </Button>
                                     <Button
                                         onClick={() => setRandomGameClicked(true)}
                                         variant={"outline"}
-                                        className="my-auto w-8 h-8"
+                                        className="my-auto h-8 w-8"
                                     >
                                         <Dices size={18} strokeWidth={1} />
                                     </Button>
@@ -161,7 +151,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                                         max={80}
                                     />
                                 </div>
-                                <div className="flex-1 h-full draglayer"></div>
+                                <div className="draglayer h-full flex-1"></div>
                             </div>
 
                             <WindowButtons />
@@ -169,7 +159,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                     </div>
                     <div
                         draggable={false}
-                        className="relative w-full h-full rounded-tl-xl bg-black/50"
+                        className="relative h-full w-full rounded-tl-xl bg-black/50"
                     >
                         {children}
                     </div>
@@ -227,12 +217,12 @@ function WindowButtons() {
     );
 }
 
-function QuicksaveMenu() {
+function QuicksaveMenu({ handleViewClick }: any) {
     const { setIsAddGameDialogOpen, setIsIntegrationsDialogOpen, setIsWishlistAddDialogOpen } =
         useSortContext();
 
     return (
-        <div className="flex justify-center items-center w-16">
+        <div className="flex w-16 items-center justify-center">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant={"ghost"} className="group hover:bg-transparent">
@@ -263,7 +253,22 @@ function QuicksaveMenu() {
                             Settings
                             <DropdownMenuShortcut>F4</DropdownMenuShortcut>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>View</DropdownMenuItem>
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onClick={() => handleViewClick("library")}>
+                                        Library
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleViewClick("wishlist")}>
+                                        Wishlist
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleViewClick("hidden")}>
+                                        Hidden Games
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                        </DropdownMenuSub>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
@@ -322,7 +327,7 @@ function SortGames() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant={"outline"} className="my-auto w-8 h-8 f">
+                <Button variant={"outline"} className="f my-auto h-8 w-8">
                     <ArrowDownWideNarrow size={18} strokeWidth={1} />
                 </Button>
             </DropdownMenuTrigger>
@@ -330,7 +335,7 @@ function SortGames() {
                 <DropdownMenuLabel className="select-none">Sort Games</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                    <div className="flex flex-col text-sm select-none">
+                    <div className="flex select-none flex-col text-sm">
                         <div className="flex flex-col text-sm">
                             <Button
                                 className={`${sortOrder === "ASC" ? "underline underline-offset-4" : ""} h-8 justify-start border-none bg-popover pl-2`}
@@ -618,13 +623,13 @@ function FilterGames({ filterDialogOpen, setFilterDialogOpen }: any) {
                 <SheetHeader>
                     <SheetTitle>Filter</SheetTitle>
                 </SheetHeader>
-                <div className="flex flex-col gap-4 my-4">
+                <div className="my-4 flex flex-col gap-4">
                     <div>
                         <Button className="w-full" variant={"outline"} onClick={clearAllFilters}>
                             Clear All Filter
                         </Button>
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Platform</Label>
 
                         <MultipleSelector
@@ -636,11 +641,11 @@ function FilterGames({ filterDialogOpen, setFilterDialogOpen }: any) {
                             hidePlaceholderWhenSelected={true}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-sm text-center">no results found.</p>
+                                <p className="text-center text-sm">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Name</Label>
 
                         <MultipleSelector
@@ -652,11 +657,11 @@ function FilterGames({ filterDialogOpen, setFilterDialogOpen }: any) {
                             hidePlaceholderWhenSelected={true}
                             placeholder="Select Name"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Tags</Label>
 
                         <MultipleSelector
@@ -668,22 +673,22 @@ function FilterGames({ filterDialogOpen, setFilterDialogOpen }: any) {
                             hidePlaceholderWhenSelected={true}
                             placeholder="Select Tags"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Release Year</Label>
 
                         <MultipleSelector
                             defaultOptions={OPTIONS}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Developer</Label>
 
                         <MultipleSelector
@@ -695,48 +700,48 @@ function FilterGames({ filterDialogOpen, setFilterDialogOpen }: any) {
                             hidePlaceholderWhenSelected={true}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Time Played</Label>
 
                         <MultipleSelector
                             defaultOptions={OPTIONS}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Completion Status</Label>
 
                         <MultipleSelector
                             defaultOptions={OPTIONS}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-row gap-4 items-center">
+                    <div className="flex flex-row items-center gap-4">
                         <Label className="w-32 text-center">Installation Status</Label>
 
                         <MultipleSelector
                             defaultOptions={OPTIONS}
                             placeholder="Select Platforms"
                             emptyIndicator={
-                                <p className="text-lg leading-10 text-center">no results found.</p>
+                                <p className="text-center text-lg leading-10">no results found.</p>
                             }
                         />
                     </div>
-                    <div className="flex flex-col gap-2 mx-2">
-                        <div className="flex gap-2 items-center">
+                    <div className="mx-2 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
                             <Checkbox /> Include Hidden Games
                         </div>
-                        <div className="flex gap-2 items-center">
+                        <div className="flex items-center gap-2">
                             <Checkbox /> Favorite Only
                         </div>
                     </div>
