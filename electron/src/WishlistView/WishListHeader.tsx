@@ -1,0 +1,34 @@
+import { Button } from "@/components/ui/button";
+import { useSortContext } from "@/SortContext";
+import { Grid2X2, ListIcon } from "lucide-react";
+import React from "react";
+
+export default function WishListHeader({ view, setView }: any) {
+    return (
+        <div className="mx-5 flex items-center justify-between p-2 text-xl font-bold tracking-wide">
+            <div className="flex items-center gap-2">Wishlist</div>
+            <div className="flex gap-2">
+                <Button
+                    className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
+                    onClick={() => {
+                        setView("grid");
+                        sessionStorage.setItem("layout", "grid");
+                    }}
+                    variant={"ghost"}
+                >
+                    <Grid2X2 strokeWidth={1.7} size={20} />
+                </Button>
+                <Button
+                    className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
+                    onClick={() => {
+                        setView("list");
+                        sessionStorage.setItem("layout", "list");
+                    }}
+                    variant={"ghost"}
+                >
+                    <ListIcon size={20} />
+                </Button>
+            </div>
+        </div>
+    );
+}

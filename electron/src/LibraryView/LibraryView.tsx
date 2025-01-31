@@ -1,358 +1,276 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import GridMaker from "./GridMaker";
 import { useSortContext } from "@/SortContext";
 import { ChevronDown, ChevronUp, Grid2X2, ListIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DetialsMaker from "@/LibraryView/DetailsMaker";
+import useIntersectionObserver from "@/hooks/useIntersectionObserver";
+import LibraryHeader from "./ViewHeader";
+import GridView from "./GridView";
+import ListView from "./ListView";
+import ViewHeader from "./ViewHeader";
 interface libraryViewProps {
     data: any[];
 }
 
-// export default function LibraryView({ data }: libraryViewProps) {
-//     const gridScrollRef = useRef<HTMLDivElement | null>(null);
-//     const listScrollRef = useRef<HTMLDivElement | null>(null);
-//     const gridScrollPositionRef = useRef(0);
-//     const listScrollPositionRef = useRef(0);
-//     const [view, setView] = useState<string | null>(null);
-
-//     const { searchText, sortType, sortOrder, setSortOrder, setSortType, setSortStateUpdate } =
-//         useSortContext();
-
-//     const handleSortChange = (incomingSort: string) => {
-//         if (incomingSort != sortType) {
-//             setSortType(incomingSort);
-//         } else {
-//             if (sortOrder == "ASC") {
-//                 setSortOrder("DESC");
-//             }
-//             if (sortOrder == "DESC") {
-//                 setSortOrder("ASC");
-//             }
-//         }
-//         setSortStateUpdate(true);
-//     };
-
-
-    
-
-//     const scrollHandler = () => {
-//         if (gridScrollRef.current) {
-//             const currentScrollPos = gridScrollRef.current.scrollTop;
-//             gridScrollPositionRef.current = currentScrollPos
-//         }
-
-//         if (listScrollRef.current) {
-//             const currentScrollPos = listScrollRef.current.scrollTop;
-//             listScrollPositionRef.current = currentScrollPos
-//         }
-//     };
-
-
-//     useEffect(() => {
-//         const savedGridScrollPos = sessionStorage.getItem("libraryGridScrollPosition");
-//         const savedListScrollPos = sessionStorage.getItem("libraryListScrollPosition");
-
-//         if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
-//             const scrollPosition = parseInt(savedGridScrollPos, 10);
-//             gridScrollRef.current.scrollTop = scrollPosition;
-//         } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
-//             const scrollPosition = parseInt(savedListScrollPos, 10);
-//             listScrollRef.current.scrollTop = scrollPosition;
-//         }
-//         const layout = sessionStorage.getItem("layout");
-//         if (layout) {
-//             setView(layout);
-//         } else {
-//             setView("grid");
-//         }
-
-//         return () => {
-//             if (view === "grid") {
-//                 sessionStorage.setItem(
-//                     "libraryGridScrollPosition",
-//                     gridScrollPositionRef.current.toString()
-//                 );
-//             }
-//             if (view === "list"){
-//                 sessionStorage.setItem(
-//                     "libraryListScrollPosition",
-//                     listScrollPositionRef.current.toString()
-//                 );
-//             }
-//         };
-
-//     }, [view]);
-
-
-//     return (
-//         <>
-//             <div className="flex absolute flex-col justify-center w-full h-full">
-//                 <div className="flex justify-between items-center p-2 mx-5 text-xl font-bold tracking-wide">
-//                     <div className="flex gap-2 items-center">Library</div>
-//                     <div className="flex gap-2">
-//                         <Button
-//                             className={`h-8 w-8 ${view === "grid" ? "border-2 border-border" : ""}`}
-//                             onClick={() => {
-//                                 setView("grid");
-//                                 sessionStorage.setItem("layout", "grid");
-//                             }}
-//                             variant={"ghost"}
-//                         >
-//                             <Grid2X2 strokeWidth={1.7} size={20} />
-//                         </Button>
-//                         <Button
-//                             className={`h-8 w-8 ${view === "list" ? "border-2 border-border" : ""}`}
-//                             onClick={() => {
-//                                 setView("list");
-//                                 sessionStorage.setItem("layout", "list");
-//                             }}
-//                             variant={"ghost"}
-//                         >
-//                             <ListIcon size={20} />
-//                         </Button>
-//                     </div>
-//                 </div>
-//                 {view === "grid" && (
-//                     <div
-//                         onScroll={scrollHandler}
-//                         ref={gridScrollRef}
-//                         className="flex overflow-y-auto flex-wrap gap-8 justify-center pt-4 pb-10 w-full h-full select-none"
-//                     >
-//                         {data.map((item, key) => {
-//                             const cleanedName = item.Name.toLowerCase()
-//                                 .replace("'", "")
-//                                 .replace("’", "")
-//                                 .replace("®", "")
-//                                 .replace("™", "")
-//                                 .replace(":", "");
-//                             if (
-//                                 cleanedName.includes(
-//                                     searchText.replace("'", "").toLocaleLowerCase()
-//                                 )
-//                             ) {
-//                                 return (
-//                                     <GridMaker
-//                                         cleanedName={cleanedName}
-//                                         key={item.UID}
-//                                         name={item.Name}
-//                                         cover={item.CoverArtPath}
-//                                         uid={item.UID}
-//                                         platform={item.OwnedPlatform}
-//                                         hidden={false}
-//                                     />
-//                                 );
-//                             }
-//                         })}
-//                     </div>
-//                 )}
-//                 {view === "list" && (
-//                     <div
-//                         onScroll={scrollHandler}
-//                         ref={listScrollRef}
-//                         className="overflow-y-auto pt-4 mb-5 w-full h-full select-none"
-//                     >
-//                         <div className="flex gap-4 justify-between px-5 mx-10 h-10 rounded-sm bg-background">
-//                             <div className="flex justify-center items-center w-1/4">
-//                                 <Button
-//                                     onClick={() => {
-//                                         handleSortChange("CustomTitle");
-//                                     }}
-//                                     variant={"ghost"}
-//                                     className="w-full h-8"
-//                                 >
-//                                     Title
-//                                     {sortType == "CustomTitle" && sortOrder == "DESC" && (
-//                                         <ChevronDown className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                     {sortType == "CustomTitle" && sortOrder == "ASC" && (
-//                                         <ChevronUp className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                 </Button>
-//                             </div>
-//                             <div className="flex justify-center items-center w-60 text-center bg-transparent">
-//                                 <Button
-//                                     onClick={() => {
-//                                         handleSortChange("OwnedPlatform");
-//                                     }}
-//                                     variant={"ghost"}
-//                                     className="w-full h-8"
-//                                 >
-//                                     Platform
-//                                     {sortType == "OwnedPlatform" && sortOrder == "DESC" && (
-//                                         <ChevronDown size={22} strokeWidth={0.9} />
-//                                     )}
-//                                     {sortType == "OwnedPlatform" && sortOrder == "ASC" && (
-//                                         <ChevronUp size={22} strokeWidth={0.9} />
-//                                     )}
-//                                 </Button>
-//                             </div>
-//                             <div className="flex justify-center items-center w-60 text-center">
-//                                 <Button
-//                                     variant={"ghost"}
-//                                     className="w-full h-8"
-//                                     onClick={() => {
-//                                         handleSortChange("CustomRating");
-//                                     }}
-//                                 >
-//                                     Rating
-//                                     {sortType == "CustomRating" && sortOrder == "DESC" && (
-//                                         <ChevronDown className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                     {sortType == "CustomRating" && sortOrder == "ASC" && (
-//                                         <ChevronUp className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                 </Button>
-//                             </div>
-//                             <div className="flex justify-center items-center w-60 text-center cursor-pointer">
-//                                 <Button
-//                                     onClick={() => {
-//                                         handleSortChange("CustomTimePlayed");
-//                                     }}
-//                                     variant={"ghost"}
-//                                     className="w-full h-8"
-//                                 >
-//                                     Hours Played
-//                                     {sortType == "CustomTimePlayed" && sortOrder == "DESC" && (
-//                                         <ChevronDown className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                     {sortType == "CustomTimePlayed" && sortOrder == "ASC" && (
-//                                         <ChevronUp className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                 </Button>
-//                             </div>
-//                             <div className="flex justify-center items-center w-60 text-center">
-//                                 <Button
-//                                     onClick={() => {
-//                                         handleSortChange("CustomReleaseDate");
-//                                     }}
-//                                     variant={"ghost"}
-//                                     className="w-full h-8"
-//                                 >
-//                                     Release Date
-//                                     {sortType == "CustomReleaseDate" && sortOrder == "DESC" && (
-//                                         <ChevronDown className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                     {sortType == "CustomReleaseDate" && sortOrder == "ASC" && (
-//                                         <ChevronUp className="mx-2" size={22} strokeWidth={0.9} />
-//                                     )}
-//                                 </Button>
-//                             </div>
-//                         </div>
-//                         {data.map((item, key) => {
-//                             const cleanedName = item.Name.toLowerCase()
-//                                 .replace("'", "")
-//                                 .replace("’", "")
-//                                 .replace("®", "")
-//                                 .replace("™", "")
-//                                 .replace(":", "");
-//                             if (
-//                                 cleanedName.includes(
-//                                     searchText.replace("'", "").toLocaleLowerCase()
-//                                 )
-//                             ) {
-//                                 return (
-//                                     <DetialsMaker
-//                                         cleanedName={cleanedName}
-//                                         key={item.UID}
-//                                         name={item.Name}
-//                                         cover={item.CoverArtPath}
-//                                         uid={item.UID}
-//                                         platform={item.OwnedPlatform}
-//                                         timePlayed={item.TimePlayed}
-//                                         rating={item.AggregatedRating}
-//                                         releaseDate={item.ReleaseDate}
-//                                     />
-//                                 );
-//                             }
-//                         })}
-//                     </div>
-//                 )}
-//             </div>
-//         </>
-//     );
-// }
-
-
-
-
 export default function LibraryView({ data }: libraryViewProps) {
-    const {tileSize} = useSortContext();
-    const height = 16*tileSize/11
-    const gridScrollRef = useRef<HTMLDivElement | null>(null);
-    const [visibleItems, setVisibleItems] = useState<string[]>([]); // Track visible items
+    const gridScrollPositionRef = useRef(0);
+    const listScrollPositionRef = useRef(0);
+    const listScrollRef = useRef<HTMLDivElement | null>(null);
+    const [view, setView] = useState<string | null>(null);
+    const { visibleItems, gridScrollRef } = useIntersectionObserver(data, view);
 
-    // Intersection Observer logic to detect when items are in the viewport
-    const observer = useRef<IntersectionObserver | null>(null);
+    const scrollHandler = () => {
+        if (gridScrollRef.current) {
+            const currentScrollPos = gridScrollRef.current.scrollTop;
+            gridScrollPositionRef.current = currentScrollPos;
+        }
+
+        if (listScrollRef.current) {
+            const currentScrollPos = listScrollRef.current.scrollTop;
+            listScrollPositionRef.current = currentScrollPos;
+        }
+    };
 
     useEffect(() => {
-        console.log("AAA")
-        const options = {
-            root: gridScrollRef.current, // Observe inside the gridScroll container
-            rootMargin: "500px", // A buffer to preload items before they enter view
-            threshold: 0.1, // Trigger when 10% of the element is visible
-        };
+        const savedGridScrollPos = sessionStorage.getItem("libraryGridScrollPosition");
+        const savedListScrollPos = sessionStorage.getItem("libraryListScrollPosition");
 
-        observer.current = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                const { id } = entry.target as HTMLElement;
-                if (entry.isIntersecting) {
-                    setVisibleItems((prev) => [...prev, id]);
-                } else {
-                    setVisibleItems((prev) => prev.filter((item) => item !== id));
-                }
-            });
-        }, options);
-
-        // Start observing each item
-        data.forEach((_, index) => {
-            const element = document.getElementById(`item-${index}`);
-            if (element && observer.current) {
-                observer.current.observe(element);
-            }
-        });
+        if (view === "grid" && savedGridScrollPos !== null && gridScrollRef.current) {
+            const scrollPosition = parseInt(savedGridScrollPos, 10);
+            gridScrollRef.current.scrollTop = scrollPosition;
+        } else if (view === "list" && savedListScrollPos !== null && listScrollRef.current) {
+            const scrollPosition = parseInt(savedListScrollPos, 10);
+            listScrollRef.current.scrollTop = scrollPosition;
+        }
+        const layout = sessionStorage.getItem("layout");
+        if (layout) {
+            setView(layout);
+        } else {
+            setView("grid");
+        }
 
         return () => {
-            observer.current?.disconnect();
+            if (view === "grid") {
+                sessionStorage.setItem(
+                    "libraryGridScrollPosition",
+                    gridScrollPositionRef.current.toString()
+                );
+            }
+            if (view === "list") {
+                sessionStorage.setItem(
+                    "libraryListScrollPosition",
+                    listScrollPositionRef.current.toString()
+                );
+            }
         };
-    }, [data]);
+    }, [view]);
 
     return (
-        <div className="flex flex-col justify-center w-full h-full">
-            <div
-                ref={gridScrollRef}
-                className="absolute flex overflow-y-auto flex-wrap gap-8 justify-center pt-4 pb-10 w-full h-full select-none"
-            >
-                {data.map((item, index) => {
-                    const cleanedName = item.Name.toLowerCase()
-                        .replace("'", "")
-                        .replace("’", "")
-                        .replace("®", "")
-                        .replace("™", "")
-                        .replace(":", "");
-
-                    return (
-                        <div
-                            key={item.UID}
-                            id={`item-${index}`}
-                            style={{
-                                width: tileSize*6.5,
-                                height: height*6.5,
-                            }}
-                        >
-                            {visibleItems.includes(`item-${index}`) && (
-                                <GridMaker
-                                    cleanedName={cleanedName}
-                                    name={item.Name}
-                                    cover={item.CoverArtPath}
-                                    uid={item.UID}
-                                    platform={item.OwnedPlatform}
-                                    hidden={false}
-                                />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+        <div className="absolute flex h-full w-full flex-col justify-center">
+            <ViewHeader view={view} setView={setView} text={"Library"} />
+            {view === "grid" && (
+                <GridView
+                    data={data}
+                    scrollHandler={scrollHandler}
+                    gridScrollRef={gridScrollRef}
+                    visibleItems={visibleItems}
+                />
+            )}
+            {view === "list" && (
+                <ListView
+                    onScroll={onscroll}
+                    listScrollRef={listScrollRef}
+                    scrollHandler={scrollHandler}
+                    data={data}
+                />
+            )}
         </div>
     );
 }
+
+// export default function LibraryView({ data }: libraryViewProps) {
+//     const { tileSize } = useSortContext();
+//     const tileSizeInt = Number(tileSize / 30);
+//     const style = {
+//         width: `calc(11rem * ${tileSizeInt})`,
+//         height: `calc(16rem * ${tileSizeInt})`,
+//     };
+//     const { visibleItems, gridScrollRef } = useIntersectionObserver(data);
+
+//     return (
+//         <div className="flex h-full w-full flex-col justify-center">
+//             <div
+//                 ref={gridScrollRef}
+//                 className="absolute flex h-full w-full select-none flex-wrap justify-center gap-8 overflow-y-auto pb-10 pt-4"
+//             >
+//                 {data.map((item, index) => {
+//                     const cleanedName = item.Name.toLowerCase()
+//                         .replace("'", "")
+//                         .replace("’", "")
+//                         .replace("®", "")
+//                         .replace("™", "")
+//                         .replace(":", "");
+
+//                     const itemId = `item-${index}`;
+
+//                     return (
+//                         <div
+//                             key={item.UID}
+//                             id={itemId}
+//                             className="flex items-center justify-center"
+//                             style={style}
+//                         >
+//                             {visibleItems.has(itemId) && (
+//                                 <GridMaker
+//                                     cleanedName={cleanedName}
+//                                     name={item.Name}
+//                                     cover={item.CoverArtPath}
+//                                     uid={item.UID}
+//                                     platform={item.OwnedPlatform}
+//                                     hidden={false}
+//                                     style={style}
+//                                 />
+//                             )}
+//                         </div>
+//                     );
+//                 })}
+//             </div>
+//         </div>
+//     );
+// }
+
+// export default function LibraryView({ data }: libraryViewProps) {
+//     const { tileSize } = useSortContext();
+//     const tileSizeInt = Number(tileSize / 30);
+//     const tileWidth = 11 * 16 * tileSizeInt; // Width of each tile
+//     const tileHeight = 16 * 16 * tileSizeInt; // Height of each tile
+//     const gap = 16; // Gap between tiles
+
+//     const [visibleTiles, setVisibleTiles] = useState<number[]>([]);
+//     const gridScrollRef = useRef<HTMLDivElement | null>(null);
+
+//     // Define a buffer size (e.g., 2 rows above and below)
+//     const bufferRows = 3;
+
+//     // Calculate the number of tiles per row based on the container width
+//     const calculateTilesPerRow = useCallback(() => {
+//         if (!gridScrollRef.current) return 0;
+//         const containerWidth = gridScrollRef.current.clientWidth;
+//         const tilesPerRow = Math.floor(containerWidth / (tileWidth + gap));
+//         return tilesPerRow;
+//     }, [tileWidth, gap]);
+
+//     // Calculate the visible tiles based on the scroll position
+//     const calculateVisibleTiles = useCallback(() => {
+//         if (!gridScrollRef.current) return;
+
+//         const container = gridScrollRef.current;
+//         const { scrollTop, clientHeight } = container;
+//         const tilesPerRow = calculateTilesPerRow();
+
+//         if (tilesPerRow === 0) return;
+
+//         // Calculate the start and end rows based on the scroll position
+//         const startRow = Math.max(0, Math.floor(scrollTop / tileHeight) - bufferRows);
+//         const endRow = Math.ceil((scrollTop + clientHeight) / tileHeight) + bufferRows;
+//         // console.log(startRow, endRow);
+
+//         // Calculate the start and end indices of the visible tiles
+//         const startIndex = startRow * tilesPerRow;
+//         const endIndex = endRow * tilesPerRow + tilesPerRow;
+
+//         setVisibleTiles(Array.from({ length: endIndex - startIndex }, (_, i) => startIndex + i));
+//     }, [tileHeight, calculateTilesPerRow, bufferRows]);
+
+//     // Attach a scroll event listener to the container
+//     useEffect(() => {
+//         const scrollContainer = gridScrollRef.current;
+//         if (!scrollContainer) return;
+
+//         calculateVisibleTiles();
+//         scrollContainer.addEventListener("scroll", calculateVisibleTiles);
+
+//         return () => {
+//             scrollContainer.removeEventListener("scroll", calculateVisibleTiles);
+//         };
+//     }, [calculateVisibleTiles]);
+
+//     // Handle window resize
+//     useEffect(() => {
+//         const handleResize = () => {
+//             calculateVisibleTiles(); // Recalculate visible tiles when window is resized
+//         };
+
+//         window.addEventListener("resize", handleResize);
+
+//         return () => {
+//             window.removeEventListener("resize", handleResize);
+//         };
+//     }, [calculateVisibleTiles]);
+
+//     // Adjust the visible tiles when the data or container size changes
+//     useEffect(() => {
+//         calculateVisibleTiles();
+//     }, [data, calculateVisibleTiles]);
+
+//     // Calculate the total height of the scrollable container
+//     const tilesPerRow = calculateTilesPerRow();
+//     const totalRows = Math.ceil(data.length / tilesPerRow);
+//     const totalHeight = totalRows * tileHeight + (totalRows - 1) * gap;
+
+//     return (
+//         <div className="flex h-full w-full flex-col justify-center">
+//             <div
+//                 ref={gridScrollRef}
+//                 className="absolute w-full overflow-y-auto"
+//                 style={{ height: "100%" }}
+//             >
+//                 <div
+//                     style={{
+//                         height: `${totalHeight}px`,
+//                         position: "relative",
+//                     }}
+//                 >
+//                     {visibleTiles.map((index) => {
+//                         if (index >= data.length) return null;
+
+//                         const item = data[index];
+//                         const cleanedName = item.Name.toLowerCase()
+//                             .replace("'", "")
+//                             .replace("’", "")
+//                             .replace("®", "")
+//                             .replace("™", "")
+//                             .replace(":", "");
+
+//                         const row = Math.floor(index / tilesPerRow);
+//                         const col = index % tilesPerRow;
+
+//                         return (
+//                             <div
+//                                 key={item.UID}
+//                                 style={{
+//                                     position: "absolute",
+//                                     top: `${row * (tileHeight + gap)}px`,
+//                                     left: `${col * (tileWidth + gap)}px`,
+//                                     width: `${tileWidth}px`,
+//                                     height: `${tileHeight}px`,
+//                                 }}
+//                             >
+//                                 <GridMaker
+//                                     cleanedName={cleanedName}
+//                                     name={item.Name}
+//                                     cover={item.CoverArtPath}
+//                                     uid={item.UID}
+//                                     platform={item.OwnedPlatform}
+//                                     hidden={false}
+//                                     style={{ width: tileWidth, height: tileHeight }}
+//                                 />
+//                             </div>
+//                         );
+//                     })}
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }

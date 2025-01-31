@@ -45,6 +45,7 @@ function createWindow() {
     }
 }
 
+app.disableHardwareAcceleration();
 app.whenReady().then(createWindow);
 
 //osX only

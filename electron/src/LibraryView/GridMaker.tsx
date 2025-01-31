@@ -9,6 +9,7 @@ interface GridMakerProps {
     uid: string;
     platform: string;
     hidden: boolean;
+    style: any;
 }
 
 export default function GridMaker({
@@ -18,24 +19,17 @@ export default function GridMaker({
     uid,
     platform,
     hidden,
+    style,
 }: GridMakerProps) {
-    let { tileSize } = useSortContext(); // Access context
-    let tileSizeInt = Number(tileSize);
-
+    console.log("print");
     const [imageError, setImageError] = useState(false);
     const navigate = useNavigate();
-    tileSizeInt = tileSizeInt / 30; // Calculate tile size
 
     const tileClickHandler = () => {
         console.log(uid);
         navigate(`gameview`, {
             state: { data: uid, hidden: hidden },
         });
-    };
-
-    const style = {
-        width: `calc(11rem * ${tileSizeInt})`,
-        height: `calc(16rem * ${tileSizeInt})`,
     };
 
     return (
@@ -50,6 +44,7 @@ export default function GridMaker({
                     src={`http://localhost:8080/cover-art/${cover}`}
                     onError={() => setImageError(true)}
                     draggable="false"
+                    loading="eager"
                 />
             ) : (
                 <div
