@@ -134,6 +134,7 @@ export default function ListView({ listScrollRef, scrollHandler, data }: any) {
                             timePlayed={item.TimePlayed}
                             rating={item.AggregatedRating}
                             releaseDate={item.ReleaseDate}
+                            hidden={false}
                         />
                     );
                 }

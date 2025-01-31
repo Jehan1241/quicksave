@@ -40,6 +40,7 @@ import {
 export default function GameView() {
     const location = useLocation();
     const uid = location.state.data;
+    const preloadData = location.state.preloadData;
     const hidden = location.state.hidden;
     const [companies, setCompanies] = useState("");
     const [customizeClicked, setCustomizeClicked] = useState(false);
@@ -53,23 +54,28 @@ export default function GameView() {
 
     // Its on UID change to accomodate randomGamesClicked
     useEffect(() => {
-        fetchData();
+        console.log("dataa", preloadData);
+        setCompanies(preloadData.companies);
+        setTags(preloadData.tags);
+        setMetadata(preloadData.metadata);
+        setScreenshots(preloadData.screenshots);
+        //fetchData();
     }, [uid]);
 
     const fetchData = async () => {
-        try {
-            console.log("Sending Get Game Details");
-            const response = await fetch(`http://localhost:8080/GameDetails?uid=${uid}`);
-            const json = await response.json();
-            console.log(json);
-            const { companies, tags, screenshots, m: metadata } = json.metadata;
-            setCompanies(companies[uid]);
-            setTags(tags[uid]);
-            setMetadata(metadata[uid]);
-            setScreenshots(screenshots[uid] || []); // Make sure it's an array
-        } catch (error) {
-            console.error(error);
-        }
+        // try {
+        //     console.log("Sending Get Game Details");
+        //     const response = await fetch(`http://localhost:8080/GameDetails?uid=${uid}`);
+        //     const json = await response.json();
+        //     console.log(json);
+        //     const { companies, tags, screenshots, m: metadata } = json.metadata;
+        //     setCompanies(companies[uid]);
+        //     setTags(tags[uid]);
+        //     setMetadata(metadata[uid]);
+        //     setScreenshots(screenshots[uid] || []); // Make sure it's an array
+        // } catch (error) {
+        //     console.error(error);
+        // }
     };
 
     const tagsArray = Object.values(tags);

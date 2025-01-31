@@ -1,11 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import GridMaker from "@/LibraryView/GridMaker";
-import { useSortContext } from "@/SortContext";
-import { ChevronDown, ChevronUp, Grid2X2, ListIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import DetialsMaker from "@/LibraryView/DetailsMaker";
 import useIntersectionObserver from "@/hooks/useIntersectionObserver";
-import WishListHeader from "./WishListHeader";
 import GridView from "@/LibraryView/GridView";
 import ListView from "@/LibraryView/ListView";
 import ViewHeader from "@/LibraryView/ViewHeader";
