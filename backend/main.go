@@ -4,22 +4,31 @@ import (
 	"bytes"
 	"crypto/md5"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
+	_ "golang.org/x/image/webp"
+
 	_ "modernc.org/sqlite"
 
+	"github.com/HugoSmits86/nativewebp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -32,21 +41,48 @@ func bail(err error) {
 
 func main() {
 	checkAndCreateDB()
+	checkAndCreateFolders()
 	startSSEListener()
 	routing()
 }
 
+func checkAndCreateFolders() {
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Println("failed to get executable path: %w", err)
+	}
+	exeDir := filepath.Dir(exePath)
+
+	// Define folder paths
+	coverArtPath := filepath.Join(exeDir, "coverArt")
+	screenshotsPath := filepath.Join(exeDir, "screenshots")
+
+	// Check and create "coverArt" if it doesn't exist
+	if _, err := os.Stat(coverArtPath); os.IsNotExist(err) {
+		if err := os.Mkdir(coverArtPath, os.ModePerm); err != nil {
+			fmt.Println("failed to create coverArt folder: %w", err)
+		}
+	}
+
+	// Check and create "screenshots" if it doesn't exist
+	if _, err := os.Stat(screenshotsPath); os.IsNotExist(err) {
+		if err := os.Mkdir(screenshotsPath, os.ModePerm); err != nil {
+			fmt.Println("failed to create screenshots folder: %w", err)
+		}
+	}
+}
+
 func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
 	// Connection string with _txlock=immediate for read
-	connStr := fmt.Sprintf("file:%s?_txlock=immediate", dbFile)
+	connStr := fmt.Sprintf("file:%s?_txlock=deferred", dbFile)
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open read-only database: %v", err)
 	}
 
 	// Set the max open connections for the read database (max(4, NumCPU()))
-	db.SetMaxOpenConns(int(math.Max(4, float64(runtime.NumCPU()))))
-	db.SetMaxIdleConns(int(math.Max(4, float64(runtime.NumCPU()))))
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
 
 	// PRAGMA settings for read connection
 	pragmas := `
@@ -56,7 +92,7 @@ func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
         PRAGMA cache_size = 1000000000;
         PRAGMA foreign_keys = TRUE;
         PRAGMA temp_store = MEMORY;
-		PRAGMA locking_mode=IMMEDIATE;
+		PRAGMA locking_mode=NORMAL;
 		pragma mmap_size = 30000000000;
 		pragma page_size = 32768;
     `
@@ -222,10 +258,6 @@ func createTables(db *sql.DB) {
 	PRIMARY KEY("UUID")
 	);`,
 
-		`CREATE TABLE IF NOT EXISTS "TileSize" (
-	"Size"	TEXT NOT NULL
-	);`,
-
 		`CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
 		"ClientID"	TEXT NOT NULL,
 		"ClientSecret"	TEXT NOT NULL
@@ -313,9 +345,6 @@ func initializeDefaultDBValues(db *sql.DB) {
 	bail(err)
 
 	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
-	bail(err)
-
-	_, err = tx.Exec(`INSERT OR REPLACE INTO TileSize (Size) VALUES ('37')`)
 	bail(err)
 
 	fmt.Println("DB Default Values Initialized.")
@@ -720,18 +749,47 @@ func post(postString string, bodyString string, accessToken string) []byte {
 	return (body)
 }
 func getImageFromURL(getURL string, location string, filename string) {
+	fmt.Println(getURL, location, filename)
 	err := os.MkdirAll(filepath.Dir(location), 0755)
 	bail(err)
-	response, err := http.Get(getURL)
-	bail(err)
-	defer response.Body.Close()
+
+	var img image.Image
+	var response *http.Response
+
+	if strings.HasPrefix(getURL, "data:image") {
+		// Case 1: If getURL is a base64-encoded image data string (starts with "data:image")
+		// Remove the prefix ("data:image/png;base64,") and decode the base64 data
+		encodedData := strings.SplitN(getURL, ",", 2)[1] // Get the base64 part
+		imgData, err := base64.StdEncoding.DecodeString(encodedData)
+		bail(err)
+
+		// Decode the image from the byte slice
+		img, _, _ = image.Decode(bytes.NewReader(imgData))
+	} else if strings.HasPrefix(getURL, "http://") || strings.HasPrefix(getURL, "https://") {
+		// Case 2: If getURL is a URL (starts with "http://" or "https://"), download the image
+		response, err = http.Get(getURL)
+		bail(err)
+		defer response.Body.Close()
+
+		img, _, err = image.Decode(response.Body)
+		fmt.Println(err)
+	} else {
+		// Case 3: If getURL is not a base64 string or URL, assume it's a local file path
+		imgData, err := ioutil.ReadFile(getURL)
+		fmt.Println(err)
+		// Decode the image from the byte slice
+		img, _, err = image.Decode(bytes.NewReader(imgData))
+		fmt.Println(err)
+	}
 
 	file, err := os.Create(location + filename)
 	bail(err)
 	defer file.Close()
 
-	_, err = io.Copy(file, response.Body)
-	bail(err)
+	if img != nil {
+		err = nativewebp.Encode(file, img, nil)
+		fmt.Println(err)
+	}
 }
 
 // MD5HASH
@@ -826,6 +884,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			}
 		}
 	}
+	dbRead.Close()
 
 	dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
 	bail(err)
@@ -841,8 +900,13 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	bail(err)
 	_, err = stmt.Exec(order, "Sort Order")
 	bail(err)
+	dbWrite.Close()
 
 	var tagsFilterSet, devsFilterSet, platsFilterSet, nameFilterSet bool
+
+	dbRead, err = SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
+	defer dbRead.Close()
 
 	// Check FilterTags
 	rows, err := dbRead.Query("SELECT * FROM FilterTags")
@@ -917,13 +981,13 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		`
 	}
 
-	//AND gmd.isDLC = 0
-	// BaseQuery += `
-	// WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-	// `
 	if nameFilterSet {
 		BaseQuery += `
-		WHERE gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1)`
+		WHERE (
+    	(gp.CustomTitle IS NOT NULL AND gp.CustomTitle LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
+    	OR
+    	(gp.CustomTitle IS NULL AND gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
+		)`
 	}
 
 	if tagsFilterSet {
@@ -954,14 +1018,15 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		havingClauses = append(havingClauses, `COUNT(DISTINCT f.Tag) = (SELECT COUNT(*) FROM FilterTags) `)
 	}
 
-	// Conditionally add the HAVING clause for FilterDevs if devFilterSet is true
-	if devsFilterSet {
-		havingClauses = append(havingClauses, `COUNT(DISTINCT d.Dev) = (SELECT COUNT(*) FROM FilterDevs)`)
-	}
+	// Comment this back in if you want to switch to an AND filter
+	// if devsFilterSet {
+	// 	havingClauses = append(havingClauses, `COUNT(DISTINCT d.Dev) = (SELECT COUNT(*) FROM FilterDevs)`)
+	// }
 
-	if platsFilterSet {
-		havingClauses = append(havingClauses, `COUNT(DISTINCT p.Platform) = (SELECT COUNT(*) FROM FilterPlatform)`)
-	}
+	// Comment this back in if you want to switch to an AND filter
+	// if platsFilterSet {
+	// 	havingClauses = append(havingClauses, `COUNT(DISTINCT p.Platform) = (SELECT COUNT(*) FROM FilterPlatform)`)
+	// }
 
 	// If there are any HAVING clauses, join them with 'AND' and add to the query
 	if len(havingClauses) > 0 {
@@ -1076,43 +1141,6 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	metaDataAndSortInfo["HiddenUIDs"] = hiddenUidArr
 
 	return (metaDataAndSortInfo)
-}
-
-func storeSize(FrontEndSize int) int {
-	dbRead, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer dbRead.Close()
-
-	// if frontend size is default then get size from DB
-	if FrontEndSize == -1 {
-		QueryString := "SELECT * FROM TileSize"
-		rows, err := dbRead.Query(QueryString)
-		bail(err)
-		defer rows.Close()
-
-		var NewSize int
-		for rows.Next() {
-			err = rows.Scan(&NewSize)
-			if err != nil {
-				panic(err)
-			}
-		}
-		FrontEndSize = NewSize
-	}
-
-	dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer dbRead.Close()
-
-	QueryString := "UPDATE TileSize SET Size=?"
-	stmt, err := dbWrite.Prepare(QueryString)
-	bail(err)
-	defer stmt.Close()
-
-	_, err = stmt.Exec(FrontEndSize)
-	bail(err)
-
-	return (FrontEndSize)
 }
 
 func getSortOrder() map[string]string {
@@ -1287,7 +1315,40 @@ func getManualGamePath(uid string) string {
 }
 
 func launchGameFromPath(path string) {
-	fmt.Println("Logic to launch game Path : ", path)
+	switch runtime.GOOS {
+	case "windows":
+		// For Windows, use exec.Command to run the .exe file
+		err := exec.Command(path).Start()
+		if err != nil {
+			fmt.Printf("Error launching game on Windows: %s\n", err)
+		} else {
+			fmt.Println("Game launched successfully on Windows!")
+		}
+
+	case "linux":
+		// On Linux, we assume it might be a shell script or other executable
+		// Check if the file is an executable (e.g., .sh or a native binary)
+		if path[len(path)-4:] == ".exe" {
+			// If it's a .exe file, try to run it using Wine (or similar)
+			err := exec.Command("wine", path).Start()
+			if err != nil {
+				fmt.Printf("Error launching Windows game on Linux with Wine: %s\n", err)
+			} else {
+				fmt.Println("Game launched successfully on Linux with Wine!")
+			}
+		} else {
+			// Try to run it as a native Linux executable
+			err := exec.Command(path).Start()
+			if err != nil {
+				fmt.Printf("Error launching game on Linux: %s\n", err)
+			} else {
+				fmt.Println("Game launched successfully on Linux!")
+			}
+		}
+
+	default:
+		fmt.Println("Unsupported platform:", runtime.GOOS)
+	}
 }
 
 func addPathToDB(uid string, path string) {
@@ -1302,6 +1363,26 @@ func addPathToDB(uid string, path string) {
 
 	_, err = preparedStatement.Exec(uid, path)
 	bail(err)
+}
+
+func getGamePath(uid string) string {
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	preparedStatement, err := db.Prepare("SELECT * FROM ManualGameLaunchPath WHERE UID = ?")
+	bail(err)
+	defer preparedStatement.Close()
+
+	rows, err := preparedStatement.Query(uid)
+	bail(err)
+	var path string
+	var dbuid string
+	for rows.Next() {
+		err := rows.Scan(&dbuid, &path)
+		bail(err)
+	}
+	return (path)
 }
 
 func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
@@ -1400,6 +1481,75 @@ func getPreferences(uid string) map[string]interface{} {
 	preferences["paramsChecked"] = paramsChecked
 
 	return (preferences)
+}
+
+func setCustomImage(UID string, coverImage string, ssImage []string) {
+	if coverImage != "" {
+		getString := coverImage
+		location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
+		filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
+		getImageFromURL(getString, location, filename)
+	}
+
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	QueryString := `DELETE FROM ScreenShots WHERE UID=?`
+	_, err = db.Exec(QueryString, UID)
+	bail(err)
+
+	var validNames []string
+
+	for i, image := range ssImage {
+		pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+		fmt.Println(image)
+		QueryString := `INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)`
+		_, err = db.Exec(QueryString, UID, pathString)
+		bail(err)
+
+		getString := image
+		location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
+		filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+		getImageFromURL(getString, location, filename)
+		validNames = append(validNames, location+filename)
+	}
+	fmt.Println("AAA", validNames)
+
+	screenshotFolder := fmt.Sprintf("screenshots/%s", UID)
+	err = filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Convert path to use forward slashes
+		path = strings.Replace(path, "\\", "/", -1)
+
+		// Only delete files, keep the directories
+		if !info.IsDir() {
+			// Check if the path is in the validNames slice
+			shouldDelete := true
+			for _, validName := range validNames {
+				if path == validName {
+					shouldDelete = false
+					break
+				}
+			}
+
+			// Only delete if the path is not in validNames
+			if shouldDelete {
+				fmt.Println("Deleting file:", path)
+				err := os.Remove(path)
+				if err != nil {
+					return err
+				}
+			} else {
+				fmt.Println("Skipping valid file:", path)
+			}
+		}
+		return nil
+	})
+	bail(err)
 }
 
 func normalizeReleaseDate(input string) string {
@@ -1510,18 +1660,26 @@ func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 	r.Use(cors.Default())
+	// r.Use(func(c *gin.Context) {
+	// 	filepath := c.Param("filepath")
+
+	// 	if (strings.HasSuffix(filepath, ".webp")) {
+
+	// 		c.Header("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+	// 		c.Header("Pragma", "cache")
+	// 		c.Header("Expires", time.Now().Add(1*time.Hour).Format(time.RFC1123))
+	// 	}
+	// 	c.Next()
+	// })
 
 	r.GET("/sse-steam-updates", addSSEClient)
 
 	basicInfoHandler := func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
 		sortType := c.Query("type")
 		order := c.Query("order")
-		tileSize := c.Query("size")
-		tileSizeInt, err := strconv.Atoi(tileSize)
-		bail(err)
 		metaData := sortDB(sortType, order)
-		sizeData := storeSize(tileSizeInt)
-		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "Size": sizeData, "HiddenUIDs": metaData["HiddenUIDs"]})
+		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "HiddenUIDs": metaData["HiddenUIDs"]})
 	}
 
 	r.GET("/", func(c *gin.Context) {
@@ -1649,15 +1807,15 @@ func setupRouter() *gin.Engine {
 		appid := getSteamAppID(uid)
 		if appid != 0 {
 			launchSteamGame(appid)
-			c.JSON(http.StatusOK, gin.H{"SteamGame": "Launched"})
+			c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 		} else {
 			path := getManualGamePath(uid)
 			fmt.Println(path)
 			if path == "" {
-				c.JSON(http.StatusOK, gin.H{"ManualGameLaunch": "AddPath"})
+				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "ToAddPath"})
 			} else {
 				launchGameFromPath(path)
-				c.JSON(http.StatusOK, gin.H{"ManualGameLaunch": "Launched"})
+				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 			}
 		}
 	})
@@ -1669,6 +1827,14 @@ func setupRouter() *gin.Engine {
 		fmt.Println(uid, path)
 		addPathToDB(uid, path)
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	r.GET("/getGamePath", func(c *gin.Context) {
+		fmt.Println("Received Set Game Path")
+		uid := c.Query("uid")
+		fmt.Println(uid)
+		path := getGamePath(uid)
+		c.JSON(http.StatusOK, gin.H{"path": path})
 	})
 
 	r.GET("/AddScreenshot", func(c *gin.Context) {
@@ -1950,6 +2116,38 @@ func setupRouter() *gin.Engine {
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
+
+	r.POST("/setCustomImage", func(c *gin.Context) {
+		var data struct {
+			UID        string   `json:"uid"`
+			CoverImage string   `json:"coverImage"`
+			SsImage    []string `json:"ssImage"`
+		}
+		if err := c.BindJSON(&data); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Recieved Set Custom Image", data.UID)
+		setCustomImage(data.UID, data.CoverImage, data.SsImage)
+		sendSSEMessage("Game added: Saved Preferences")
+		c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	})
+
+	// r.GET("/cover-art", func(c *gin.Context) {
+	// 	fmt.Println("Received Cover Art")
+	// 	queries := c.Request.URL.Query()
+	// 	fmt.Println("Query Parameters:", queries)
+
+	// 	// Print all headers
+	// 	headers := c.Request.Header
+	// 	fmt.Println("Headers:", headers)
+
+	// 	// Print all path parameters
+	// 	params := c.Params
+	// 	fmt.Println("Path Parameters:", params)
+
+	// 	//c.JSON(http.StatusOK, gin.H{"file": })
+	// })
 
 	return r
 }

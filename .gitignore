@@ -1,3 +1,42 @@
+# Logs
+server.log
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+dist-electron
+release
+*.local
+
+# Editor directories and files
+.vscode/.debug.env
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+#lockfile
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Million Lint
+.million
+
+
 leprechaun-backend/artworks/**
 leprechaun-backend/coverArt/**
 leprechaun-backend/screenshots/**
@@ -11,6 +50,8 @@ backend/coverArt/**
 backend/screenshots/**
 backend/IGDB_Databasecopy.db
 backend/IGDB_Database.db
+backend/tmp
+backend/.air.toml
 TODO.txt
 Leprechaun.code-workspace
 TODO.txt

@@ -1,14 +1,15 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -19,9 +20,7 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 
 	getString := fmt.Sprintf(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=%s&steamid=%s&include_appinfo=true&include_played_free_games=true`, APIkey, SteamID)
 	resp, err := http.Get(getString)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 	defer resp.Body.Close()
 
 	// IF BAD REQ (Wrong ID / API Key)
@@ -34,14 +33,12 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 
 	body, err := io.ReadAll(resp.Body)
 	bail(err)
-	fmt.Println(string(body))
 
 	err = json.Unmarshal(body, &allSteamGamesStruct)
 	bail(err)
 
-	db, err := sql.Open("sqlite", "IGDB_Database.db")
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
 	bail(err)
-
 	defer db.Close()
 
 	QueryString := "SELECT AppID FROM SteamAppIds"
@@ -82,9 +79,7 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 			_, err = db.Exec(updateQuery)
 			bail(err)
 
-		}
-
-		if insert {
+		} else if insert {
 			fmt.Println("Inserting ", allSteamGamesStruct.Response.Games[i].Name)
 			Appid := allSteamGamesStruct.Response.Games[i].Appid
 			getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
@@ -96,9 +91,7 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 
 	getString = fmt.Sprintf(`https://api.steampowered.com/IWishlistService/GetWishlist/v1/?key=%s&steamid=%s`, APIkey, SteamID)
 	resp, err = http.Get(getString)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
@@ -247,192 +240,145 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	timePlayedHours := timePlayed / 60
 	name := SteamGameMetadataStruct.Data.Name
 	releaseDate := SteamGameMetadataStruct.Data.ReleaseDate.Date
-	fmt.Println(releaseDate)
 	releaseDate = normalizeReleaseDate(releaseDate)
 	description := SteamGameMetadataStruct.Data.DetailedDescription
 	platform := "Steam"
 	AggregatedRating := SteamGameMetadataStruct.Data.Metacritic.Score
 	UID := GetMD5Hash(name + strings.Split(releaseDate, "-")[0] + platform)
 
-	db, err := sql.Open("sqlite", "IGDB_Database.db")
-	if err != nil {
-		panic(err)
+	fmt.Println(name)
+	// Download Cover Art outside transaction
+	coverArtURL := fmt.Sprintf(`https://cdn.cloudflare.steamstatic.com/steam/apps/%d/library_600x900_2x.jpg?t=1693590448`, Appid)
+	location := fmt.Sprintf(`coverArt/%s/`, UID)
+	filename := fmt.Sprintf(UID + "-0.webp")
+	coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
+	getImageFromURL(coverArtURL, location, filename)
+	//Download Screenshots outside transaction
+	var screenshotPaths []string
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i, screenshot := range SteamGameMetadataStruct.Data.Screenshots {
+		wg.Add(1)
+		go func(i int, screenshot SteamScreenshotStruct) {
+			defer wg.Done()
+			location := fmt.Sprintf(`screenshots/%s/`, UID)
+			filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+			screenshotPath := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+			getImageFromURL(screenshot.PathFull, location, filename)
+			mu.Lock()
+			screenshotPaths = append(screenshotPaths, screenshotPath)
+			mu.Unlock()
+		}(i, screenshot)
 	}
+	wg.Wait()
+
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	bail(err)
 	defer db.Close()
 
-	QueryString := "SELECT UID FROM GameMetaData"
-	rows, err := db.Query(QueryString)
+	tx, err := db.Begin()
+	bail(err)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", r)
+		} else if err != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", err)
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	//Insert to GameMetaData Table
+	preparedStatement, err := tx.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+	bail(err)
+	defer preparedStatement.Close()
+	_, err = preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
 	bail(err)
 
-	defer rows.Close()
+	//Insert to Screenshots
+	preparedStatement, err = tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+	bail(err)
+	defer preparedStatement.Close()
 
-	insert := true
-	for rows.Next() {
-		var UIDdb string
-		rows.Scan(&UIDdb)
-		if UIDdb == UID {
-			insert = false
-		}
-	}
-
-	if insert {
-
-		fmt.Println(UID, name, releaseDate, platform, AggregatedRating, timePlayedHours, isDLC)
-
-		coverArtURL := fmt.Sprintf(`https://cdn.cloudflare.steamstatic.com/steam/apps/%d/library_600x900_2x.jpg?t=1693590448`, Appid)
-		location := fmt.Sprintf(`coverArt/%s/`, UID)
-		filename := fmt.Sprintf(UID + "-0.jpeg")
-		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
-		getImageFromURL(coverArtURL, location, filename)
-
-		//OPENS DB
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
-		defer db.Close()
-
-		//Insert to GameMetaData Table
-		preparedStatement, err := db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
-		if err != nil {
-			panic(err)
-		}
-		defer preparedStatement.Close()
-		preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
-
-		//Insert SteamAppIDs
-		preparedStatement, err = db.Prepare("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?)")
-		if err != nil {
-			panic(err)
-		}
-		defer preparedStatement.Close()
-		preparedStatement.Exec(UID, Appid)
-
-		//Insert to Screenshots
-
-		if SteamGameMetadataStruct.Data.Screenshots == nil {
-			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "")
-		} else {
-			for i := range SteamGameMetadataStruct.Data.Screenshots {
-				location := fmt.Sprintf(`screenshots/%s/`, UID)
-				filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
-				screenshotPath := fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
-				getImageFromURL(SteamGameMetadataStruct.Data.Screenshots[i].PathFull, location, filename)
-				preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-				if err != nil {
-					panic(err)
-				}
-				preparedStatement.Exec(UID, screenshotPath)
-			}
-		}
-
-		//Insert to InvolvedCompanies table
-		if SteamGameMetadataStruct.Data.Developers == nil {
-			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "Unknown")
-		} else {
-			for i := range len(SteamGameMetadataStruct.Data.Developers) {
-				preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-				if err != nil {
-					panic(err)
-				}
-				preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Developers[i])
-			}
-		}
-		if SteamGameMetadataStruct.Data.Publishers == nil {
-			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+	if len(screenshotPaths) == 0 {
+		_, err = preparedStatement.Exec(UID, "")
+		bail(err)
+	} else {
+		for _, screenshotPath := range screenshotPaths {
+			_, err = preparedStatement.Exec(UID, screenshotPath)
 			bail(err)
-
-			preparedStatement.Exec(UID, "Unknown")
-		} else {
-			for i := range len(SteamGameMetadataStruct.Data.Publishers) {
-				preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-				bail(err)
-
-				preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Publishers[i])
-			}
 		}
-
-		//Insert to Tags Table
-		/* if(SteamGameMetadataStruct.Data.Genres == nil && tags==nil){
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "NA")
-		} else {
-				if(tags==nil){
-					fmt.Println("Here")
-					for i := range len(SteamGameMetadataStruct.Data.Genres){
-						preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-						if err != nil {
-							panic(err)
-						}
-						preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
-					}
-				} else {
-					for i := range len(tags) {
-						preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-						if err != nil {
-							panic(err)
-						}
-						preparedStatement.Exec(UID, tags[i])
-					}
-				}
-		} */
-
-		if len(tags) == 0 && SteamGameMetadataStruct.Data.Genres == nil {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, "NA")
-		} else {
-			if len(tags) == 0 {
-				fmt.Println("Emptyyyyy")
-				for i := range len(SteamGameMetadataStruct.Data.Genres) {
-					preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-					if err != nil {
-						panic(err)
-					}
-					preparedStatement.Exec(UID, SteamGameMetadataStruct.Data.Genres[i].Description)
-				}
-			} else {
-				for i := range len(tags) {
-					fmt.Println(tags[i])
-					preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-					if err != nil {
-						panic(err)
-					}
-					preparedStatement.Exec(UID, tags[i])
-				}
-			}
-		}
-		msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
-		sendSSEMessage(msg)
-
 	}
+
+	//Insert to InvolvedCompanies table
+	preparedStatement, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+	bail(err)
+	defer preparedStatement.Close()
+	developers := SteamGameMetadataStruct.Data.Developers
+	publishers := SteamGameMetadataStruct.Data.Publishers
+
+	if len(developers) == 0 {
+		_, err = preparedStatement.Exec(UID, "Unknown")
+		bail(err)
+	} else {
+		for _, dev := range developers {
+			_, err = preparedStatement.Exec(UID, dev)
+			bail(err)
+		}
+	}
+	if len(publishers) == 0 {
+		_, err = preparedStatement.Exec(UID, "Unknown")
+		bail(err)
+	} else {
+		for _, pub := range publishers {
+			_, err = preparedStatement.Exec(UID, pub)
+			bail(err)
+		}
+	}
+
+	//Insert to Tags
+	preparedStatement, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+	bail(err)
+	defer preparedStatement.Close()
+
+	if len(tags) == 0 && len(SteamGameMetadataStruct.Data.Genres) == 0 {
+		_, err = preparedStatement.Exec(UID, "NA")
+		bail(err)
+	} else {
+		if len(tags) == 0 {
+			for _, genre := range SteamGameMetadataStruct.Data.Genres {
+				_, err = preparedStatement.Exec(UID, genre.Description)
+				bail(err)
+			}
+		} else {
+			for _, tag := range tags {
+				_, err = preparedStatement.Exec(UID, tag)
+				bail(err)
+			}
+		}
+	}
+
+	//Insert SteamAppIDs
+	preparedStatement, err = tx.Prepare("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?)")
+	bail(err)
+	defer preparedStatement.Close()
+	_, err = preparedStatement.Exec(UID, Appid)
+	bail(err)
+
+	msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
+	sendSSEMessage(msg)
 }
 
 func getSteamAppID(uid string) int {
-	db, err := sql.Open("sqlite", "IGDB_Database.db")
-	if err != nil {
-		panic(err)
-	}
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
 	defer db.Close()
 
 	QueryString := fmt.Sprintf(`SELECT AppID FROM SteamAppIds WHERE UID="%s"`, uid)
 	rows, err := db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 	defer rows.Close()
 	var appid int
 	for rows.Next() {
@@ -442,13 +388,32 @@ func getSteamAppID(uid string) int {
 }
 
 func launchSteamGame(appid int) {
+	// Get the current OS
+	currentOS := runtime.GOOS
 	fmt.Println("Launching Steam Game", appid)
-	command := fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
-	cmd := exec.Command("bash", "-c", command)
-	stdout, err := cmd.Output()
-	if err != nil {
-		fmt.Println(err.Error())
+
+	var command string
+	var cmd *exec.Cmd
+
+	// Check the OS and run command
+	if currentOS == "linux" {
+		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
+		cmd = exec.Command("bash", "-c", command)
+	} else if currentOS == "windows" {
+		command = fmt.Sprintf(`start steam://rungameid/%d`, appid)
+		cmd = exec.Command("cmd", "/C", command)
+	} else {
+		fmt.Println("Unsupported OS")
 		return
 	}
+
+	// Execute the command
+	stdout, err := cmd.Output()
+	if err != nil {
+		fmt.Println("Error:", err.Error())
+		return
+	}
+
+	// Print the output of the command (if any)
 	fmt.Println(string(stdout))
 }

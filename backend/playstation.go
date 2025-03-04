@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,107 +10,34 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
-var PsGameStruct struct {
-	Titles []struct {
-		TitleID           string `json:"titleId"`
-		Name              string `json:"name"`
-		LocalizedName     string `json:"localizedName"`
-		ImageURL          string `json:"imageUrl"`
-		LocalizedImageURL string `json:"localizedImageUrl"`
-		Category          string `json:"category"`
-		Service           string `json:"service"`
-		PlayCount         int    `json:"playCount"`
-		Concept           struct {
-			ID       int      `json:"id"`
-			TitleIds []string `json:"titleIds"`
-			Name     string   `json:"name"`
-			Media    struct {
-				Audios []interface{} `json:"audios"`
-				Videos []interface{} `json:"videos"`
-				Images []struct {
-					URL    string `json:"url"`
-					Format string `json:"format"`
-					Type   string `json:"type"`
-				} `json:"images"`
-			} `json:"media"`
-			Genres        []string `json:"genres"`
-			LocalizedName struct {
-				DefaultLanguage string `json:"defaultLanguage"`
-				Metadata        struct {
-					FiFI   string `json:"fi-FI"`
-					UkUA   string `json:"uk-UA"`
-					DeDE   string `json:"de-DE"`
-					EnUS   string `json:"en-US"`
-					KoKR   string `json:"ko-KR"`
-					PtBR   string `json:"pt-BR"`
-					EsES   string `json:"es-ES"`
-					ArAE   string `json:"ar-AE"`
-					NoNO   string `json:"no-NO"`
-					FrCA   string `json:"fr-CA"`
-					ItIT   string `json:"it-IT"`
-					PlPL   string `json:"pl-PL"`
-					RuRU   string `json:"ru-RU"`
-					ZhHans string `json:"zh-Hans"`
-					NlNL   string `json:"nl-NL"`
-					PtPT   string `json:"pt-PT"`
-					ZhHant string `json:"zh-Hant"`
-					SvSE   string `json:"sv-SE"`
-					DaDK   string `json:"da-DK"`
-					TrTR   string `json:"tr-TR"`
-					FrFR   string `json:"fr-FR"`
-					EnGB   string `json:"en-GB"`
-					Es419  string `json:"es-419"`
-					JaJP   string `json:"ja-JP"`
-				} `json:"metadata"`
-			} `json:"localizedName"`
-			Country  string `json:"country"`
-			Language string `json:"language"`
-		} `json:"concept"`
-		Media struct {
-			Audios []interface{} `json:"audios"`
-			Videos []interface{} `json:"videos"`
-			Images []struct {
-				URL    string `json:"url"`
-				Format string `json:"format"`
-				Type   string `json:"type"`
-			} `json:"images"`
-		} `json:"media"`
-		FirstPlayedDateTime time.Time `json:"firstPlayedDateTime"`
-		LastPlayedDateTime  time.Time `json:"lastPlayedDateTime"`
-		PlayDuration        string    `json:"playDuration"`
-	} `json:"titles"`
-}
-var PSTrophyStruct struct {
-	TrophyTitles []struct {
-		NpServiceName       string `json:"npServiceName"`
-		NpCommunicationID   string `json:"npCommunicationId"`
-		TrophySetVersion    string `json:"trophySetVersion"`
-		TrophyTitleName     string `json:"trophyTitleName"`
-		TrophyTitleIconURL  string `json:"trophyTitleIconUrl"`
-		TrophyTitlePlatform string `json:"trophyTitlePlatform"`
-		HasTrophyGroups     bool   `json:"hasTrophyGroups"`
-		TrophyGroupCount    int    `json:"trophyGroupCount"`
-		DefinedTrophies     struct {
-			Bronze   int `json:"bronze"`
-			Silver   int `json:"silver"`
-			Gold     int `json:"gold"`
-			Platinum int `json:"platinum"`
-		} `json:"definedTrophies"`
-		Progress       int `json:"progress"`
-		EarnedTrophies struct {
-			Bronze   int `json:"bronze"`
-			Silver   int `json:"silver"`
-			Gold     int `json:"gold"`
-			Platinum int `json:"platinum"`
-		} `json:"earnedTrophies"`
-		HiddenFlag          bool      `json:"hiddenFlag"`
-		LastUpdatedDateTime time.Time `json:"lastUpdatedDateTime"`
-		TrophyTitleDetail   string    `json:"trophyTitleDetail,omitempty"`
-	} `json:"trophyTitles"`
-	TotalItemCount int `json:"totalItemCount"`
+func playstationImportUserGames(npsso string, clientID string, clientSecret string) map[string]interface{} {
+	returnMap := make(map[string]interface{})
+	authCode := getAuthCode(npsso)
+	authToken := getAuthToken(authCode)
+	if authToken != "Error" {
+		gamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
+		NormalAPIGamesList := gamesList["NormalApiGamesList"].([]string)
+		gamesNotMatched := gamesList["gamesNotMatched"].([]string)
+
+		TrophyAPIGamesList := getGameTrophyAPI(authToken)
+		FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
+		trophyApiGamesNotMatched := insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
+
+		allGamesNotMatched := append(gamesNotMatched, trophyApiGamesNotMatched...)
+		fmt.Println("All Games Not Matched", allGamesNotMatched)
+		returnMap["error"] = false
+		returnMap["gamesNotMatched"] = allGamesNotMatched
+
+		return (returnMap) // Returns non matched games and error
+	} else {
+		returnMap["error"] = true
+		returnMap["gamesNotMatched"] = []string{}
+		return (returnMap) // To indicate that auth code has an error
+	}
 }
 
 func getAuthCode(npsso string) string {
@@ -209,9 +135,7 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 	req.Header.Add("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("error making request:", err)
-	}
+	bail(err)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -233,17 +157,13 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 		normalizedTitleForCheck := normalizeTitleToStore(title)
 		PSgameList_NormalAPI_Normalized = append(PSgameList_NormalAPI_Normalized, normalizedTitleForCheck)
 
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
+		db, err := SQLiteReadConfig("IGDB_Database.db")
+		bail(err)
 		defer db.Close()
 
 		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
 		rows, err := db.Query(QueryString)
-		if err != nil {
-			panic(err)
-		}
+		bail(err)
 		defer rows.Close()
 
 		insert := true
@@ -298,9 +218,7 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 			fmt.Println("Updating Playtime", normalizedTitleForCheck)
 			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %s WHERE Name = "%s" AND OwnedPlatform IN ("Sony PlayStation 5", "Sony PlayStation 4", "Sony PlayStation 3", "Sony PlayStation x")`, timePlayedHours, normalizedTitleForCheck)
 			_, err = db.Exec(updateQuery)
-			if err != nil {
-				panic(err)
-			}
+			bail(err)
 
 		}
 	}
@@ -398,17 +316,13 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 		normalizedTitleForCheck := normalizeTitleToStore(title)
 		fmt.Println("Trying to Insert", title, " ", platform)
 
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
+		db, err := SQLiteReadConfig("IGDB_Database.db")
+		bail(err)
 		defer db.Close()
 
 		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
 		rows, err := db.Query(QueryString)
-		if err != nil {
-			panic(err)
-		}
+		bail(err)
 		defer rows.Close()
 
 		insert := true
@@ -475,30 +389,211 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 	return (gamesNotMatched)
 }
 
-func playstationImportUserGames(npsso string, clientID string, clientSecret string) map[string]interface{} {
-	returnMap := make(map[string]interface{})
-	authCode := getAuthCode(npsso)
-	authToken := getAuthToken(authCode)
-	if authToken != "Error" {
-		gamesList := getAndInsertPSGames_NormalAPI(authToken, clientID, clientSecret)
-		NormalAPIGamesList := gamesList["NormalApiGamesList"].([]string)
-		gamesNotMatched := gamesList["gamesNotMatched"].([]string)
+func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, accessToken string, platform string) {
 
-		TrophyAPIGamesList := getGameTrophyAPI(authToken)
-		FilteredTrophyGames := RemoveDuplicatesFromTrophiesList(NormalAPIGamesList, TrophyAPIGamesList)
-		trophyApiGamesNotMatched := insertFilteredTrophyGames(FilteredTrophyGames, clientID, clientSecret)
-
-		allGamesNotMatched := append(gamesNotMatched, trophyApiGamesNotMatched...)
-		fmt.Println("All Games Not Matched", allGamesNotMatched)
-		returnMap["error"] = false
-		returnMap["gamesNotMatched"] = allGamesNotMatched
-
-		return (returnMap) // Returns non matched games and error
-	} else {
-		returnMap["error"] = true
-		returnMap["gamesNotMatched"] = []string{}
-		return (returnMap) // To indicate that auth code has an error
+	var gameIndex int = -1
+	for i := range gameStruct {
+		if gameStruct[i].ID == gameID {
+			gameIndex = i
+		}
 	}
+
+	if gameIndex == -1 {
+		fmt.Println("error")
+	} else {
+
+		summary = gameStruct[gameIndex].Summary
+		gameID = gameStruct[gameIndex].ID
+		UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
+		tempTime := time.Unix(int64(UNIX_releaseDate), 0)
+		releaseDateTime = tempTime.Format("2006-01-02")
+		AggregatedRating = gameStruct[gameIndex].AggregatedRating
+		Name = Title
+		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
+
+		db, err := SQLiteReadConfig("IGDB_Database.db")
+		bail(err)
+		defer db.Close()
+
+		QueryString := "SELECT UID FROM GameMetaData"
+		rows, err := db.Query(QueryString)
+		bail(err)
+		defer rows.Close()
+
+		insert := true
+		for rows.Next() {
+			var UIDdb string
+			rows.Scan(&UIDdb)
+			if UIDdb == UID {
+				insert = false
+			}
+		}
+
+		if insert {
+			// Seperate Cause it needs 2 API calls
+			getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+			// Tags
+			postString := "https://api.igdb.com/v4/player_perspectives"
+			passer := gameStruct[gameIndex].PlayerPerspectives
+			playerPerspectiveStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+			postString = "https://api.igdb.com/v4/genres"
+			passer = gameStruct[gameIndex].Genres
+			genresStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+			postString = "https://api.igdb.com/v4/themes"
+			passer = gameStruct[gameIndex].Themes
+			themeStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+			postString = "https://api.igdb.com/v4/game_modes"
+			passer = gameStruct[gameIndex].GameModes
+			gameModesStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+			postString = "https://api.igdb.com/v4/game_engines"
+			passer = gameStruct[gameIndex].GameEngines
+			gameEngineStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+
+			//Images
+
+			postString = "https://api.igdb.com/v4/screenshots"
+			folderName := "screenshots"
+			screenshotStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
+
+			postString = "https://api.igdb.com/v4/covers"
+			folderName = "coverArt"
+			coverStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
+		}
+
+	}
+}
+
+func insertMetaDataInDB(title string, platform string, time string) {
+	//gameID := gameIndex
+	if title != "" {
+		Name = title
+	}
+
+	UID := GetMD5Hash(title + strings.Split(releaseDateTime, "-")[0] + platform)
+
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	bail(err)
+	defer db.Close()
+
+	QueryString := "SELECT UID FROM GameMetaData"
+	rows, err := db.Query(QueryString)
+	bail(err)
+	defer rows.Close()
+
+	insert := true
+	for rows.Next() {
+		var UIDdb string
+		rows.Scan(&UIDdb)
+		if UIDdb == UID {
+			insert = false
+		}
+	}
+	db.Close()
+
+	if insert {
+		fmt.Println("Inserting", title)
+
+		//Create SS and cover art paths
+		ScreenshotPaths := make([]string, len(screenshotStruct))
+		for i := range len(ScreenshotPaths) {
+			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+		}
+		coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
+
+		db, err := SQLiteWriteConfig("IGDB_Database.db")
+		bail(err)
+		defer db.Close()
+
+		tx, err := db.Begin()
+		bail(err)
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", r)
+			} else if err != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", err)
+			} else {
+				tx.Commit()
+			}
+		}()
+
+		// Incase its a new Platforms, its added
+		preparedStatement, err := tx.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
+		bail(err)
+		defer preparedStatement.Close()
+		preparedStatement.Exec(platform)
+
+		//Insert to GameMetaData Table
+		preparedStatement, err = tx.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		_, err = preparedStatement.Exec(UID, title, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
+		bail(err)
+
+		//Insert to Screenshots Table
+		preparedStatement, err = tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		for _, screenshotPath := range ScreenshotPaths {
+			_, err = preparedStatement.Exec(UID, screenshotPath)
+			bail(err)
+		}
+
+		//Insert to InvolvedCompanies table
+		preparedStatement, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		for _, dev := range involvedCompaniesStruct {
+			_, err = preparedStatement.Exec(UID, dev.Name)
+			bail(err)
+		}
+
+		//Insert to Tags Table
+		preparedStatement, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+
+		for _, theme := range themeStruct {
+			preparedStatement.Exec(UID, theme.Name)
+			bail(err)
+		}
+		for _, perspective := range playerPerspectiveStruct {
+			_, err = preparedStatement.Exec(UID, perspective.Name)
+			bail(err)
+		}
+		for _, genre := range genresStruct {
+			_, err = preparedStatement.Exec(UID, genre.Name)
+			bail(err)
+		}
+		for _, gameMode := range gameModesStruct {
+			_, err = preparedStatement.Exec(UID, gameMode.Name)
+			bail(err)
+		}
+	}
+}
+
+func getMetaData_ImagesPSN(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
+	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
+	body := post(postString, bodyString, accessToken)
+	json.Unmarshal(body, &GeneralStruct)
+
+	var wg sync.WaitGroup
+
+	for i := range len(GeneralStruct) {
+		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
+		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
+		wg.Add(1)
+		go func(i int, url string) {
+			defer wg.Done()
+			getString := url
+			location := fmt.Sprintf(`%s/%s/`, folderName, UID)
+			filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+			getImageFromURL(getString, location, filename)
+		}(i, GeneralStruct[i].URL)
+	}
+	wg.Wait()
+	return (GeneralStruct)
 }
 
 // Normalizer and hour Conversion funcs
@@ -606,203 +701,4 @@ func normalizeToCompareBothAPI(title string) string {
 	normalized = strings.ReplaceAll(normalized, " ", "")
 
 	return normalized
-}
-
-func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, accessToken string, platform string) {
-
-	var gameIndex int = -1
-	for i := range gameStruct {
-		if gameStruct[i].ID == gameID {
-			gameIndex = i
-		}
-	}
-
-	if gameIndex == -1 {
-		fmt.Println("error")
-	} else {
-
-		summary = gameStruct[gameIndex].Summary
-		gameID = gameStruct[gameIndex].ID
-		UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
-		tempTime := time.Unix(int64(UNIX_releaseDate), 0)
-		releaseDateTime = tempTime.Format("2006-01-02")
-		AggregatedRating = gameStruct[gameIndex].AggregatedRating
-		Name = Title
-		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
-
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
-		defer db.Close()
-
-		QueryString := "SELECT UID FROM GameMetaData"
-		rows, err := db.Query(QueryString)
-		if err != nil {
-			panic(err)
-		}
-		defer rows.Close()
-
-		insert := true
-		for rows.Next() {
-			var UIDdb string
-			rows.Scan(&UIDdb)
-			if UIDdb == UID {
-				insert = false
-			}
-		}
-
-		if insert {
-			// Seperate Cause it needs 2 API calls
-			getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
-			// Tags
-			postString := "https://api.igdb.com/v4/player_perspectives"
-			passer := gameStruct[gameIndex].PlayerPerspectives
-			playerPerspectiveStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
-			postString = "https://api.igdb.com/v4/genres"
-			passer = gameStruct[gameIndex].Genres
-			genresStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
-			postString = "https://api.igdb.com/v4/themes"
-			passer = gameStruct[gameIndex].Themes
-			themeStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
-			postString = "https://api.igdb.com/v4/game_modes"
-			passer = gameStruct[gameIndex].GameModes
-			gameModesStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
-			postString = "https://api.igdb.com/v4/game_engines"
-			passer = gameStruct[gameIndex].GameEngines
-			gameEngineStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
-
-			//Images
-
-			postString = "https://api.igdb.com/v4/covers"
-			folderName := "coverArt"
-			coverStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
-
-			postString = "https://api.igdb.com/v4/screenshots"
-			folderName = "screenshots"
-			screenshotStruct = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
-		}
-
-	}
-
-}
-
-func insertMetaDataInDB(title string, platform string, time string) {
-	//gameID := gameIndex
-	if title != "" {
-		Name = title
-	}
-
-	UID := GetMD5Hash(title + strings.Split(releaseDateTime, "-")[0] + platform)
-
-	db, err := sql.Open("sqlite", "IGDB_Database.db")
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	QueryString := "SELECT UID FROM GameMetaData"
-	rows, err := db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
-	defer rows.Close()
-
-	insert := true
-	for rows.Next() {
-		var UIDdb string
-		rows.Scan(&UIDdb)
-		if UIDdb == UID {
-			insert = false
-		}
-	}
-
-	if insert {
-		fmt.Println("Inserting", title)
-		pathLength := len(screenshotStruct)
-		ScreenshotPaths := make([]string, pathLength)
-		for i := range len(ScreenshotPaths) {
-			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
-		}
-
-		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
-
-		// Incase its a new Platforms, its added
-		preparedStatement, err := db.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
-		if err != nil {
-			panic(err)
-		}
-		preparedStatement.Exec(platform)
-
-		//Insert to GameMetaData Table
-		preparedStatement, err = db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
-		if err != nil {
-			panic(err)
-		}
-		preparedStatement.Exec(UID, title, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
-
-		//Insert to Screenshots Table
-		for i := range len(ScreenshotPaths) {
-			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, ScreenshotPaths[i])
-		}
-
-		//Insert to InvolvedCompanies table
-		for i := range len(involvedCompaniesStruct) {
-			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, involvedCompaniesStruct[i].Name)
-		}
-
-		//Insert to Tags Table
-		for i := range len(themeStruct) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, themeStruct[i].Name)
-		}
-		for i := range len(playerPerspectiveStruct) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, playerPerspectiveStruct[i].Name)
-		}
-		for i := range len(genresStruct) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, genresStruct[i].Name)
-		}
-		for i := range len(gameModesStruct) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, gameModesStruct[i].Name)
-		}
-		defer preparedStatement.Close()
-	}
-}
-
-func getMetaData_ImagesPSN(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
-	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
-	body := post(postString, bodyString, accessToken)
-	json.Unmarshal(body, &GeneralStruct)
-	for i := range len(GeneralStruct) {
-		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
-		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
-		getString := GeneralStruct[i].URL
-		location := fmt.Sprintf(`%s/%s/`, folderName, UID)
-		filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
-		getImageFromURL(getString, location, filename)
-	}
-	return (GeneralStruct)
 }

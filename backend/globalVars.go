@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type FilterStruct struct {
 	Tags      []string `json:"tags"`
 	Name      []string `json:"name"`
@@ -27,6 +29,12 @@ type allSteamGamesStruct struct {
 			Playtime2Weeks           int     `json:"playtime_2weeks,omitempty"`
 		} `json:"games"`
 	} `json:"response"`
+}
+
+type SteamScreenshotStruct struct {
+	ID            int    `json:"id"`
+	PathThumbnail string `json:"path_thumbnail"`
+	PathFull      string `json:"path_full"`
 }
 
 type SteamGameMetadataStruct struct {
@@ -312,3 +320,103 @@ var Name string
 
 var clientID string
 var clientSecret string
+
+var PsGameStruct struct {
+	Titles []struct {
+		TitleID           string `json:"titleId"`
+		Name              string `json:"name"`
+		LocalizedName     string `json:"localizedName"`
+		ImageURL          string `json:"imageUrl"`
+		LocalizedImageURL string `json:"localizedImageUrl"`
+		Category          string `json:"category"`
+		Service           string `json:"service"`
+		PlayCount         int    `json:"playCount"`
+		Concept           struct {
+			ID       int      `json:"id"`
+			TitleIds []string `json:"titleIds"`
+			Name     string   `json:"name"`
+			Media    struct {
+				Audios []interface{} `json:"audios"`
+				Videos []interface{} `json:"videos"`
+				Images []struct {
+					URL    string `json:"url"`
+					Format string `json:"format"`
+					Type   string `json:"type"`
+				} `json:"images"`
+			} `json:"media"`
+			Genres        []string `json:"genres"`
+			LocalizedName struct {
+				DefaultLanguage string `json:"defaultLanguage"`
+				Metadata        struct {
+					FiFI   string `json:"fi-FI"`
+					UkUA   string `json:"uk-UA"`
+					DeDE   string `json:"de-DE"`
+					EnUS   string `json:"en-US"`
+					KoKR   string `json:"ko-KR"`
+					PtBR   string `json:"pt-BR"`
+					EsES   string `json:"es-ES"`
+					ArAE   string `json:"ar-AE"`
+					NoNO   string `json:"no-NO"`
+					FrCA   string `json:"fr-CA"`
+					ItIT   string `json:"it-IT"`
+					PlPL   string `json:"pl-PL"`
+					RuRU   string `json:"ru-RU"`
+					ZhHans string `json:"zh-Hans"`
+					NlNL   string `json:"nl-NL"`
+					PtPT   string `json:"pt-PT"`
+					ZhHant string `json:"zh-Hant"`
+					SvSE   string `json:"sv-SE"`
+					DaDK   string `json:"da-DK"`
+					TrTR   string `json:"tr-TR"`
+					FrFR   string `json:"fr-FR"`
+					EnGB   string `json:"en-GB"`
+					Es419  string `json:"es-419"`
+					JaJP   string `json:"ja-JP"`
+				} `json:"metadata"`
+			} `json:"localizedName"`
+			Country  string `json:"country"`
+			Language string `json:"language"`
+		} `json:"concept"`
+		Media struct {
+			Audios []interface{} `json:"audios"`
+			Videos []interface{} `json:"videos"`
+			Images []struct {
+				URL    string `json:"url"`
+				Format string `json:"format"`
+				Type   string `json:"type"`
+			} `json:"images"`
+		} `json:"media"`
+		FirstPlayedDateTime time.Time `json:"firstPlayedDateTime"`
+		LastPlayedDateTime  time.Time `json:"lastPlayedDateTime"`
+		PlayDuration        string    `json:"playDuration"`
+	} `json:"titles"`
+}
+var PSTrophyStruct struct {
+	TrophyTitles []struct {
+		NpServiceName       string `json:"npServiceName"`
+		NpCommunicationID   string `json:"npCommunicationId"`
+		TrophySetVersion    string `json:"trophySetVersion"`
+		TrophyTitleName     string `json:"trophyTitleName"`
+		TrophyTitleIconURL  string `json:"trophyTitleIconUrl"`
+		TrophyTitlePlatform string `json:"trophyTitlePlatform"`
+		HasTrophyGroups     bool   `json:"hasTrophyGroups"`
+		TrophyGroupCount    int    `json:"trophyGroupCount"`
+		DefinedTrophies     struct {
+			Bronze   int `json:"bronze"`
+			Silver   int `json:"silver"`
+			Gold     int `json:"gold"`
+			Platinum int `json:"platinum"`
+		} `json:"definedTrophies"`
+		Progress       int `json:"progress"`
+		EarnedTrophies struct {
+			Bronze   int `json:"bronze"`
+			Silver   int `json:"silver"`
+			Gold     int `json:"gold"`
+			Platinum int `json:"platinum"`
+		} `json:"earnedTrophies"`
+		HiddenFlag          bool      `json:"hiddenFlag"`
+		LastUpdatedDateTime time.Time `json:"lastUpdatedDateTime"`
+		TrophyTitleDetail   string    `json:"trophyTitleDetail,omitempty"`
+	} `json:"trophyTitles"`
+	TotalItemCount int `json:"totalItemCount"`
+}

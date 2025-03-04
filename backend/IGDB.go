@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,25 +23,20 @@ func getAccessToken(clientID string, clientSecret string) string {
 
 	//POST request
 	resp, err := http.Post(AuthenticationString, "", bytes.NewBuffer([]byte{}))
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 	defer resp.Body.Close()
 
 	//Passes response into body
 	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 
 	//Unmarshalls body into accessStruct
 	err = json.Unmarshal(body, &accessStruct)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 
 	return (accessStruct.AccessToken)
 }
+
 func searchGame(accessToken string, gameTofind string) gameStruct {
 
 	var gameStruct gameStruct
@@ -54,9 +50,7 @@ func searchGame(accessToken string, gameTofind string) gameStruct {
 
 	//Unmarshalls body into accessStruct
 	err := json.Unmarshal(postReturn, &gameStruct)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 
 	return (gameStruct)
 }
@@ -114,17 +108,13 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform
 		metadataMap["name"] = Name
 		metadataMap["uid"] = UID
 
-		db, err := sql.Open("sqlite", "IGDB_Database.db")
-		if err != nil {
-			panic(err)
-		}
+		db, err := SQLiteReadConfig("IGDB_Database.db")
+		bail(err)
 		defer db.Close()
 
 		QueryString := "SELECT UID FROM GameMetaData"
 		rows, err := db.Query(QueryString)
-		if err != nil {
-			panic(err)
-		}
+		bail(err)
 		defer rows.Close()
 
 		insert := true
@@ -208,13 +198,14 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform
 func getMetaData_Images(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
 	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
 	body := post(postString, bodyString, accessToken)
-	json.Unmarshal(body, &GeneralStruct)
+	err := json.Unmarshal(body, &GeneralStruct)
+	bail(err)
 	for i := range len(GeneralStruct) {
 		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
 		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
 		//getString := GeneralStruct[i].URL
 		//location := fmt.Sprintf(`%s/%s/`, folderName, UID)
-		//filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
+		//filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
 		//getImageFromURL(getString, location, filename)
 	}
 	return (GeneralStruct)
@@ -244,7 +235,8 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 	// This function will neeed 2 API calls to get an actual company name due to nested IDs
 	if gameStruct[gameIndex].InvolvedCompanies == nil {
 		body := `[{"id":-1 , "name":"Unknown"}]`
-		json.Unmarshal([]byte(body), &involvedCompaniesStruct)
+		err := json.Unmarshal([]byte(body), &involvedCompaniesStruct)
+		bail(err)
 	} else {
 		var CompaniesStruct []struct {
 			ID      int `json:"id"`
@@ -265,8 +257,8 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		bodyString := tempString + ");"
 		body := post(postString, bodyString, accessToken)
 
-		json.Unmarshal(body, &CompaniesStruct)
-
+		err := json.Unmarshal(body, &CompaniesStruct)
+		bail(err)
 		postString = "https://api.igdb.com/v4/companies"
 		buffer.Reset()
 		buffer.WriteString("fields name; where id=(")
@@ -279,7 +271,8 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		tempString, _ = strings.CutSuffix(tempString, ",")
 		bodyString = tempString + ");"
 		body = post(postString, bodyString, accessToken)
-		json.Unmarshal(body, &involvedCompaniesStruct)
+		err = json.Unmarshal(body, &involvedCompaniesStruct)
+		bail(err)
 	}
 }
 func addGameToDB(title string, releaseDate string, platform string, timePlayed string, rating string, devs []string, tags []string, descripton string, coverImage string, screenshots []string, isWishlist int) bool {
@@ -294,9 +287,7 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 
 	QueryString := "SELECT UID FROM GameMetaData"
 	rows, err := db.Query(QueryString)
-	if err != nil {
-		panic(err)
-	}
+	bail(err)
 	defer rows.Close()
 
 	insert := true
@@ -307,84 +298,104 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 			insert = false
 		}
 	}
-
-	fmt.Println(title, releaseDate, platform, timePlayed, rating)
-	fmt.Println(devs)
-	fmt.Println(tags)
-	fmt.Println(descripton)
-	fmt.Println(coverImage)
-	fmt.Println(screenshots)
-	fmt.Println(UID)
+	db.Close()
 
 	if insert {
+		fmt.Println("Inserting", title)
 
+		//Download Screenshots
+		var wg sync.WaitGroup
 		if len(screenshots) > 0 {
-			for i := range screenshots {
-				if screenshots[i] != "" {
-					getString := screenshots[i]
-					location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-					filename := fmt.Sprintf(`%s-%d.jpeg`, UID, i)
-					getImageFromURL(getString, location, filename)
+			for i, screenshot := range screenshots {
+				if screenshot != "" {
+					wg.Add(1)
+					go func(i int, screenshot string) {
+						defer wg.Done()
+						getString := screenshots[i]
+						location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
+						filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+						getImageFromURL(getString, location, filename)
+					}(i, screenshot)
 				}
 			}
 		}
+
+		//Download Coverart
 		if coverImage != "" {
 			getString := coverImage
 			location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
-			filename := fmt.Sprintf(`%s-%d.jpeg`, UID, 0)
+			filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
 			getImageFromURL(getString, location, filename)
 		}
 
-		fmt.Println("Inserting", title)
-		pathLength := len(screenshots)
-		ScreenshotPaths := make([]string, pathLength)
-		for i := range len(ScreenshotPaths) {
-			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.jpeg`, UID, UID, i)
-		}
+		//Program waits here outside transaction till all downloads done
+		wg.Wait()
 
-		coverArtPath := fmt.Sprintf(`/%s/%s-0.jpeg`, UID, UID)
+		//create and store Screenshotpaths and cover-art path
+		ScreenshotPaths := make([]string, len(screenshots))
+		for i := range ScreenshotPaths {
+			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+		}
+		coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
+
+		db, err := SQLiteWriteConfig("IGDB_Database.db")
+		bail(err)
+		defer db.Close()
+
+		tx, err := db.Begin()
+		bail(err)
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", r)
+			} else if err != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", err)
+			} else {
+				tx.Commit()
+			}
+		}()
 
 		// Incase its a new Platforms, its added
-		preparedStatement, err := db.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
-		if err != nil {
-			panic(err)
-		}
+		preparedStatement, err := tx.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
+		bail(err)
+		defer preparedStatement.Close()
 		preparedStatement.Exec(platform)
 
 		//Insert to GameMetaData Table
-		preparedStatement, err = db.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
-		if err != nil {
-			panic(err)
-		}
-		preparedStatement.Exec(UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
+		preparedStatement, err = tx.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		_, err = preparedStatement.Exec(UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
+		bail(err)
 
 		//Insert to Screenshots Table
-		for i := range len(ScreenshotPaths) {
-			preparedStatement, err = db.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, ScreenshotPaths[i])
+		preparedStatement, err = tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		for _, screenshotPath := range ScreenshotPaths {
+			_, err = preparedStatement.Exec(UID, screenshotPath)
+			bail(err)
 		}
 
 		//Insert to InvolvedCompanies table
-		for i := range len(devs) {
-			preparedStatement, err = db.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, devs[i])
+		preparedStatement, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+		bail(err)
+		defer preparedStatement.Close()
+		for _, dev := range devs {
+			_, err = preparedStatement.Exec(UID, dev)
+			bail(err)
 		}
 
 		//Insert to Tags Table
-		for i := range len(tags) {
-			preparedStatement, err = db.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-			if err != nil {
-				panic(err)
-			}
-			preparedStatement.Exec(UID, tags[i])
-		}
+		preparedStatement, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+		bail(err)
 		defer preparedStatement.Close()
+		for _, tag := range tags {
+			_, err = preparedStatement.Exec(UID, tag)
+			bail(err)
+		}
+
 		return (true)
 	} else {
 		return (false)

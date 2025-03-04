@@ -1,0 +1,316 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --emptyGameTile: 0, 0%, 100%;
+
+    --sliderEmpty: 0, 0%, 80%;
+    --sliderFull: 0, 0%, 0%;
+    --sliderThumb: 0, 0%, 90%;
+
+    --viewButtons: 0, 0%, 80%;
+    --activeViewButton: 0, 0%, 70%;
+    --hoverViewButton: 0, 0%, 60%;
+
+    --topBarButtons: 0, 0%, 85%;
+    --topBarButtonsHover: 0, 0%, 80%;
+
+    --selectedSortItem: 0, 0%, 20%;
+    --selectedSortItemHover: 0, 0%, 25%;
+    --selectedSortItemText: 0, 0%, 100%;
+
+    --dialogSaveButtons: 0, 0%, 0%;
+    --dialogSaveButtonsHover: 0, 0%, 15%;
+    --dialogSaveButtonsText: 0, 0%, 100%;
+
+    --playButton: 0 0 10%;
+    --playButtonHover: 0 0 15%;
+    --playButtonText: 0 0 100%;
+    --editButton: 0 0 10%;
+    --editButtonHover: 0 0 15%;
+    --editButtonText: 0 0 100%;
+
+    --platformBadge: 0 0 90%;
+    --platformBadgeHover: 0 0% 75%;
+    --platformBadgeText: 0 70% 0%;
+    --tagsBadge: 0 0 90%;
+    --tagsBadgeHover: 0 0% 75%;
+    --tagsBadgeText: 0 70% 0%;
+    --devsBadge: 0 0 90%;
+    --devsBadgeHover: 0 0% 75%;
+    --devsBadgeText: 0 70% 0%;
+
+    --leftbarIcons: 0, 0%, 0%;
+    --sidebar: 0, 0%, 85%;
+    --content: 0, 0%, 80%;
+    --background: 0 0% 85%;
+    --foreground: 0 0% 0%;
+
+    --card: 0 0% 85%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 0 0% 85%;
+    --popover-foreground: 0 0% 5%;
+
+    --primary: 0 0% 11.2%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 25%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 215.4 0% 46.9%;
+
+    --accent: 0 0% 80%;
+    --accent-foreground: 0 0% 5%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 40%;
+    --input: 0 0% 40%;
+    --ring: 0 0% 4.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --emptyGameTile: 0, 0%, 0%;
+
+    --sliderEmpty: 0, 0%, 15%;
+    --sliderFull: 0, 0%, 100%;
+    --sliderThumb: 0, 0%, 10%;
+
+    --viewButtons: 0, 0%, 9%;
+    --activeViewButton: 0, 0%, 15%;
+    --hoverViewButton: 0, 0%, 20%;
+
+    --topBarButtons: 0, 0%, 6%;
+    --topBarButtonsHover: 0, 0%, 16%;
+
+    --selectedSortItem: 0, 0%, 85%;
+    --selectedSortItemHover: 0, 0%, 100%;
+    --selectedSortItemText: 0, 0%, 0%;
+
+    --dialogSaveButtons: 0, 0%, 100%;
+    --dialogSaveButtonsHover: 0, 0%, 80%;
+    --dialogSaveButtonsText: 0, 0%, 0%;
+
+    --playButton: 0 0 90%;
+    --playButtonHover: 0 0 75%;
+    --playButtonText: 0 0 0%;
+    --editButton: 0 0 90%;
+    --editButtonHover: 0 0 75%;
+    --editButtonText: 0 0 0%;
+
+    --platformBadge: 0 0 90%;
+    --platformBadgeHover: 0 0% 75%;
+    --platformBadgeText: 0 70% 0%;
+    --tagsBadge: 0 0 90%;
+    --tagsBadgeHover: 0 0% 75%;
+    --tagsBadgeText: 0 70% 0%;
+    --devsBadge: 0 0 90%;
+    --devsBadgeHover: 0 0% 75%;
+    --devsBadgeText: 0 70% 0%;
+
+    --leftbarIcons: 0, 0%, 100%;
+    --sidebar: 0, 0%, 6%;
+    --content: 200, 5%, 9%;
+    --background: 223, 7%, 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 225, 6%, 6%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 225, 6%, 6%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 223, 7%, 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 223, 7%, 17%;
+    --muted-foreground: 215 0% 65.1%;
+
+    --accent: 223, 7%, 10%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 225, 6%, 26%;
+    --input: 225, 6%, 26%;
+    --ring: 210 40% 98%;
+  }
+
+  .darkPurple {
+    --emptyGameTile: 325, 50%, 12%;
+    --emptyGameTileText: 325, 100%, 80%;
+
+    --sliderEmpty: 325, 50%, 15%;
+    --sliderFull: 325, 50%, 22%;
+    --sliderThumb: 325, 50%, 10%;
+
+    --viewButtons: 325, 50%, 4%;
+    --activeViewButton: 325, 50%, 15%;
+    --hoverViewButton: 325, 50%, 20%;
+
+    --topBarButtons: 325, 50%, 12%;
+    --topBarButtonsHover: 325, 50%, 20%;
+
+    --selectedSortItem: 325, 50%, 30%;
+    --selectedSortItemHover: 325, 50%, 37%;
+    --selectedSortItemText: 325, 50%, 100%;
+
+    --dialogSaveButtons: 325, 50%, 30%;
+    --dialogSaveButtonsHover: 325, 50%, 40%;
+    --dialogSaveButtonsText: 0, 0%, 100%;
+
+    /*GameView*/
+    --playButton: 325, 50%, 30%;
+    --playButtonHover: 325, 50%, 40%;
+    --playButtonText: 0 0 100%;
+    --editButton: 325, 50%, 30%;
+    --editButtonHover: 325, 50%, 40%;
+    --editButtonText: 0 0 100%;
+
+    --platformBadge: 0 0 10%;
+    --platformBadgeHover: 0 0% 15%;
+    --platformBadgeText: 325, 50%, 60%;
+    --tagsBadge: 0 0 10%;
+    --tagsBadgeHover: 0 0% 15%;
+    --tagsBadgeText: 325, 50%, 60%;
+    --devsBadge: 0 0 10%;
+    --devsBadgeHover: 0 0% 15%;
+    --devsBadgeText: 325, 50%, 60%;
+
+    --leftbarIcons: 325, 80%, 80%;
+    --sidebar: 325, 50%, 12%;
+    --content: 325, 50%, 4%;
+    --background: 325, 50%, 6%; /*For List View*/
+    --foreground: 210 40% 98%;
+
+    --card: 225, 6%, 6%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 325, 50%, 20%;
+    --popover-foreground: 210 40% 100%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 223, 7%, 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 325, 100%, 10%; /*For Popover Divider*/
+    --muted-foreground: 215 0% 65.1%;
+
+    --accent: 325, 50%, 25%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 325, 50%, 20%;
+    --input: 325, 50%, 20%;
+    --ring: 325, 50%, 20%;
+  }
+
+  .red {
+    --emptyGameTile: 0, 50%, 30%;
+    --emptyGameTileText: 0, 50%, 100%;
+
+    --sliderEmpty: 0, 50%, 25%;
+    --sliderFull: 0, 50%, 50%;
+    --sliderThumb: 0, 50%, 25%;
+
+    --viewButtons: 0, 100%, 15%;
+    --activeViewButton: 0, 50%, 25%;
+    --hoverViewButton: 0, 50%, 30%;
+
+    --topBarButtons: 0, 100%, 12%;
+    --topBarButtonsHover: 0, 100%, 18%;
+
+    --selectedSortItem: 0, 50%, 50%;
+    --selectedSortItemHover: 0, 50%, 60%;
+    --selectedSortItemText: 0, 0%, 0%;
+
+    --dialogSaveButtons: 0, 50%, 50%;
+    --dialogSaveButtonsHover: 0, 50%, 60%;
+    --dialogSaveButtonsText: 0, 0%, 0%;
+
+    --playButton: 0 70% 30%;
+    --playButtonHover: 0 70% 40%;
+    --playButtonText: 0 0% 100%;
+    --editButton: 0 70% 30%;
+    --editButtonHover: 0 70% 40%;
+    --editButtonText: 0 0% 100%;
+
+    --platformBadge: 0 70% 30%;
+    --platformBadgeHover: 0 70% 40%;
+    --platformBadgeText: 0 70% 100%;
+    --tagsBadge: 0 70% 30%;
+    --tagsBadgeHover: 0 70% 40%;
+    --tagsBadgeText: 0 70% 100%;
+    --devsBadge: 0 70% 30%;
+    --devsBadgeHover: 0 70% 40%;
+    --devsBadgeText: 0 70% 100%;
+
+    --leftbarIcons: 0, 0%, 90%;
+
+    --sidebar: 0, 100%, 12%;
+    --content: 0, 100%, 15%;
+    --background: 0, 100%, 10%;
+    --foreground: 0, 0%, 100%;
+
+    --card: 0, 100%, 10%;
+    --card-foreground: 0, 0%, 100%;
+
+    --popover: 0, 100%, 12%;
+    --popover-foreground: 0, 0%, 100%;
+
+    --primary: 0, 100%, 50%;
+    --primary-foreground: 0, 0%, 0%;
+
+    --secondary: 0, 100%, 13%;
+    --secondary-foreground: 0, 0%, 100%;
+
+    --muted: 0, 100%, 20%;
+    --muted-foreground: 0, 0%, 65%;
+
+    --accent: 0, 100%, 15%;
+    --accent-foreground: 0, 0%, 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0, 50%, 25%;
+    --input: 0, 50%, 25%;
+    --ring: 0, 50%, 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply m-0 border-border p-0 font-sans;
+  }
+  body {
+    @apply overflow-hidden bg-background text-foreground;
+  }
+  .draglayer {
+    @apply bg-background;
+    -webkit-app-region: drag;
+  }
+}
+
+@layer base {
+  ::-webkit-scrollbar {
+    @apply h-2 w-2 bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply /*color trackbar*/ min-h-8 w-2 rounded-3xl bg-border;
+  }
+}
