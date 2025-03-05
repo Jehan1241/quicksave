@@ -74,7 +74,7 @@ func checkAndCreateFolders() {
 
 func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
 	// Connection string with _txlock=immediate for read
-	connStr := fmt.Sprintf("file:%s?_txlock=deferred", dbFile)
+	connStr := fmt.Sprintf("file:%s?mode=ro&_txlock=immediate&immutable=1&cache=shared", dbFile)
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open read-only database: %v", err)
@@ -82,18 +82,18 @@ func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
 
 	// Set the max open connections for the read database (max(4, NumCPU()))
 	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(10)
+	db.SetMaxIdleConns(5)
 
 	// PRAGMA settings for read connection
 	pragmas := `
         PRAGMA journal_mode = WAL;
         PRAGMA busy_timeout = 5000;
         PRAGMA synchronous = NORMAL;
-        PRAGMA cache_size = 1000000000;
+        PRAGMA cache_size = 1000000;
         PRAGMA foreign_keys = TRUE;
         PRAGMA temp_store = MEMORY;
 		PRAGMA locking_mode=NORMAL;
-		pragma mmap_size = 30000000000;
+		pragma mmap_size = 500000000;
 		pragma page_size = 32768;
     `
 	// Execute all PRAGMA statements at once

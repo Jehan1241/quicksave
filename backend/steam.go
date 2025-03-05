@@ -75,7 +75,12 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 			for rows.Next() {
 				rows.Scan(&UID)
 			}
+
 			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %f WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
+			_, err = db.Exec(updateQuery)
+			bail(err)
+			// This forces games to become non wishlist items incase found in library
+			updateQuery = fmt.Sprintf(`UPDATE GameMetaData SET isDLC = %d WHERE UID = "%s"`, 0, UID)
 			_, err = db.Exec(updateQuery)
 			bail(err)
 

@@ -203,8 +203,15 @@ async function createWindow() {
 
   // Make all links open with the browser, not with the application
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("https:")) shell.openExternal(url);
+    shell.openExternal(url);
     return { action: "deny" };
+  });
+  // This will intercept anchor `<a>` tag clicks
+  win.webContents.on("will-navigate", (event, url) => {
+    if (!url.startsWith("file://")) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
   });
 
   // Auto update

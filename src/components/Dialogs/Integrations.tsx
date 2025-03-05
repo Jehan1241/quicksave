@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { CircleHelp, Loader2 } from "lucide-react";
+import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 
 export default function Integrations() {
   const { isIntegrationsDialogOpen, setIsIntegrationsDialogOpen } =
@@ -213,7 +214,7 @@ export default function Integrations() {
               >
                 <div className="flex-1">
                   <div className="flex w-full flex-col items-center justify-center gap-2 text-sm">
-                    <div className="flex w-full items-center">
+                    <div className="flex w-full items-center gap-2">
                       <label
                         className={`w-40 ${
                           steamIDEmpty ? "text-destructive" : null
@@ -227,8 +228,12 @@ export default function Integrations() {
                         id="steamid"
                         className="h-8 w-full"
                       />
+
+                      <a href="https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC">
+                        <CircleHelp size={22} strokeWidth={1} />
+                      </a>
                     </div>
-                    <div className="flex w-full items-center">
+                    <div className="flex w-full items-center gap-2">
                       <label
                         className={`w-40 ${
                           apiKeyEmpty ? "text-destructive" : null
@@ -242,6 +247,9 @@ export default function Integrations() {
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
                       />
+                      <a href="https://steamcommunity.com/dev/apikey">
+                        <CircleHelp size={22} strokeWidth={1} />
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -264,7 +272,7 @@ export default function Integrations() {
                 className="absolute inset-0 p-2"
               >
                 <div className="flex h-full flex-col gap-2">
-                  <div className="flex w-full items-center">
+                  <div className="flex w-full items-center gap-2">
                     <label
                       className={`w-40 ${
                         npssoEmpty ? "text-destructive" : null
@@ -278,6 +286,9 @@ export default function Integrations() {
                       id="npsso"
                       className="h-8 w-full"
                     />
+                    <a href="https://psn-api.achievements.app/authentication/authenticating-manually">
+                      <CircleHelp size={22} strokeWidth={1} />
+                    </a>
                   </div>
                   <div className="flex h-full flex-col overflow-y-auto rounded-md border border-border p-2 text-sm">
                     <div className="flex h-full flex-col">
