@@ -124,110 +124,130 @@ func getAuthToken(code string) string {
 func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret string) map[string]interface{} {
 
 	returnMap := make(map[string]interface{})
+	var allGamesNotMatched []string
+	var allPSgameList_NormalAPI_Normalized []string
 
-	url := "https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=0"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println("error creating request:", err)
-	}
-	client := &http.Client{}
-	req.Header.Add("x-apollo-operation-name", "pn_psn")
-	req.Header.Add("Authorization", "Bearer "+token)
+	offset := 0
+	limit := 200
 
-	resp, err := client.Do(req)
-	bail(err)
-	defer resp.Body.Close()
+	for {
+		url := fmt.Sprintf("https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=%d&offset=%d", limit, offset)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Println("error creating request:", err)
+		}
+		client := &http.Client{}
+		req.Header.Add("x-apollo-operation-name", "pn_psn")
+		req.Header.Add("Authorization", "Bearer "+token)
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("unexpected response status:", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("error reading response body: %v\n", err)
-	}
-	if err := json.Unmarshal(body, &PsGameStruct); err != nil {
-		fmt.Printf("error decoding JSON response: %v\n", err)
-	}
-
-	var gamesNotMatched []string
-	var PSgameList_NormalAPI_Normalized []string
-	for game := range PsGameStruct.Titles {
-		title := PsGameStruct.Titles[game].Name
-		normalizedTitleForCheck := normalizeTitleToStore(title)
-		PSgameList_NormalAPI_Normalized = append(PSgameList_NormalAPI_Normalized, normalizedTitleForCheck)
-
-		db, err := SQLiteReadConfig("IGDB_Database.db")
+		resp, err := client.Do(req)
 		bail(err)
-		defer db.Close()
+		defer resp.Body.Close()
 
-		QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
-		rows, err := db.Query(QueryString)
-		bail(err)
-		defer rows.Close()
-
-		insert := true
-		for rows.Next() {
-			var titleDB string
-			rows.Scan(&titleDB)
-			if titleDB == normalizedTitleForCheck {
-				insert = false
-			}
+		if resp.StatusCode != http.StatusOK {
+			fmt.Println("unexpected response status:", resp.Status)
 		}
 
-		timePlayed := PsGameStruct.Titles[game].PlayDuration // Play time in format PT xH yM zS  Can be unknown
-		timePlayedHours := convertToHours(timePlayed)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("error reading response body: %v\n", err)
+		}
+		if err := json.Unmarshal(body, &PsGameStruct); err != nil {
+			fmt.Printf("error decoding JSON response: %v\n", err)
+		}
 
-		if insert {
-			fmt.Println("Trying to Insert", title)
-			platform := PsGameStruct.Titles[game].Category // ps4_game ps5_native_game can be unknown
-			if platform == "ps4_game" {
-				platform = "Sony PlayStation 4"
-			}
-			if platform == "ps5_native_game" {
-				platform = "Sony PlayStation 5"
-			}
-			if platform == "unknown" {
-				platform = "Sony PlayStation x"
-			}
-			titleToStoreInDB := normalizeTitleToStore(title)
-			titleToSendIGDB := normalizeTitleToSend(title)
-			accessToken := getAccessToken(clientID, clientSecret)
-			gameStruct := searchGame(accessToken, titleToSendIGDB)
-			foundGames := returnFoundGames(gameStruct)
-			Match := false
-			for game := range foundGames {
-				IGDBtitle := foundGames[game]["name"].(string)
-				AppID := foundGames[game]["appid"].(int)
-				IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
-				if IGDBtitleNormalized == titleToSendIGDB {
-					getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
-					insertMetaDataInDB(titleToStoreInDB, platform, timePlayedHours)
-					Match = true
-					msg := fmt.Sprintf("Game added: %s", title)
-					sendSSEMessage(msg)
-					break
+		// Stop if no more games
+		if len(PsGameStruct.Titles) == 0 {
+			break
+		}
+
+		var gamesNotMatched []string
+		var PSgameList_NormalAPI_Normalized []string
+
+		for game := range PsGameStruct.Titles {
+			title := PsGameStruct.Titles[game].Name
+			normalizedTitleForCheck := normalizeTitleToStore(title)
+			PSgameList_NormalAPI_Normalized = append(PSgameList_NormalAPI_Normalized, normalizedTitleForCheck)
+
+			db, err := SQLiteWriteConfig("IGDB_Database.db")
+			bail(err)
+			defer db.Close()
+
+			QueryString := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
+			rows, err := db.Query(QueryString)
+			bail(err)
+			defer rows.Close()
+
+			insert := true
+			for rows.Next() {
+				var titleDB string
+				rows.Scan(&titleDB)
+				if titleDB == normalizedTitleForCheck {
+					insert = false
 				}
 			}
-			if !Match {
-				fmt.Println("---------NO MATCH FOR ", title)
-				gamesNotMatched = append(gamesNotMatched, title)
+
+			timePlayed := PsGameStruct.Titles[game].PlayDuration // Play time in format PT xH yM zS
+			timePlayedHours := convertToHours(timePlayed)
+
+			if insert {
+				fmt.Println("Trying to Insert", title)
+				platform := PsGameStruct.Titles[game].Category // ps4_game ps5_native_game can be unknown
+				if platform == "ps4_game" {
+					platform = "Sony PlayStation 4"
+				}
+				if platform == "ps5_native_game" {
+					platform = "Sony PlayStation 5"
+				}
+				if platform == "unknown" {
+					platform = "Sony PlayStation x"
+				}
+
+				titleToStoreInDB := normalizeTitleToStore(title)
+				titleToSendIGDB := normalizeTitleToSend(title)
+				accessToken := getAccessToken(clientID, clientSecret)
+				gameStruct := searchGame(accessToken, titleToSendIGDB)
+				foundGames := returnFoundGames(gameStruct)
+				Match := false
+				for game := range foundGames {
+					IGDBtitle := foundGames[game]["name"].(string)
+					AppID := foundGames[game]["appid"].(int)
+					IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
+					if IGDBtitleNormalized == titleToSendIGDB {
+						getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
+						insertMetaDataInDB(titleToStoreInDB, platform, timePlayedHours)
+						Match = true
+						msg := fmt.Sprintf("Game added: %s", title)
+						sendSSEMessage(msg)
+						break
+					}
+				}
+				if !Match {
+					fmt.Println("---------NO MATCH FOR ", title)
+					gamesNotMatched = append(gamesNotMatched, title)
+				}
+
+			} else {
+				fmt.Println("Updating Playtime", normalizedTitleForCheck)
+				updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %s WHERE Name = "%s" AND OwnedPlatform IN ("Sony PlayStation 5", "Sony PlayStation 4", "Sony PlayStation 3", "Sony PlayStation x")`, timePlayedHours, normalizedTitleForCheck)
+				_, err = db.Exec(updateQuery)
+				bail(err)
 			}
 
-		} else {
-			fmt.Println("Updating Playtime", normalizedTitleForCheck)
-			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %s WHERE Name = "%s" AND OwnedPlatform IN ("Sony PlayStation 5", "Sony PlayStation 4", "Sony PlayStation 3", "Sony PlayStation x")`, timePlayedHours, normalizedTitleForCheck)
-			_, err = db.Exec(updateQuery)
-			bail(err)
-
 		}
+		// Add current batch results to final lists
+		allGamesNotMatched = append(allGamesNotMatched, gamesNotMatched...)
+		allPSgameList_NormalAPI_Normalized = append(allPSgameList_NormalAPI_Normalized, PSgameList_NormalAPI_Normalized...)
+
+		// Increase offset for the next batch
+		offset += limit
 	}
-	fmt.Println("Games Not Added, ", gamesNotMatched)
 
-	returnMap["gamesNotMatched"] = gamesNotMatched
-	returnMap["NormalApiGamesList"] = PSgameList_NormalAPI_Normalized
+	fmt.Println("Games Not Added:", allGamesNotMatched)
 
-	return (returnMap)
+	returnMap["gamesNotMatched"] = allGamesNotMatched
+	returnMap["NormalApiGamesList"] = allPSgameList_NormalAPI_Normalized
+	return returnMap
 }
 
 func getGameTrophyAPI(token string) []map[string]string {
