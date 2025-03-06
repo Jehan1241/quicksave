@@ -14,6 +14,7 @@ import (
 	_ "image/png"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -597,37 +598,42 @@ func setTagsFilter(FilterStruct FilterStruct) {
 	bail(err)
 	defer dbWrite.Close()
 
-	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterTags")
+	tx, err := dbWrite.Begin()
 	bail(err)
-	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterPlatform")
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", r)
+		} else if err != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", err)
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	_, err = tx.Exec("DELETE FROM FilterTags")
 	bail(err)
-	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterDevs")
+	_, err = tx.Exec("DELETE FROM FilterPlatform")
 	bail(err)
-	_, err = dbWrite.Exec("DROP TABLE IF EXISTS FilterName")
+	_, err = tx.Exec("DELETE FROM FilterDevs")
+	bail(err)
+	_, err = tx.Exec("DELETE FROM FilterName")
 	bail(err)
 
-	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterTags (Tag TEXT NOT NULL)")
-	bail(err)
-	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterPlatform (Platform TEXT NOT NULL)")
-	bail(err)
-	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterDevs (Dev TEXT NOT NULL)")
-	bail(err)
-	_, err = dbWrite.Exec("CREATE TABLE IF NOT EXISTS FilterName (Name TEXT NOT NULL)")
-	bail(err)
-
-	insertStmtTags, err := dbWrite.Prepare("INSERT INTO FilterTags (Tag) VALUES (?)")
+	insertStmtTags, err := tx.Prepare("INSERT INTO FilterTags (Tag) VALUES (?)")
 	bail(err)
 	defer insertStmtTags.Close()
 
-	insertStmtPlats, err := dbWrite.Prepare("INSERT INTO FilterPlatform (Platform) VALUES (?)")
+	insertStmtPlats, err := tx.Prepare("INSERT INTO FilterPlatform (Platform) VALUES (?)")
 	bail(err)
 	defer insertStmtPlats.Close()
 
-	insertStmtDevs, err := dbWrite.Prepare("INSERT INTO FilterDevs (Dev) VALUES (?)")
+	insertStmtDevs, err := tx.Prepare("INSERT INTO FilterDevs (Dev) VALUES (?)")
 	bail(err)
 	defer insertStmtDevs.Close()
 
-	insertStmtName, err := dbWrite.Prepare("INSERT INTO FilterName (Name) VALUES (?)")
+	insertStmtName, err := tx.Prepare("INSERT INTO FilterName (Name) VALUES (?)")
 	bail(err)
 	defer insertStmtName.Close()
 
@@ -648,6 +654,10 @@ func setTagsFilter(FilterStruct FilterStruct) {
 		_, err := insertStmtDevs.Exec(tag)
 		bail(err)
 	}
+
+	_, err = dbWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE);") // Force WAL flush
+	bail(err)
+
 }
 
 func clearFilter() {
@@ -655,17 +665,31 @@ func clearFilter() {
 	bail(err)
 	defer db.Close()
 
+	tx, err := db.Begin()
+	bail(err)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", r)
+		} else if err != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", err)
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	QueryString := "DELETE FROM FilterDevs"
-	_, err = db.Exec(QueryString)
+	_, err = tx.Exec(QueryString)
 	bail(err)
 	QueryString = "DELETE FROM FilterName"
-	_, err = db.Exec(QueryString)
+	_, err = tx.Exec(QueryString)
 	bail(err)
 	QueryString = "DELETE FROM FilterPlatform"
-	_, err = db.Exec(QueryString)
+	_, err = tx.Exec(QueryString)
 	bail(err)
 	QueryString = "DELETE FROM FilterTags"
-	_, err = db.Exec(QueryString)
+	_, err = tx.Exec(QueryString)
 	bail(err)
 }
 
@@ -902,42 +926,29 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	bail(err)
 	dbWrite.Close()
 
-	var tagsFilterSet, devsFilterSet, platsFilterSet, nameFilterSet bool
-
 	dbRead, err = SQLiteReadConfig("IGDB_Database.db")
 	bail(err)
 	defer dbRead.Close()
 
 	// Check FilterTags
-	rows, err := dbRead.Query("SELECT * FROM FilterTags")
-	bail(err)
-	defer rows.Close()
-	if rows.Next() {
-		tagsFilterSet = true
-	}
+	Query := `
+    SELECT 
+        EXISTS (SELECT 1 FROM FilterTags),
+        EXISTS (SELECT 1 FROM FilterDevs),
+        EXISTS (SELECT 1 FROM FilterPlatform),
+        EXISTS (SELECT 1 FROM FilterName)
+`
+	row := dbRead.QueryRow(Query)
 
-	// Check FilterDevs
-	rows, err = dbRead.Query("SELECT * FROM FilterDevs")
+	var tagsFilterSetInt, devsFilterSetInt, platsFilterSetInt, nameFilterSetInt int
+	err = row.Scan(&tagsFilterSetInt, &devsFilterSetInt, &platsFilterSetInt, &nameFilterSetInt)
 	bail(err)
-	defer rows.Close()
-	if rows.Next() {
-		devsFilterSet = true
-	}
 
-	//Check FilterPlatforms
-	rows, err = dbRead.Query("SELECT * FROM FilterPlatform")
-	bail(err)
-	defer rows.Close()
-	if rows.Next() {
-		platsFilterSet = true
-	}
-
-	rows, err = dbRead.Query("SELECT * FROM FilterName")
-	bail(err)
-	defer rows.Close()
-	if rows.Next() {
-		nameFilterSet = true
-	}
+	// Convert to bool
+	tagsFilterSet := tagsFilterSetInt > 0
+	devsFilterSet := devsFilterSetInt > 0
+	platsFilterSet := platsFilterSetInt > 0
+	nameFilterSet := nameFilterSetInt > 0
 
 	BaseQuery := `
 		SELECT
@@ -1091,7 +1102,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			ORDER BY %s %s;`, sortType, order)
 	} */
 
-	rows, err = dbRead.Query(BaseQuery)
+	rows, err := dbRead.Query(BaseQuery)
 	bail(err)
 	defer rows.Close()
 
@@ -1732,14 +1743,13 @@ func setupRouter() *gin.Engine {
 		// Respond back to the client
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 		sendSSEMessage("Set Filter")
-
 	})
 
 	r.GET("/clearAllFilters", func(c *gin.Context) {
 		fmt.Println("Recieved Clear Filter")
 		clearFilter()
-		sendSSEMessage("Clear Filter")
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+		sendSSEMessage("Clear Filter")
 	})
 
 	r.GET("/LoadFilters", func(c *gin.Context) {
