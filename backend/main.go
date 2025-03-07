@@ -655,8 +655,8 @@ func setTagsFilter(FilterStruct FilterStruct) {
 		bail(err)
 	}
 
-	_, err = dbWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE);") // Force WAL flush
-	bail(err)
+	// _, err = dbWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE);") // Force WAL flush
+	// bail(err)
 
 }
 
