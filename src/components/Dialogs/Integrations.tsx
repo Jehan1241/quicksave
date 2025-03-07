@@ -25,100 +25,68 @@ export default function Integrations() {
   const [apiKeyEmpty, setAPIKeyEmpty] = useState(false);
   const [steamID, setSteamID] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [steamError, setSteamError] = useState<boolean | null>(null);
   const { toast } = useToast();
   const [npsso, setNpsso] = useState("");
   const [npssoEmpty, setNpssoEmpty] = useState(false);
   const [psnGamesNotMatched, setPsnGamesNotMatched] = useState<string[]>([]);
-  const [psnLoading, setPsnLoading] = useState(false);
-  const [steamLoading, setSteamLoading] = useState(false);
-  const [psnError, setPsnError] = useState<boolean | null>(null);
+  const [steamLoading, setSteamLoading] = useState<
+    "true" | "false" | "error" | "init"
+  >("init");
+  const [psnLoading, setPsnLoading] = useState<
+    "true" | "false" | "error" | "init"
+  >("init");
 
   useEffect(() => {
-    if (steamLoading === true) {
-      toast({
-        variant: "default",
-        title: "Steam Integration Started!",
-        description: "You can safely leave this page now.",
-      });
+    if (steamLoading != "init") {
+      if (steamLoading === "true") {
+        toast({
+          variant: "default",
+          title: "Steam Integration Started!",
+          description: "You can safely leave this page now.",
+        });
+      }
+      if (steamLoading !== "true") {
+        toast({
+          variant: steamLoading === "error" ? "destructive" : "default",
+          title:
+            steamLoading === "error"
+              ? "Steam Integration Error!"
+              : "Library Integrated!",
+          description:
+            steamLoading === "error"
+              ? "Please check your credentials and try again."
+              : "Your Steam library has been successfully integrated.",
+        });
+        setSteamLoading("false");
+      }
     }
-    if (steamError === true) {
-      toast({
-        variant: "destructive",
-        title: "Steam Integration Error!",
-        description: "Please check your credentials and try again.",
-      });
-      setSteamError(null);
-    } else if (steamError === false) {
-      toast({
-        variant: "default",
-        title: "Library Integrated!",
-        description: "Your steam library has been successfully integrated.",
-      });
-      setSteamError(null);
-    }
-    if (psnLoading === true) {
-      toast({
-        variant: "default",
-        title: "PSN Integration Started!",
-        description: "You can safely leave this page now.",
-      });
-    }
-    if (psnError === true) {
-      toast({
-        variant: "destructive",
-        title: "PSN Integration Error!",
-        description: "Please check your npsso and try again.",
-      });
-      setPsnError(null);
-    } else if (psnError === false) {
-      toast({
-        variant: "default",
-        title: "Library Integrated!",
-        description: "Your PSN library has been successfully integrated.",
-      });
-      setPsnError(null);
-    }
-  }, [steamError, steamLoading, psnLoading, psnError]);
+  }, [steamLoading]);
 
-  // const importPlaystationLibrary = async () => {
-  //   const npssoElement = document.getElementById("npsso") as HTMLInputElement;
-  //   const npsso = npssoElement.value;
-  //   if (!npsso) {
-  //     setNpssoEmpty(true);
-  //     return;
-  //   } else {
-  //     console.log("Sending PlayStation Import Req", npsso);
-  //     setPsnLoading(true);
-  //     try {
-  //       const response = await fetch(
-  //         "http://localhost:8080/PlayStationImport",
-  //         {
-  //           method: "POST",
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //           },
-  //           body: JSON.stringify({
-  //             npsso: npsso,
-  //             clientID: "bg50w140115zmfq2pi0uc0wujj9pn6",
-  //             clientSecret: "1nk95mh97tui5t1ct1q5i7sqyfmqvd",
-  //           }),
-  //         }
-  //       );
-  //       const resp = await response.json();
-  //       console.log("PSN Error : ", resp.error);
-  //       console.log("PSN Games Not Matched : ", resp.gamesNotMatched);
-  //       setPsnError(resp.error);
-  //       if (resp.error === false) {
-  //         setPsnGamesNotMatched(resp.gamesNotMatched);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error:", error);
-  //       setPsnLoading(false);
-  //     }
-  //     setPsnLoading(false);
-  //   }
-  // };
+  useEffect(() => {
+    if (psnLoading !== "init") {
+      if (psnLoading === "true") {
+        toast({
+          variant: "default",
+          title: "PSN Integration Started!",
+          description: "You can safely leave this page now.",
+        });
+      }
+      if (psnLoading !== "true") {
+        toast({
+          variant: psnLoading === "error" ? "destructive" : "default",
+          title:
+            psnLoading === "error"
+              ? "PSN Integration Error!"
+              : "Library Integrated!",
+          description:
+            psnLoading === "error"
+              ? "Please check your npsso and try again."
+              : "Your PSN library has been successfully integrated.",
+        });
+        setPsnLoading("false");
+      }
+    }
+  }, [psnLoading]);
 
   const SteamLibraryImportHandler = () => {
     if (!steamID) {
@@ -133,7 +101,6 @@ export default function Integrations() {
       steamID,
       apiKey,
       setSteamLoading,
-      setSteamError,
       setIntegrationLoadCount
     );
   };
@@ -146,7 +113,6 @@ export default function Integrations() {
     importPlaystationLibrary(
       npsso,
       setPsnLoading,
-      setPsnError,
       setPsnGamesNotMatched,
       setIntegrationLoadCount
     );
@@ -238,10 +204,12 @@ export default function Integrations() {
                     variant="secondary"
                     className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
                     onClick={SteamLibraryImportHandler}
-                    disabled={steamLoading}
+                    disabled={steamLoading === "true"}
                   >
                     Import Steam Library{" "}
-                    {steamLoading && <Loader2 className="animate-spin" />}
+                    {steamLoading === "true" && (
+                      <Loader2 className="animate-spin" />
+                    )}
                   </Button>
                 </div>
               </TabsContent>
@@ -293,10 +261,12 @@ export default function Integrations() {
                       variant="secondary"
                       className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
                       onClick={PlayStationLibraryImportHandler}
-                      disabled={psnLoading}
+                      disabled={psnLoading === "true"}
                     >
                       Import PlayStation Library
-                      {psnLoading && <Loader2 className="animate-spin" />}
+                      {psnLoading === "true" && (
+                        <Loader2 className="animate-spin" />
+                      )}
                     </Button>
                   </div>
                 </div>

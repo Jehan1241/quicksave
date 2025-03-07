@@ -3,15 +3,14 @@ import { useSortContext } from "@/hooks/useSortContex";
 export const importSteamLibrary = async (
   steamID: string,
   apiKey: string,
-  setSteamLoading: (loading: boolean) => void,
-  setSteamError: (error: boolean | null) => void,
+  setSteamLoading: (loading: "true" | "false" | "error") => void,
   setIntegrationLoadCount: (fn: (prev: number) => number) => void
 ) => {
   if (!steamID || !apiKey) {
     return;
   }
 
-  setSteamLoading(true);
+  setSteamLoading("true");
   setIntegrationLoadCount((prev: number) => prev + 1);
   try {
     const response = await fetch("http://localhost:8080/SteamImport", {
@@ -27,19 +26,18 @@ export const importSteamLibrary = async (
 
     const resp = await response.json();
     console.log("Steam Errors:", resp.error);
-    setSteamError(resp.error);
+    setSteamLoading("error");
   } catch (error) {
     console.error("Error:", error);
-    setSteamError(true);
+    setSteamLoading("error");
   }
-  setSteamLoading(false);
+  setSteamLoading("false");
   setIntegrationLoadCount((prev: number) => prev - 1);
 };
 
 export const importPlaystationLibrary = async (
   npsso: string,
-  setPsnLoading: (loading: boolean) => void,
-  setPsnError: (error: boolean | null) => void,
+  setPsnLoading: (loading: "true" | "false" | "error") => void,
   setPsnGamesNotMatched: (games: string[]) => void,
   setIntegrationLoadCount: (fn: (prev: number) => number) => void
 ) => {
@@ -50,7 +48,7 @@ export const importPlaystationLibrary = async (
 
   console.log("Sending PlayStation Import Req", npsso);
   setIntegrationLoadCount((prev: number) => prev + 1);
-  setPsnLoading(true);
+  setPsnLoading("true");
 
   try {
     const response = await fetch("http://localhost:8080/PlayStationImport", {
@@ -69,15 +67,15 @@ export const importPlaystationLibrary = async (
     console.log("PSN Error:", resp.error);
     console.log("PSN Games Not Matched:", resp.gamesNotMatched);
 
-    setPsnError(resp.error);
+    setPsnLoading(resp.error);
     if (!resp.error) {
       setPsnGamesNotMatched(resp.gamesNotMatched);
     }
   } catch (error) {
     console.error("Error:", error);
-    setPsnError(true);
+    setPsnLoading("error");
   }
 
-  setPsnLoading(false);
+  setPsnLoading("false");
   setIntegrationLoadCount((prev: number) => prev - 1);
 };

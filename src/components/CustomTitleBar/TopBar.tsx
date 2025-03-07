@@ -1,7 +1,7 @@
 import { useSortContext } from "@/hooks/useSortContex";
 import { useState } from "react";
 import { Input } from "../ui/input";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SortGames from "./SortGames";
 import FilterGames from "./FilterGames";
 import { Button } from "../ui/button";
@@ -21,6 +21,7 @@ export default function TopBar() {
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // This one updates only on UI
   const sizeChangeHandler = (newSize: number[]) => {
@@ -50,6 +51,7 @@ export default function TopBar() {
             onChange={(e) => {
               setSearchText(e.target.value);
               if (location.pathname == "/gameview") {
+                console.log("in");
                 navigate(-1);
               }
             }}
