@@ -8,23 +8,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { CircleHelp, Loader2 } from "lucide-react";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import {
+  importPlaystationLibrary,
+  importSteamLibrary,
+} from "@/lib/libraryImports";
+import { getSteamCreds, getNpsso } from "@/lib/getCreds";
 
 export default function Integrations() {
-  const { psnLoading, steamLoading, setPsnLoading, setSteamLoading } =
-    useSortContext();
+  const {
+    isIntegrationsDialogOpen,
+    setIsIntegrationsDialogOpen,
+    setIntegrationLoadCount,
+  } = useSortContext();
 
-  const { isIntegrationsDialogOpen, setIsIntegrationsDialogOpen } =
-    useSortContext();
   const [steamIDEmpty, setSteamIDEmpty] = useState(false);
   const [apiKeyEmpty, setAPIKeyEmpty] = useState(false);
   const [steamID, setSteamID] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [steamError, setSteamError] = useState(null);
+  const [steamError, setSteamError] = useState<boolean | null>(null);
   const { toast } = useToast();
   const [npsso, setNpsso] = useState("");
   const [npssoEmpty, setNpssoEmpty] = useState(false);
-  const [psnError, setPsnError] = useState(null);
   const [psnGamesNotMatched, setPsnGamesNotMatched] = useState<string[]>([]);
+  const [psnLoading, setPsnLoading] = useState(false);
+  const [steamLoading, setSteamLoading] = useState(false);
+  const [psnError, setPsnError] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (steamLoading === true) {
@@ -73,115 +81,86 @@ export default function Integrations() {
     }
   }, [steamError, steamLoading, psnLoading, psnError]);
 
-  const importSteamLibrary = async () => {
-    const SteamIdElement = document.getElementById(
-      "steamid"
-    ) as HTMLInputElement;
-    const APIKeyElement = document.getElementById("apikey") as HTMLInputElement;
+  // const importPlaystationLibrary = async () => {
+  //   const npssoElement = document.getElementById("npsso") as HTMLInputElement;
+  //   const npsso = npssoElement.value;
+  //   if (!npsso) {
+  //     setNpssoEmpty(true);
+  //     return;
+  //   } else {
+  //     console.log("Sending PlayStation Import Req", npsso);
+  //     setPsnLoading(true);
+  //     try {
+  //       const response = await fetch(
+  //         "http://localhost:8080/PlayStationImport",
+  //         {
+  //           method: "POST",
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //           },
+  //           body: JSON.stringify({
+  //             npsso: npsso,
+  //             clientID: "bg50w140115zmfq2pi0uc0wujj9pn6",
+  //             clientSecret: "1nk95mh97tui5t1ct1q5i7sqyfmqvd",
+  //           }),
+  //         }
+  //       );
+  //       const resp = await response.json();
+  //       console.log("PSN Error : ", resp.error);
+  //       console.log("PSN Games Not Matched : ", resp.gamesNotMatched);
+  //       setPsnError(resp.error);
+  //       if (resp.error === false) {
+  //         setPsnGamesNotMatched(resp.gamesNotMatched);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error:", error);
+  //       setPsnLoading(false);
+  //     }
+  //     setPsnLoading(false);
+  //   }
+  // };
 
-    const SteamID = SteamIdElement.value;
-    const APIkey = APIKeyElement.value;
-
-    if (!SteamID) {
+  const SteamLibraryImportHandler = () => {
+    if (!steamID) {
       setSteamIDEmpty(true);
+      return;
     }
-    if (!APIkey) {
+    if (!apiKey) {
       setAPIKeyEmpty(true);
+      return;
     }
-
-    if (SteamID && APIkey) {
-      setSteamIDEmpty(false);
-      setAPIKeyEmpty(false);
-      console.log("Sending Import Steam Library");
-      setSteamLoading(true);
-      try {
-        const response = await fetch("http://localhost:8080/SteamImport", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            SteamID: SteamID.trim(),
-            APIkey: APIkey.trim(),
-          }),
-        });
-        const resp = await response.json();
-        console.log("Steam Errors ? :", resp.error);
-        setSteamError(resp.error);
-      } catch (error) {
-        console.error("Error:", error);
-        setSteamLoading(false);
-      }
-      setSteamLoading(false);
-    }
+    importSteamLibrary(
+      steamID,
+      apiKey,
+      setSteamLoading,
+      setSteamError,
+      setIntegrationLoadCount
+    );
   };
 
-  const getNpsso = async () => {
-    console.log("Getting Npsso");
-    try {
-      const response = await fetch(`http://localhost:8080/Npsso`);
-      const json = await response.json();
-      console.log(json.Npsso);
-      setNpsso(json.Npsso);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const getSteamCreds = async () => {
-    console.log("Getting Steam Creds");
-    try {
-      const response = await fetch(`http://localhost:8080/SteamCreds`);
-      const json = await response.json();
-      setSteamID(json.SteamCreds[0]);
-      setApiKey(json.SteamCreds[1]);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const importPlaystationLibrary = async () => {
-    const npssoElement = document.getElementById("npsso") as HTMLInputElement;
-    const npsso = npssoElement.value;
+  const PlayStationLibraryImportHandler = () => {
     if (!npsso) {
       setNpssoEmpty(true);
       return;
-    } else {
-      console.log("Sending PlayStation Import Req", npsso);
-      setPsnLoading(true);
-      try {
-        const response = await fetch(
-          "http://localhost:8080/PlayStationImport",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              npsso: npsso,
-              clientID: "bg50w140115zmfq2pi0uc0wujj9pn6",
-              clientSecret: "1nk95mh97tui5t1ct1q5i7sqyfmqvd",
-            }),
-          }
-        );
-        const resp = await response.json();
-        console.log("PSN Error : ", resp.error);
-        console.log("PSN Games Not Matched : ", resp.gamesNotMatched);
-        setPsnError(resp.error);
-        if (resp.error === false) {
-          setPsnGamesNotMatched(resp.gamesNotMatched);
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        setPsnLoading(false);
-      }
-      setPsnLoading(false);
     }
+    importPlaystationLibrary(
+      npsso,
+      setPsnLoading,
+      setPsnError,
+      setPsnGamesNotMatched,
+      setIntegrationLoadCount
+    );
   };
 
   useEffect(() => {
-    getSteamCreds();
-    getNpsso();
+    const initFuncs = async () => {
+      const steamCreds = await getSteamCreds();
+      setSteamID(steamCreds?.ID);
+      setApiKey(steamCreds?.APIKey);
+      const npsso = await getNpsso();
+      setNpsso(npsso);
+    };
+    initFuncs();
   }, []);
 
   return (
@@ -258,7 +237,7 @@ export default function Integrations() {
                   <Button
                     variant="secondary"
                     className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
-                    onClick={importSteamLibrary}
+                    onClick={SteamLibraryImportHandler}
                     disabled={steamLoading}
                   >
                     Import Steam Library{" "}
@@ -313,7 +292,7 @@ export default function Integrations() {
                     <Button
                       variant="secondary"
                       className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
-                      onClick={importPlaystationLibrary}
+                      onClick={PlayStationLibraryImportHandler}
                       disabled={psnLoading}
                     >
                       Import PlayStation Library

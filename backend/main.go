@@ -75,7 +75,7 @@ func checkAndCreateFolders() {
 
 func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
 	// Connection string with _txlock=immediate for read
-	connStr := fmt.Sprintf("file:%s?mode=ro&_txlock=immediate&immutable=1&cache=shared", dbFile)
+	connStr := fmt.Sprintf("file:%s?mode=ro&_txlock=immediate&cache=shared", dbFile)
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open read-only database: %v", err)

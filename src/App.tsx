@@ -22,6 +22,12 @@ import HiddenView from "./components/HiddenView/HiddenView";
 import { Navigate } from "react-router-dom";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
+import {
+  importPlaystationLibrary,
+  importSteamLibrary,
+} from "./lib/libraryImports";
+import { getSteamCreds, getNpsso } from "./lib/getCreds";
+import { attachSSEListener } from "./lib/attachSSEListener";
 //import { fetchJSON, writeJSON } from "./lib/indexdb";
 
 function App() {
@@ -40,6 +46,7 @@ function App() {
     isAddGameDialogOpen,
     isIntegrationsDialogOpen,
     isWishlistAddDialogOpen,
+    setIntegrationLoadCount,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]); // Track dataArray in local state\
@@ -144,27 +151,34 @@ function App() {
   useEffect(() => {
     initTileSize();
     setTheme();
-    fetchData();
-    const eventSource = new EventSource(
-      "http://localhost:8080/sse-steam-updates"
-    );
+    const initFunc = async () => {
+      await fetchData();
+      // const steamCreds = await getSteamCreds();
+      // const npsso = await getNpsso();
+      // importSteamLibrary(
+      //   steamCreds?.ID,
+      //   steamCreds?.APIKey,
+      //   () => {},
+      //   () => {},
+      //   setIntegrationLoadCount
+      // );
+      // importPlaystationLibrary(
+      //   npsso,
+      //   () => {},
+      //   () => {},
+      //   () => {},
+      //   setIntegrationLoadCount
+      // );
+    };
+    initFunc();
 
-    eventSource.onmessage = (event) => {
-      console.log("SSE message received:", event.data);
-      fetchData();
-    };
-    eventSource.onerror = (error) => {
-      console.error("SSE Error:", error);
-    };
-    return () => {
-      eventSource.close();
-    };
-  }, [location.pathname]);
+    attachSSEListener(fetchData);
+  }, []);
 
   useEffect(() => {
     if (!randomGameClicked) return;
 
-    setRandomGameClicked(false); // Reset state early to avoid multiple triggers
+    setRandomGameClicked(false);
 
     let targetArray = [];
     if (location.pathname === "/") {

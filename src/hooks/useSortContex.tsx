@@ -38,10 +38,8 @@ interface SortContextType {
   setRandomGameClicked: React.Dispatch<React.SetStateAction<boolean>>;
   cacheBuster: number;
   setCacheBuster: React.Dispatch<React.SetStateAction<number>>;
-  psnLoading: boolean;
-  setPsnLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  steamLoading: boolean;
-  setSteamLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  integrationLoadCount: number;
+  setIntegrationLoadCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const SortContext = createContext<SortContextType | undefined>(undefined);
@@ -62,8 +60,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [searchText, setSearchText] = useState<string>("");
   const [randomGameClicked, setRandomGameClicked] = useState<boolean>(false);
   const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
-  const [psnLoading, setPsnLoading] = useState(false);
-  const [steamLoading, setSteamLoading] = useState(false);
+  const [integrationLoadCount, setIntegrationLoadCount] = useState<number>(0);
 
   const fetchData = async (
     type: string,
@@ -112,10 +109,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setIsWishlistAddDialogOpen,
         cacheBuster,
         setCacheBuster,
-        psnLoading,
-        setPsnLoading,
-        steamLoading,
-        setSteamLoading,
+        integrationLoadCount,
+        setIntegrationLoadCount,
       }}
     >
       {children}
