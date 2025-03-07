@@ -10,23 +10,24 @@ import { CircleHelp, Loader2 } from "lucide-react";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 
 export default function Integrations() {
+  const { psnLoading, steamLoading, setPsnLoading, setSteamLoading } =
+    useSortContext();
+
   const { isIntegrationsDialogOpen, setIsIntegrationsDialogOpen } =
     useSortContext();
   const [steamIDEmpty, setSteamIDEmpty] = useState(false);
   const [apiKeyEmpty, setAPIKeyEmpty] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [steamID, setSteamID] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [steamError, setSteamError] = useState(null);
   const { toast } = useToast();
   const [npsso, setNpsso] = useState("");
   const [npssoEmpty, setNpssoEmpty] = useState(false);
-  const [psnLoading, setPsnLoading] = useState(false);
   const [psnError, setPsnError] = useState(null);
   const [psnGamesNotMatched, setPsnGamesNotMatched] = useState<string[]>([]);
 
   useEffect(() => {
-    if (loading === true) {
+    if (steamLoading === true) {
       toast({
         variant: "default",
         title: "Steam Integration Started!",
@@ -70,7 +71,7 @@ export default function Integrations() {
       });
       setPsnError(null);
     }
-  }, [steamError, loading, psnLoading, psnError]);
+  }, [steamError, steamLoading, psnLoading, psnError]);
 
   const importSteamLibrary = async () => {
     const SteamIdElement = document.getElementById(
@@ -92,7 +93,7 @@ export default function Integrations() {
       setSteamIDEmpty(false);
       setAPIKeyEmpty(false);
       console.log("Sending Import Steam Library");
-      setLoading(true);
+      setSteamLoading(true);
       try {
         const response = await fetch("http://localhost:8080/SteamImport", {
           method: "POST",
@@ -109,9 +110,9 @@ export default function Integrations() {
         setSteamError(resp.error);
       } catch (error) {
         console.error("Error:", error);
-        setLoading(false);
+        setSteamLoading(false);
       }
-      setLoading(false);
+      setSteamLoading(false);
     }
   };
 
@@ -258,10 +259,10 @@ export default function Integrations() {
                     variant="secondary"
                     className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
                     onClick={importSteamLibrary}
-                    disabled={loading}
+                    disabled={steamLoading}
                   >
                     Import Steam Library{" "}
-                    {loading && <Loader2 className="animate-spin" />}
+                    {steamLoading && <Loader2 className="animate-spin" />}
                   </Button>
                 </div>
               </TabsContent>

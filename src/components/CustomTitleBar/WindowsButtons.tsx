@@ -13,7 +13,10 @@ export default function WindowButtons() {
   };
 
   return (
-    <div className="flex items-start">
+    <div
+      className="flex items-start"
+      style={{ WebkitAppRegion: "no-drag" } as any}
+    >
       <button
         title="Minimize"
         type="button"

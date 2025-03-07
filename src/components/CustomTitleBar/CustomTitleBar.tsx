@@ -12,11 +12,11 @@ import QuicksaveMenu from "./QuicksaveMenu";
 import SortGames from "./SortGames";
 import FilterGames from "./FilterGames";
 import WindowButtons from "./WindowsButtons";
+import Integrations from "../Dialogs/Integrations";
+import IntegrationsLoading from "./IntegrationsLoading";
+import TopBar from "./TopBar";
 
 export default function CustomTitleBar({ children }: { children: ReactNode }) {
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const { setSearchText, setRandomGameClicked } = useSortContext(); // Access context
-
   const location = useLocation();
   const navigate = useNavigate();
   const page = location.pathname;
@@ -26,20 +26,6 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
   const handleViewClick = (view: "" | "wishlist" | "hidden") => {
     navigate(`/${view}`, { replace: true });
     console.log(`${view} View Clicked`);
-  };
-
-  // gloabal context vars
-  const { tileSize, setTileSize, setSortStateUpdate } = useSortContext();
-
-  // This one updates only on UI
-  const sizeChangeHandler = (newSize: number[]) => {
-    setTileSize(newSize[0]);
-  };
-
-  // This one commits to DB and triggers on release of mouse
-  const sizeChangeHandlerCommit = (newSize: number[]) => {
-    setTileSize(newSize[0]);
-    localStorage.setItem("tileSize", String(newSize[0]));
   };
 
   return (
@@ -88,61 +74,8 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-        <div className="flex h-full w-full flex-col bg-Sidebar">
-          <div className="bg flex flex-row bg-Sidebar">
-            <div className="flex h-10 w-full flex-row justify-between p-1 bg-sidebar">
-              <div className="flex w-full flex-row bg-Sidebar">
-                <div className="draglayer h-full flex-1 bg-Sidebar"></div>
-                <div className="relative flex h-full w-[50rem] max-w-[60vw] flex-row gap-3 bg-sidebar">
-                  <Input
-                    onChange={(e) => {
-                      setSearchText(e.target.value);
-                      if (location.pathname == "/gameview") {
-                        navigate(-1);
-                      }
-                    }}
-                    className="my-auto h-8 bg-topBarButtons"
-                    placeholder="Search"
-                  />
-                  <SortGames />
-                  {filterDialogOpen && (
-                    <FilterGames
-                      filterDialogOpen={filterDialogOpen}
-                      setFilterDialogOpen={setFilterDialogOpen}
-                    />
-                  )}
-                  <Button
-                    variant={"outline"}
-                    onClick={() => {
-                      setFilterDialogOpen(!filterDialogOpen);
-                    }}
-                    className="my-auto h-8 w-8 bg-topBarButtons hover:bg-topBarButtonsHover"
-                  >
-                    <Filter size={18} strokeWidth={1} />
-                  </Button>
-                  <Button
-                    onClick={() => setRandomGameClicked(true)}
-                    variant={"outline"}
-                    className="my-auto h-8 w-8 bg-topBarButtons hover:bg-topBarButtonsHover"
-                  >
-                    <Dices size={18} strokeWidth={1} />
-                  </Button>
-                  <Slider
-                    className="w-80"
-                    value={[tileSize]}
-                    onValueChange={sizeChangeHandler}
-                    onValueCommit={sizeChangeHandlerCommit}
-                    step={5}
-                    min={15}
-                    max={100}
-                  />
-                </div>
-                <div className="draglayer h-full flex-1 bg-Sidebar"></div>
-              </div>
-
-              <WindowButtons />
-            </div>
-          </div>
+        <div className="flex h-full w-full flex-col bg-Sidebar items-center">
+          <TopBar />
           <div
             draggable={false}
             className="relative h-full w-full rounded-tl-xl bg-content"
