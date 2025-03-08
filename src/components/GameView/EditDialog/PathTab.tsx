@@ -68,20 +68,12 @@ export function PathTab({ uid }: any) {
         </div>
         <div className="self-end">
           {!pathIsValid && (
-            <Button
-              onClick={gamePathCheckHandler}
-              variant={"secondary"}
-              className="h-12 w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
-            >
+            <Button onClick={gamePathCheckHandler} variant={"dialogSaveButton"}>
               Check Path
             </Button>
           )}
           {pathIsValid === true && (
-            <Button
-              onClick={gamePathSaveHandler}
-              variant={"secondary"}
-              className="h-12 w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
-            >
+            <Button onClick={gamePathSaveHandler} variant={"dialogSaveButton"}>
               Save
             </Button>
           )}

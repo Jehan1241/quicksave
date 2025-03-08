@@ -39,7 +39,7 @@ export function EditDialog({
             onValueChange={setEditDialogSelectedTab}
             className="flex h-full flex-col"
           >
-            <TabsList className="grid w-[300px] grid-cols-3 focus:outline-none bg-dialogSaveButtons">
+            <TabsList className="grid w-[300px] grid-cols-3 focus:outline-none">
               <TabsTrigger value="metadata">Metadata</TabsTrigger>
               <TabsTrigger value="images">Images</TabsTrigger>
               <TabsTrigger value="path">Path</TabsTrigger>

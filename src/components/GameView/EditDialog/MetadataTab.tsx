@@ -287,11 +287,7 @@ export function MetadataTab({ uid, fetchData }: any) {
           </div>
         </div>
         <div className="self-end">
-          <Button
-            onClick={saveClickHandler}
-            variant={"secondary"}
-            className="h-12 w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
-          >
+          <Button onClick={saveClickHandler} variant={"dialogSaveButton"}>
             Save {loading && <Loader2 className="animate-spin" />}
           </Button>
         </div>

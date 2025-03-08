@@ -473,9 +473,9 @@ function MetaDataView({
             <Button
               disabled={loading}
               type="submit"
-              variant={"secondary"}
+              variant={"dialogSaveButton"}
               onClick={downloadIgdbMetadata}
-              className="h-10 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
+              className="h-10"
             >
               {loading && <Loader2 className="animate-spin" />}
               Download Metadata
@@ -854,10 +854,9 @@ function MetaDataView({
         </div>
         <div className="flex justify-end mt-auto">
           <Button
-            className="w-60 h-12 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
             type="submit"
             onClick={addGameClickHandler}
-            variant={"secondary"}
+            variant={"dialogSaveButton"}
           >
             Add Game {addGameLoading && <Loader2 className="animate-spin" />}
           </Button>

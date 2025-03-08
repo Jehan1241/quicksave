@@ -148,7 +148,7 @@ export default function Integrations() {
 
         <div className="h-full w-full text-sm">
           <Tabs defaultValue="steam" className="flex h-full w-full flex-col">
-            <TabsList className="h-10 w-fit max-w-none bg-dialogSaveButtons">
+            <TabsList className="h-10 w-fit max-w-none">
               <TabsTrigger value="steam">Steam</TabsTrigger>
               <TabsTrigger value="playstation">PlayStation</TabsTrigger>
             </TabsList>
@@ -201,12 +201,11 @@ export default function Integrations() {
                 </div>
                 <div className="flex justify-end">
                   <Button
-                    variant="secondary"
-                    className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
+                    variant="dialogSaveButton"
                     onClick={SteamLibraryImportHandler}
                     disabled={steamLoading === "true"}
                   >
-                    Import Steam Library{" "}
+                    Import Library{" "}
                     {steamLoading === "true" && (
                       <Loader2 className="animate-spin" />
                     )}
@@ -258,12 +257,11 @@ export default function Integrations() {
 
                   <div className="flex justify-end">
                     <Button
-                      variant="secondary"
-                      className="w-60 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover"
+                      variant="dialogSaveButton"
                       onClick={PlayStationLibraryImportHandler}
                       disabled={psnLoading === "true"}
                     >
-                      Import PlayStation Library
+                      Import Library
                       {psnLoading === "true" && (
                         <Loader2 className="animate-spin" />
                       )}

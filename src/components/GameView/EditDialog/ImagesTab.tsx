@@ -356,11 +356,7 @@ export function ImagesTab({
           </div>
         </div>
         <div className="flex justify-end">
-          <Button
-            className="w-60 h-12 bg-dialogSaveButtons hover:bg-dialogSaveButtonsHover text-dialogSaveButtonsText"
-            variant={"secondary"}
-            onClick={saveClickHandler}
-          >
+          <Button variant={"dialogSaveButton"} onClick={saveClickHandler}>
             {loading && <Loader2 className="animate-spin" />}
             Save
           </Button>
