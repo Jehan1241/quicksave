@@ -1398,8 +1398,26 @@ func addPathToDB(uid string, path string) {
 	bail(err)
 	defer db.Close()
 
+	tx, err := db.Begin()
+	bail(err)
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", r)
+		} else if err != nil {
+			tx.Rollback()
+			log.Println("Transaction rolled back due to error:", err)
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	//Insert to GameMetaData Table
-	preparedStatement, err := db.Prepare("INSERT INTO ManualGameLaunchPath (uid, path) VALUES (?,?)")
+	preparedStatement, err := tx.Prepare(`
+    INSERT INTO ManualGameLaunchPath (uid, path) 
+    VALUES (?, ?) 
+    ON CONFLICT(uid) DO UPDATE SET path = excluded.path
+`)
 	bail(err)
 	defer preparedStatement.Close()
 
