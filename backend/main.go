@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -1325,16 +1326,46 @@ func getManualGamePath(uid string) string {
 	return (path)
 }
 
-func launchGameFromPath(path string) {
+func launchGameFromPath(path string, uid string) {
 	switch runtime.GOOS {
 	case "windows":
+		startTime := time.Now()
 		// For Windows, use exec.Command to run the .exe file
-		err := exec.Command(path).Start()
+		cmd := exec.Command(path)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // Hide the console window
+		err := cmd.Start()
 		if err != nil {
 			fmt.Printf("Error launching game on Windows: %s\n", err)
-		} else {
-			fmt.Println("Game launched successfully on Windows!")
+			return
 		}
+		fmt.Println("Game launched successfully on Windows!")
+
+		err = cmd.Wait()
+		if err != nil {
+			fmt.Printf("Game process exited with error: %s\n", err)
+		}
+		playTime := time.Since(startTime)
+		fmt.Printf("Game exited. Total playtime: %f\n", playTime.Hours())
+		dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
+		bail(err)
+		defer dbWrite.Close()
+
+		tx, err := dbWrite.Begin()
+		bail(err)
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", r)
+			} else if err != nil {
+				tx.Rollback()
+				log.Println("Transaction rolled back due to error:", err)
+			} else {
+				tx.Commit()
+			}
+		}()
+
+		_, err = tx.Exec("UPDATE GameMetaData SET TimePlayed = ? WHERE UID = ?", playTime.Hours(), uid)
+		bail(err)
 
 	case "linux":
 		// On Linux, we assume it might be a shell script or other executable
@@ -1824,7 +1855,7 @@ func setupRouter() *gin.Engine {
 			if path == "" {
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "ToAddPath"})
 			} else {
-				launchGameFromPath(path)
+				launchGameFromPath(path, uid)
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 			}
 		}
