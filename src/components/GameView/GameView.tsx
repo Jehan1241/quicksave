@@ -40,6 +40,9 @@ export default function GameView() {
         setEditDialogSelectedTab("path");
         setEditDialogOpen(true);
       }
+      if (launchStatus === "Launched") {
+        fetchData();
+      }
     } catch (error) {
       console.log(error);
     }
@@ -83,7 +86,8 @@ export default function GameView() {
   screenshotsArray = screenshotsArray.map((screenshot) => {
     return `http://localhost:8080/screenshots${screenshot}?t=${cacheBuster}`;
   });
-  const timePlayed = metadata?.TimePlayed?.toFixed(1);
+  let timePlayed = metadata?.TimePlayed?.toFixed(1);
+  if (timePlayed < 0) timePlayed = "0.0";
   const isWishlist = metadata?.isDLC;
   const rating = metadata?.AggregatedRating?.toFixed(1);
   let releaseDate = metadata?.ReleaseDate;

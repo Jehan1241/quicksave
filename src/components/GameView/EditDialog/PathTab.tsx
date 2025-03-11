@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
 
-export function PathTab({ uid }: any) {
+export function PathTab({ uid, setEditDialogOpen }: any) {
   const [gamePath, setGamePath] = useState("");
   const [pathIsValid, setPathIsValid] = useState<boolean | null>(null);
 
@@ -29,6 +29,7 @@ export function PathTab({ uid }: any) {
     console.log("Checking Game Path Validity");
     const result = await window.electron.validateGamePath(gamePath);
     if (result.isValid) {
+      console.log(result.message);
       setGamePath(result.message);
       setPathIsValid(true);
     } else {
@@ -37,7 +38,7 @@ export function PathTab({ uid }: any) {
   };
 
   const gamePathSaveHandler = async () => {
-    console.log("Saving Game Path");
+    console.log("Saving Game Path", gamePath);
     try {
       const response = await fetch(
         `http://localhost:8080/setGamePath?uid=${uid}&path=${gamePath}`
@@ -73,7 +74,13 @@ export function PathTab({ uid }: any) {
             </Button>
           )}
           {pathIsValid === true && (
-            <Button onClick={gamePathSaveHandler} variant={"dialogSaveButton"}>
+            <Button
+              onClick={() => {
+                gamePathSaveHandler();
+                setEditDialogOpen(false);
+              }}
+              variant={"dialogSaveButton"}
+            >
               Save
             </Button>
           )}

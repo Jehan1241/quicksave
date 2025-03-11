@@ -151,7 +151,7 @@ async function createWindow() {
         const validExtensions = [".exe", ".bin", ".app", ".sh", ".jar"];
 
         if (validExtensions.includes(fileExtension)) {
-          return { isValid: true }; // Valid game path
+          return { isValid: true, message: gamePath }; // Valid game path
         } else {
           return { isValid: false, message: "Invalid file extension." };
         }

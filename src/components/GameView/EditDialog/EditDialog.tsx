@@ -51,7 +51,7 @@ export function EditDialog({
               uid={uid}
               fetchData={fetchData}
             />
-            <PathTab uid={uid} />
+            <PathTab uid={uid} setEditDialogOpen={setEditDialogOpen} />
           </Tabs>
         </div>
       </DialogContent>
