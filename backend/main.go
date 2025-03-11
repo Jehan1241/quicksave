@@ -1329,23 +1329,31 @@ func getManualGamePath(uid string) string {
 func launchGameFromPath(path string, uid string) {
 	switch runtime.GOOS {
 	case "windows":
-		startTime := time.Now()
-		// For Windows, use exec.Command to run the .exe file
+		gameDir := filepath.Dir(path)
+
 		cmd := exec.Command(path)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // Hide the console window
-		err := cmd.Start()
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		cmd.Dir = gameDir // Set correct working directory
+		startTime := time.Now()
+		err := cmd.Run()
 		if err != nil {
-			fmt.Printf("Error launching game on Windows: %s\n", err)
-			return
+			fmt.Println("Normal launch failed, trying with admin privileges...")
+			cmd := exec.Command("powershell", "-Command",
+				fmt.Sprintf("Start-Process -FilePath '%s' -Verb RunAs -Wait", path))
+			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			cmd.Dir = gameDir // Set correct working directory
+			err := cmd.Run()
+			if err != nil {
+				fmt.Printf("Error launching game: %s\n", err)
+				return
+			}
 		}
+
 		fmt.Println("Game launched successfully on Windows!")
 
-		err = cmd.Wait()
-		if err != nil {
-			fmt.Printf("Game process exited with error: %s\n", err)
-		}
+		// Calculate playtime
 		playTime := time.Since(startTime)
-		fmt.Printf("Game exited. Total playtime: %f\n", playTime.Hours())
+		fmt.Printf("Game exited. Total playtime: %.4f hours\n", playTime.Hours())
 		dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
 		bail(err)
 		defer dbWrite.Close()
@@ -1364,7 +1372,9 @@ func launchGameFromPath(path string, uid string) {
 			}
 		}()
 
-		_, err = tx.Exec("UPDATE GameMetaData SET TimePlayed = ? WHERE UID = ?", playTime.Hours(), uid)
+		_, err = tx.Exec(
+			"UPDATE GameMetaData SET TimePlayed = COALESCE(TimePlayed, 0) + ? WHERE UID = ?",
+			playTime.Hours(), uid)
 		bail(err)
 
 	case "linux":
@@ -1874,6 +1884,7 @@ func setupRouter() *gin.Engine {
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "ToAddPath"})
 			} else {
 				launchGameFromPath(path, uid)
+				sendSSEMessage("Game quit, updated playtime")
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 			}
 		}
