@@ -18,12 +18,10 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -44,6 +42,8 @@ func bail(err error) {
 func main() {
 	checkAndCreateDB()
 	checkAndCreateFolders()
+	checkSteamInstalledValidity()
+	checkManualInstalledValidity()
 	startSSEListener()
 	routing()
 }
@@ -209,6 +209,7 @@ func createTables(db *sql.DB) {
 	"OwnedPlatform"	TEXT NOT NULL,
 	"TimePlayed"	INTEGER NOT NULL,
 	"AggregatedRating"	INTEGER NOT NULL,
+	"InstallPath"	TEXT,
 	PRIMARY KEY("UID")
 	);`,
 
@@ -221,12 +222,6 @@ func createTables(db *sql.DB) {
 	"UID"	TEXT NOT NULL,
 	"Name"	TEXT NOT NULL,
 	PRIMARY KEY("UUID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "ManualGameLaunchPath" (
-	"uid"	TEXT NOT NULL UNIQUE,
-	"path"	TEXT NOT NULL,
-	PRIMARY KEY("uid")
 	);`,
 
 		`CREATE TABLE IF NOT EXISTS "Platforms" (
@@ -438,7 +433,7 @@ func getGameDetails(UID string) map[string]interface{} {
 	m := make(map[string]map[string]interface{})
 
 	// Query 1 GameMetaData
-	QueryString := fmt.Sprintf(`SELECT * FROM GameMetaData Where gameMetadata.UID = "%s"`, UID)
+	QueryString := fmt.Sprintf(`SELECT UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating FROM GameMetaData Where UID = "%s"`, UID)
 	rows, err := db.Query(QueryString)
 	bail(err)
 	defer rows.Close()
@@ -852,7 +847,6 @@ func deleteGameFromDB(uid string) {
 	executeDelete("DELETE FROM GamePreferences WHERE UID=?", uid)
 	executeDelete("DELETE FROM HiddenGames WHERE UID=?", uid)
 	executeDelete("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
-	executeDelete("DELETE FROM ManualGameLaunchPath WHERE UID=?", uid)
 	executeDelete("DELETE FROM ScreenShots WHERE UID=?", uid)
 	executeDelete("DELETE FROM SteamAppIds WHERE UID=?", uid)
 	executeDelete("DELETE FROM Tags WHERE UID=?", uid)
@@ -953,7 +947,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 
 	BaseQuery := `
 		SELECT
-			gmd.*,
+			gmd.UID, gmd.Name, gmd.ReleaseDate, gmd.CoverArtPath, gmd.Description, gmd.isDLC, gmd.OwnedPlatform, gmd.TimePlayed, gmd.AggregatedRating, gmd.InstallPath,
 			CASE
 				WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
 				ELSE gmd.Name
@@ -996,9 +990,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	if nameFilterSet {
 		BaseQuery += `
 		WHERE (
-    	(gp.CustomTitle IS NOT NULL AND gp.CustomTitle LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
-    	OR
-    	(gp.CustomTitle IS NULL AND gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
+		(gp.CustomTitle IS NOT NULL AND gp.CustomTitle LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
+		OR
+		(gp.CustomTitle IS NULL AND gmd.Name LIKE (SELECT Name || '%' FROM FilterName LIMIT 1))
 		)`
 	}
 
@@ -1018,7 +1012,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		`
 	}
 
-	BaseQuery += `  
+	BaseQuery += `
 	GROUP BY gmd.UID
 	`
 
@@ -1030,78 +1024,22 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		havingClauses = append(havingClauses, `COUNT(DISTINCT f.Tag) = (SELECT COUNT(*) FROM FilterTags) `)
 	}
 
-	// Comment this back in if you want to switch to an AND filter
-	// if devsFilterSet {
-	// 	havingClauses = append(havingClauses, `COUNT(DISTINCT d.Dev) = (SELECT COUNT(*) FROM FilterDevs)`)
-	// }
+	// // Comment this back in if you want to switch to an AND filter
+	// // if devsFilterSet {
+	// // 	havingClauses = append(havingClauses, `COUNT(DISTINCT d.Dev) = (SELECT COUNT(*) FROM FilterDevs)`)
+	// // }
 
-	// Comment this back in if you want to switch to an AND filter
-	// if platsFilterSet {
-	// 	havingClauses = append(havingClauses, `COUNT(DISTINCT p.Platform) = (SELECT COUNT(*) FROM FilterPlatform)`)
-	// }
+	// // Comment this back in if you want to switch to an AND filter
+	// // if platsFilterSet {
+	// // 	havingClauses = append(havingClauses, `COUNT(DISTINCT p.Platform) = (SELECT COUNT(*) FROM FilterPlatform)`)
+	// // }
 
-	// If there are any HAVING clauses, join them with 'AND' and add to the query
+	// // If there are any HAVING clauses, join them with 'AND' and add to the query
 	if len(havingClauses) > 0 {
 		BaseQuery += " HAVING " + strings.Join(havingClauses, " AND ")
 	}
 
 	BaseQuery += fmt.Sprintf(`ORDER BY %s %s;`, sortType, order)
-
-	/* 	QueryString = fmt.Sprintf(`
-	SELECT
-		gmd.*,
-		CASE
-			WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
-			ELSE gmd.Name
-		END AS CustomTitle,
-		CASE
-			WHEN gp.useCustomRating = 1 THEN gp.CustomRating
-			ELSE gmd.AggregatedRating
-		END AS CustomRating,
-		CASE
-			WHEN gp.useCustomTime = 1 THEN gp.CustomTime
-			WHEN gp.UseCustomTimeOffset = 1 THEN (gp.CustomTimeOffset + gmd.TimePlayed)
-			ELSE gmd.TimePlayed
-		END AS CustomTimePlayed,
-		CASE
-			WHEN gp.UseCustomReleaseDate = 1 THEN gp.CustomReleaseDate
-			ELSE gmd.ReleaseDate
-		END AS CustomReleaseDate
-	FROM GameMetaData gmd
-	LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
-	WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-	ORDER BY %s %s;`, sortType, order) */
-
-	/* if tagsFilterSet {
-		QueryString = fmt.Sprintf(`
-			SELECT
-				gmd.*,
-				CASE
-					WHEN gp.useCustomTitle = 1 THEN gp.CustomTitle
-					ELSE gmd.Name
-				END AS CustomTitle,
-				CASE
-					WHEN gp.useCustomRating = 1 THEN gp.CustomRating
-					ELSE gmd.AggregatedRating
-				END AS CustomRating,
-				CASE
-					WHEN gp.useCustomTime = 1 THEN gp.CustomTime
-					WHEN gp.UseCustomTimeOffset = 1 THEN (gp.CustomTimeOffset + gmd.TimePlayed)
-					ELSE gmd.TimePlayed
-				END AS CustomTimePlayed,
-				CASE
-					WHEN gp.UseCustomReleaseDate = 1 THEN gp.CustomReleaseDate
-					ELSE gmd.ReleaseDate
-				END AS CustomReleaseDate
-			FROM GameMetaData gmd
-			LEFT JOIN GamePreferences gp ON gmd.uid = gp.uid
-			JOIN Tags t ON gmd.uid = t.uid
-			JOIN FilterTags f ON t.Tags = f.Tag
-			WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID)
-			GROUP BY t.UID
-			HAVING COUNT(f.Tag) = (SELECT COUNT(*) FROM FilterTags)
-			ORDER BY %s %s;`, sortType, order)
-	} */
 
 	rows, err := dbRead.Query(BaseQuery)
 	bail(err)
@@ -1115,11 +1053,12 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	// put data in map
 	for rows.Next() {
 		var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform, CustomTitle, CustomReleaseDate string
+		var InstallPath sql.NullString
 		var isDLC int
 		var TimePlayed, CustomTimePlayed float64
 		var AggregatedRating, CustomRating float32
 
-		err = rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &CustomTitle, &CustomRating, &CustomTimePlayed, &CustomReleaseDate)
+		err = rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &InstallPath, &CustomTitle, &CustomRating, &CustomTimePlayed, &CustomReleaseDate)
 		bail(err)
 		metadata[i] = make(map[string]interface{})
 		metadata[i]["Name"] = CustomTitle
@@ -1130,6 +1069,11 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		metadata[i]["OwnedPlatform"] = OwnedPlatform
 		metadata[i]["TimePlayed"] = CustomTimePlayed
 		metadata[i]["AggregatedRating"] = CustomRating
+		if InstallPath.Valid {
+			metadata[i]["InstallPath"] = InstallPath.String
+		} else {
+			metadata[i]["InstallPath"] = ""
+		}
 		i++
 	}
 
@@ -1304,155 +1248,6 @@ func updateNpsso(Npsso string) {
 	QueryString = "INSERT INTO PlayStationNpsso (Npsso) VALUES (?)"
 	_, err = db.Exec(QueryString, Npsso)
 	bail(err)
-}
-
-func getManualGamePath(uid string) string {
-	fmt.Println("To launch ", uid)
-
-	db, err := SQLiteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := fmt.Sprintf(`SELECT path FROM ManualGameLaunchPath WHERE uid="%s"`, uid)
-	rows, err := db.Query(QueryString)
-	bail(err)
-	defer rows.Close()
-
-	var path string
-	for rows.Next() {
-		err = rows.Scan(&path)
-		bail(err)
-	}
-	return (path)
-}
-
-func launchGameFromPath(path string, uid string) {
-	switch runtime.GOOS {
-	case "windows":
-		gameDir := filepath.Dir(path)
-
-		cmd := exec.Command(path)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		cmd.Dir = gameDir // Set correct working directory
-		startTime := time.Now()
-		err := cmd.Run()
-		if err != nil {
-			fmt.Println("Normal launch failed, trying with admin privileges...")
-			cmd := exec.Command("powershell", "-Command",
-				fmt.Sprintf("Start-Process -FilePath '%s' -Verb RunAs -Wait", path))
-			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			cmd.Dir = gameDir // Set correct working directory
-			err := cmd.Run()
-			if err != nil {
-				fmt.Printf("Error launching game: %s\n", err)
-				return
-			}
-		}
-
-		fmt.Println("Game launched successfully on Windows!")
-
-		// Calculate playtime
-		playTime := time.Since(startTime)
-		fmt.Printf("Game exited. Total playtime: %.4f hours\n", playTime.Hours())
-		dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
-		bail(err)
-		defer dbWrite.Close()
-
-		tx, err := dbWrite.Begin()
-		bail(err)
-		defer func() {
-			if r := recover(); r != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", r)
-			} else if err != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", err)
-			} else {
-				tx.Commit()
-			}
-		}()
-
-		_, err = tx.Exec(
-			"UPDATE GameMetaData SET TimePlayed = COALESCE(TimePlayed, 0) + ? WHERE UID = ?",
-			playTime.Hours(), uid)
-		bail(err)
-
-	case "linux":
-		// On Linux, we assume it might be a shell script or other executable
-		// Check if the file is an executable (e.g., .sh or a native binary)
-		if path[len(path)-4:] == ".exe" {
-			// If it's a .exe file, try to run it using Wine (or similar)
-			err := exec.Command("wine", path).Start()
-			if err != nil {
-				fmt.Printf("Error launching Windows game on Linux with Wine: %s\n", err)
-			} else {
-				fmt.Println("Game launched successfully on Linux with Wine!")
-			}
-		} else {
-			// Try to run it as a native Linux executable
-			err := exec.Command(path).Start()
-			if err != nil {
-				fmt.Printf("Error launching game on Linux: %s\n", err)
-			} else {
-				fmt.Println("Game launched successfully on Linux!")
-			}
-		}
-
-	default:
-		fmt.Println("Unsupported platform:", runtime.GOOS)
-	}
-}
-
-func addPathToDB(uid string, path string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	tx, err := db.Begin()
-	bail(err)
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
-		} else {
-			tx.Commit()
-		}
-	}()
-
-	//Insert to GameMetaData Table
-	preparedStatement, err := tx.Prepare(`
-    INSERT INTO ManualGameLaunchPath (uid, path) 
-    VALUES (?, ?) 
-    ON CONFLICT(uid) DO UPDATE SET path = excluded.path
-`)
-	bail(err)
-	defer preparedStatement.Close()
-
-	_, err = preparedStatement.Exec(uid, path)
-	bail(err)
-}
-
-func getGamePath(uid string) string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	preparedStatement, err := db.Prepare("SELECT * FROM ManualGameLaunchPath WHERE UID = ?")
-	bail(err)
-	defer preparedStatement.Close()
-
-	rows, err := preparedStatement.Query(uid)
-	bail(err)
-	var path string
-	var dbuid string
-	for rows.Next() {
-		err := rows.Scan(&dbuid, &path)
-		bail(err)
-	}
-	return (path)
 }
 
 func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
@@ -1878,7 +1673,7 @@ func setupRouter() *gin.Engine {
 			launchSteamGame(appid)
 			c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 		} else {
-			path := getManualGamePath(uid)
+			path := getGamePath(uid)
 			fmt.Println(path)
 			if path == "" {
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "ToAddPath"})
@@ -1891,18 +1686,17 @@ func setupRouter() *gin.Engine {
 	})
 
 	r.GET("/setGamePath", func(c *gin.Context) {
-		fmt.Println("Received Set Game Path")
 		uid := c.Query("uid")
 		path := c.Query("path")
-		fmt.Println(uid, path)
-		addPathToDB(uid, path)
+		fmt.Println("Received Set Game Path", uid, path)
+		setInstallPath(uid, path)
+		sendSSEMessage("Set Game Path")
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	r.GET("/getGamePath", func(c *gin.Context) {
-		fmt.Println("Received Set Game Path")
 		uid := c.Query("uid")
-		fmt.Println(uid)
+		fmt.Println("Received Set Game Path", uid)
 		path := getGamePath(uid)
 		c.JSON(http.StatusOK, gin.H{"path": path})
 	})
@@ -1950,15 +1744,8 @@ func setupRouter() *gin.Engine {
 		fmt.Println(appID)
 		getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
 		insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
-		// Keep incase errs found later
-		/* MetaData := displayEntireDB()
-		m := MetaData["m"].(map[string]map[string]interface{})
-		basicInfoHandler = func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"MetaData": m})
-		} */
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 		sendSSEMessage("Inserted Game")
-		/* basicInfoHandler(c) */
 	})
 
 	r.POST("/GetIgdbInfo", func(c *gin.Context) {
@@ -2100,6 +1887,7 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Received Steam Import", SteamID, APIkey)
 		updateSteamCreds(SteamID, APIkey)
 		error := steamImportUserGames(SteamID, APIkey)
+		checkSteamInstalledValidity()
 		c.JSON(http.StatusOK, gin.H{"error": error})
 	})
 
@@ -2202,22 +1990,6 @@ func setupRouter() *gin.Engine {
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
-
-	// r.GET("/cover-art", func(c *gin.Context) {
-	// 	fmt.Println("Received Cover Art")
-	// 	queries := c.Request.URL.Query()
-	// 	fmt.Println("Query Parameters:", queries)
-
-	// 	// Print all headers
-	// 	headers := c.Request.Header
-	// 	fmt.Println("Headers:", headers)
-
-	// 	// Print all path parameters
-	// 	params := c.Params
-	// 	fmt.Println("Path Parameters:", params)
-
-	// 	//c.JSON(http.StatusOK, gin.H{"file": })
-	// })
 
 	return r
 }

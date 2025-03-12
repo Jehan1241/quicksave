@@ -6,8 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -390,35 +388,4 @@ func getSteamAppID(uid string) int {
 		rows.Scan(&appid)
 	}
 	return (appid)
-}
-
-func launchSteamGame(appid int) {
-	// Get the current OS
-	currentOS := runtime.GOOS
-	fmt.Println("Launching Steam Game", appid)
-
-	var command string
-	var cmd *exec.Cmd
-
-	// Check the OS and run command
-	if currentOS == "linux" {
-		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
-		cmd = exec.Command("bash", "-c", command)
-	} else if currentOS == "windows" {
-		command = fmt.Sprintf(`start steam://rungameid/%d`, appid)
-		cmd = exec.Command("cmd", "/C", command)
-	} else {
-		fmt.Println("Unsupported OS")
-		return
-	}
-
-	// Execute the command
-	stdout, err := cmd.Output()
-	if err != nil {
-		fmt.Println("Error:", err.Error())
-		return
-	}
-
-	// Print the output of the command (if any)
-	fmt.Println(string(stdout))
 }
