@@ -1,35 +1,17 @@
-import React, { useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { darkMode, setTheme } from "./ToggleTheme";
-import {
-  BrowserRouter,
-  data,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { useEffect, useState } from "react";
+import { setTheme } from "./ToggleTheme";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import CustomTitleBar from "./components/CustomTitleBar/CustomTitleBar";
-import DetialsView from "./components/WishlistView/WishlistView";
 import AddGameManuallyDialog from "./components/Dialogs/AddGameManually";
 import { Toaster } from "@/components/ui/toaster";
 import Integrations from "./components/Dialogs/Integrations";
 import GameView from "./components/GameView/GameView";
 import { LibraryView } from "./components/LibraryView/LibraryView";
-import WishlistView from "./components/WishlistView/WishlistView";
 import WishlistDialog from "./components/Dialogs/WishListDialog";
-import { redirect } from "react-router-dom";
-import HiddenView from "./components/HiddenView/HiddenView";
-import { Navigate } from "react-router-dom";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
-import {
-  importPlaystationLibrary,
-  importSteamLibrary,
-} from "./lib/libraryImports";
-import { getSteamCreds, getNpsso } from "./lib/getCreds";
 import { attachSSEListener } from "./lib/attachSSEListener";
-import InstalledView from "./components/InstalledView/InstalledView";
-//import { fetchJSON, writeJSON } from "./lib/indexdb";
 
 function App() {
   const {

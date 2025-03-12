@@ -2,11 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function PathTab({ uid, setEditDialogOpen }: any) {
   const [gamePath, setGamePath] = useState("");
   const [pathIsValid, setPathIsValid] = useState<boolean | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadPath = async () => {
     console.log("Loading Game Path");
@@ -54,10 +55,35 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
     }
   };
 
+  const browseFileHandler = async () => {
+    const result = await window.electron.browseFileHandler({
+      title: "Select Game File",
+      filters: [
+        { name: "Game Files", extensions: ["exe", "lnk", "bat", "cmd"] },
+      ],
+      properties: ["openFile"],
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      console.log("Selected File Path:", result.filePaths[0]);
+      setGamePath(result.filePaths[0]);
+      setPathIsValid(null);
+    }
+  };
+
+  const fileSelectedHandler = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      console.log("AA", file.path);
+      setGamePath(file.path);
+      setPathIsValid(null);
+    }
+  };
+
   return (
     <TabsContent value="path" className="h-full focus:ring-0">
-      <div className="flex h-full flex-col justify-between p-2 px-4 focus:outline-none">
-        <div className="flex  items-center">
+      <div className="flex h-full flex-col justify-between gap-4 p-2 px-4 focus:outline-none">
+        <div className="flex  items-center gap-2">
           <Label className="w-32">Game Path</Label>
           <Input
             id="gamePath"
@@ -70,11 +96,21 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
               setPathIsValid(null);
             }}
           ></Input>
+          <Button onClick={browseFileHandler} variant="outline">
+            Browse
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            accept=".exe,.lnk,.bat,.cmd"
+            onChange={fileSelectedHandler}
+          />
         </div>
         <div className="self-end">
           {!pathIsValid && (
             <Button onClick={gamePathCheckHandler} variant={"dialogSaveButton"}>
-              Check Path
+              Validate Path
             </Button>
           )}
           {pathIsValid === true && (
@@ -85,7 +121,7 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
               }}
               variant={"dialogSaveButton"}
             >
-              Save
+              Save Path
             </Button>
           )}
         </div>

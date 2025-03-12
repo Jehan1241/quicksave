@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, session } from "electron";
+import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path, { dirname } from "node:path";
@@ -66,6 +66,13 @@ async function createWindow() {
   const fs = require("fs");
   const path = require("path");
   const ws = require("windows-shortcuts"); // Import windows-shortcuts
+
+  ipcMain.handle(
+    "browseFileHandler",
+    async (_: any, options: Electron.OpenDialogOptions) => {
+      return await dialog.showOpenDialog(options);
+    }
+  );
 
   ipcMain.handle("validate-game-path", async (event: any, gamePath: any) => {
     // Step 1: Trim any leading/trailing whitespace from the path

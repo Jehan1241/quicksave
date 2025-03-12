@@ -62,8 +62,13 @@ func setInstallPath(uid string, path string) {
 	bail(err)
 	defer preparedStatement.Close()
 
-	_, err = preparedStatement.Exec(path, uid)
-	bail(err)
+	if path == "" {
+		_, err = preparedStatement.Exec(nil, uid)
+		bail(err)
+	} else {
+		preparedStatement.Exec(path, uid)
+		bail(err)
+	}
 }
 
 func launchGameFromPath(path string, uid string) {

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("windowFunctions", {
 
 contextBridge.exposeInMainWorld("electron", {
   // Expose a function to the renderer to validate the game path
+  browseFileHandler: () => ipcRenderer.invoke("browseFileHandler"),
   validateGamePath: (gamePath: any) =>
     ipcRenderer.invoke("validate-game-path", gamePath),
 });

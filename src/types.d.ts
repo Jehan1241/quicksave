@@ -10,6 +10,9 @@ declare interface Window {
   };
   electron: {
     validateGamePath: (gamePath) => any;
+    browseFileHandler: (
+      options: Electron.OpenDialogOptions
+    ) => Promise<Electron.OpenDialogReturnValue>;
   };
   themeMode: {
     toggle: () => Promise<boolean>;

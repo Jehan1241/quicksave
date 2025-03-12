@@ -24,10 +24,14 @@ export function EditDialog({
   fetchData,
   coverArtPath,
   screenshotsArray,
+  platform,
 }: any) {
+  console.log("AAA", platform);
+  const isPathTabDisabled = platform === "Steam" ? true : false;
+
   return (
     <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-      <DialogContent className="h-[75vh] max-h-[75vh] max-w-[75vw]">
+      <DialogContent className="h-[75vh] max-h-[75vh] max-w-[75vw] select-none">
         <div className="h-full overflow-y-auto flex flex-col gap-2">
           <DialogTitle>Customize Game</DialogTitle>
           <DialogDescription>
@@ -42,7 +46,9 @@ export function EditDialog({
             <TabsList className="grid w-[300px] grid-cols-3 focus:outline-none">
               <TabsTrigger value="metadata">Metadata</TabsTrigger>
               <TabsTrigger value="images">Images</TabsTrigger>
-              <TabsTrigger value="path">Path</TabsTrigger>
+              <TabsTrigger disabled={isPathTabDisabled} value="path">
+                Path
+              </TabsTrigger>
             </TabsList>
             <MetadataTab uid={uid} fetchData={fetchData} />
             <ImagesTab

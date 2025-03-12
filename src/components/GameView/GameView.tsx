@@ -154,6 +154,7 @@ export default function GameView() {
                   fetchData={fetchData}
                   coverArtPath={metadata?.CoverArtPath}
                   screenshotsArray={screenshotsArray}
+                  platform={metadata?.OwnedPlatform}
                 />
                 <HideDialog
                   uid={uid}
