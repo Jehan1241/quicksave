@@ -27,6 +27,10 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
 
   const gamePathCheckHandler = async () => {
     console.log("Checking Game Path Validity");
+    if (gamePath == "") {
+      setPathIsValid(true);
+      return;
+    }
     const result = await window.electron.validateGamePath(gamePath);
     if (result.isValid) {
       console.log(result.message);

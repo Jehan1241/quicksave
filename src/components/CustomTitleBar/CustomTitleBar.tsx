@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import React, { useState, type ReactNode } from "react";
 import { PiBookLight, PiListHeartLight } from "react-icons/pi";
 
-import { Filter } from "lucide-react";
+import { Filter, HardDriveDownload } from "lucide-react";
 import { Dices } from "lucide-react";
 import { useSortContext } from "@/hooks/useSortContex";
 import { Slider } from "@/components/ui/slider";
@@ -23,7 +23,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
   console.log("path", page);
 
   console.log(location.pathname);
-  const handleViewClick = (view: "" | "wishlist" | "hidden") => {
+  const handleViewClick = (view: "" | "wishlist" | "hidden" | "installed") => {
     navigate(`/${view}`, { replace: true });
     console.log(`${view} View Clicked`);
   };
@@ -69,6 +69,25 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                       : ""
                   }`}
                   size={22}
+                />
+              </Button>
+              <Button
+                variant={"ghost"}
+                onClick={() => handleViewClick("installed")}
+                className={`group h-auto hover:bg-transparent text-leftbarIcons ${
+                  page === "/installed"
+                    ? "rounded-none border-r border-leftbarIcons"
+                    : ""
+                }`}
+              >
+                <HardDriveDownload
+                  className={`group-hover:scale-125 ${
+                    page === "/installed"
+                      ? "scale-150 group-hover:scale-150"
+                      : ""
+                  }`}
+                  size={22}
+                  strokeWidth={1.2}
                 />
               </Button>
             </div>

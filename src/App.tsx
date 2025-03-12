@@ -28,6 +28,7 @@ import {
 } from "./lib/libraryImports";
 import { getSteamCreds, getNpsso } from "./lib/getCreds";
 import { attachSSEListener } from "./lib/attachSSEListener";
+import InstalledView from "./components/InstalledView/InstalledView";
 //import { fetchJSON, writeJSON } from "./lib/indexdb";
 
 function App() {
@@ -49,9 +50,10 @@ function App() {
     setIntegrationLoadCount,
   } = useSortContext();
   const location = useLocation();
-  const [dataArray, setDataArray] = useState<any[]>([]); // Track dataArray in local state\
-  const [wishlistArray, setWishlistArray] = useState<any[]>([]); // Track dataArray in local state\
-  const [hiddenArray, setHiddenArray] = useState<any[]>([]); // Track dataArray in local state\
+  const [dataArray, setDataArray] = useState<any[]>([]);
+  const [wishlistArray, setWishlistArray] = useState<any[]>([]);
+  const [hiddenArray, setHiddenArray] = useState<any[]>([]);
+  const [installedArray, setInstalledArray] = useState<any[]>([]);
   const [integrationsPreviouslyOpened, setIntegrationsPreviouslyOpened] =
     useState<boolean>(false);
   const [
@@ -63,39 +65,6 @@ function App() {
   const navigate = useNavigate();
 
   const fetchData = async () => {
-    // const data = await fetchJSON("mainCache");
-    // const json = JSON.parse(data);
-    // console.log(data);
-    // if (data) {
-    //   const hiddenUIDs = json.HiddenUIDs || [];
-
-    //   // Filter out games with Hidden UIDs and separate them into hiddenArray
-    //   const filteredLibraryGames = Object.values(json.MetaData).filter(
-    //     (item: any) => {
-    //       return item.isDLC === 0 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
-    //     }
-    //   );
-
-    //   const filteredWishlistGames = Object.values(json.MetaData).filter(
-    //     (item: any) => {
-    //       return item.isDLC === 1 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
-    //     }
-    //   );
-
-    //   const hiddenGames = Object.values(json.MetaData).filter((item: any) =>
-    //     hiddenUIDs.includes(item.UID)
-    //   ); // Include games with hidden UIDs
-
-    //   // Update state with filtered data
-    //   setDataArray(filteredLibraryGames);
-    //   setMetaData(json.MetaData);
-    //   setSortOrder(json.SortOrder);
-    //   setSortType(json.SortType);
-    //   setTileSize(json.Size);
-    //   setWishlistArray(filteredWishlistGames);
-    //   setHiddenArray(hiddenGames); // Store games with hidden UIDs
-    //   return;
-    // }
     console.log("Sending Get Basic Info");
     try {
       const response = await fetch(
@@ -123,6 +92,12 @@ function App() {
         hiddenUIDs.includes(item.UID)
       ); // Include games with hidden UIDs
 
+      const installedGames = Object.values(json.MetaData).filter(
+        (item: any) => item.InstallPath != ""
+      );
+
+      console.log(installedGames);
+
       // Update state with filtered data
       setDataArray(filteredLibraryGames);
       setMetaData(json.MetaData);
@@ -130,6 +105,7 @@ function App() {
       setSortType(json.SortType);
       setWishlistArray(filteredWishlistGames);
       setHiddenArray(hiddenGames); // Store games with hidden UIDs
+      setInstalledArray(installedGames);
 
       //await writeJSON("mainCache", JSON.stringify(json));
       console.log(json);
@@ -238,6 +214,11 @@ function App() {
           <Route
             element={<WishlistView data={wishlistArray} />}
             path="/wishlist"
+          />
+
+          <Route
+            element={<InstalledView data={installedArray} />}
+            path="/installed"
           />
 
           <Route element={<HiddenView data={hiddenArray} />} path="/hidden" />
