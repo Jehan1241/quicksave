@@ -209,19 +209,41 @@ function App() {
         {integrationsPreviouslyOpened && <Integrations />}
         {wishListAddDialogPreviouslyOpened && <WishlistDialog />}
         <Routes>
-          <Route element={<LibraryView data={dataArray} />} path="/" />
+          <Route
+            element={
+              <LibraryView data={dataArray} hidden={false} viewText="Library" />
+            }
+            path="/"
+          />
 
           <Route
-            element={<WishlistView data={wishlistArray} />}
+            element={
+              <LibraryView
+                data={wishlistArray}
+                hidden={false}
+                viewText="Wishlist"
+              />
+            }
             path="/wishlist"
           />
 
           <Route
-            element={<InstalledView data={installedArray} />}
+            element={
+              <LibraryView
+                data={installedArray}
+                hidden={false}
+                viewText="Installed"
+              />
+            }
             path="/installed"
           />
 
-          <Route element={<HiddenView data={hiddenArray} />} path="/hidden" />
+          <Route
+            element={
+              <LibraryView data={hiddenArray} hidden={true} viewText="Hidden" />
+            }
+            path="/hidden"
+          />
 
           <Route element={<GameView />} path="/gameview" />
         </Routes>
