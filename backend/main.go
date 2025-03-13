@@ -15,12 +15,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -31,6 +29,7 @@ import (
 	"github.com/HugoSmits86/nativewebp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func bail(err error) {
@@ -42,10 +41,26 @@ func bail(err error) {
 func main() {
 	checkAndCreateDB()
 	checkAndCreateFolders()
+	initAPIKeys()
 	checkSteamInstalledValidity()
 	checkManualInstalledValidity()
 	startSSEListener()
 	routing()
+}
+
+func initAPIKeys() {
+	if clientID == "" || clientSecret == "" {
+		fmt.Println("Attempting .env Load")
+		err := godotenv.Load()
+		if err != nil {
+			log.Println("no .env file found")
+		}
+		clientID = os.Getenv("IGDB_API_KEY")
+		clientSecret = os.Getenv("IGDB_SECRET_KEY")
+		return
+	}
+	fmt.Println("No .env load")
+	fmt.Println(clientSecret, clientID)
 }
 
 func checkAndCreateFolders() {
@@ -142,36 +157,6 @@ func SQLiteWriteConfig(dbFile string) (*sql.DB, error) {
 	// Return the configured write database connection
 	return db, nil
 }
-func SQLiteConfig(dbFile string) (*sql.DB, error) {
-	connStr := fmt.Sprintf("file:%s?_txlock=immediate", dbFile)
-	db, err := sql.Open("sqlite", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %v", err)
-	}
-
-	db.SetMaxOpenConns(int(math.Max(4, float64(runtime.NumCPU()))))
-
-	// PRAGMA settings to configure the SQLite connection
-	pragmas := `
-        PRAGMA journal_mode = WAL;
-        PRAGMA busy_timeout = 5000;
-        PRAGMA synchronous = NORMAL;
-        PRAGMA cache_size = 1000000000;
-        PRAGMA foreign_keys = TRUE;
-        PRAGMA temp_store = MEMORY;
-    `
-
-	// Execute all PRAGMA statements at once
-	_, err = db.Exec(pragmas)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("error executing PRAGMA settings: %v", err)
-	}
-
-	// Return the configured database connection
-	return db, nil
-}
-
 func checkAndCreateDB() {
 	if _, err := os.Stat("IGDB_Database.db"); os.IsNotExist(err) {
 		fmt.Println("Database not found. Creating the database...")
@@ -253,11 +238,6 @@ func createTables(db *sql.DB) {
 	"UID"	TEXT NOT NULL,
 	"Tags"	TEXT NOT NULL,
 	PRIMARY KEY("UUID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "IgdbAPIKeys" (
-		"ClientID"	TEXT NOT NULL,
-		"ClientSecret"	TEXT NOT NULL
 	);`,
 
 		`CREATE TABLE IF NOT EXISTS "PlayStationNpsso" (
@@ -347,40 +327,6 @@ func initializeDefaultDBValues(db *sql.DB) {
 	fmt.Println("DB Default Values Initialized.")
 }
 
-/*
-	 func displayEntireDB() map[string]interface{} {
-
-		db, err := SQLiteReadConfig("IGDB_Database.db")
-		bail(err)
-		defer db.Close()
-
-		QueryString := `SELECT gmd.*
-						FROM GameMetaData gmd
-						WHERE NOT EXISTS (SELECT 1 FROM HiddenGames hg WHERE hg.UID = gmd.UID);`
-		rows, err := db.Query(QueryString)
-		bail(err)
-		defer rows.Close()
-
-		m := make(map[string]map[string]interface{})
-		for rows.Next() {
-			var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform string
-			var isDLC, TimePlayed int
-			var AggregatedRating float32
-			rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
-			m[UID] = make(map[string]interface{})
-			m[UID]["Name"] = Name
-			m[UID]["UID"] = UID
-			m[UID]["CoverArtPath"] = CoverArtPath
-			m[UID]["isDLC"] = isDLC
-			m[UID]["OwnedPlatform"] = OwnedPlatform
-			m[UID]["TimePlayed"] = TimePlayed
-			m[UID]["AggregatedRating"] = AggregatedRating
-		}
-		MetaData := make(map[string]interface{})
-		MetaData["m"] = m
-		return (MetaData)
-	}
-*/
 func getAllTags() []string {
 	db, err := SQLiteReadConfig("IGDB_Database.db")
 	bail(err)
@@ -650,10 +596,6 @@ func setTagsFilter(FilterStruct FilterStruct) {
 		_, err := insertStmtDevs.Exec(tag)
 		bail(err)
 	}
-
-	// _, err = dbWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE);") // Force WAL flush
-	// bail(err)
-
 }
 
 func clearFilter() {
@@ -1169,20 +1111,6 @@ func getIGDBKeys() []string {
 	return (keys)
 }
 
-func updateIGDBKeys(clientID string, clientSecret string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := "DELETE FROM IgdbAPIKeys"
-	_, err = db.Exec(QueryString)
-	bail(err)
-
-	QueryString = "INSERT INTO IgdbAPIKeys (clientID, clientSecret) VALUES (?, ?)"
-	_, err = db.Exec(QueryString, clientID, clientSecret)
-	bail(err)
-}
-
 func getNpsso() string {
 	db, err := SQLiteReadConfig("IGDB_Database.db")
 	bail(err)
@@ -1379,7 +1307,7 @@ func setCustomImage(UID string, coverImage string, ssImage []string) {
 		getImageFromURL(getString, location, filename)
 		validNames = append(validNames, location+filename)
 	}
-	fmt.Println("AAA", validNames)
+	fmt.Println(validNames)
 
 	screenshotFolder := fmt.Sprintf("screenshots/%s", UID)
 	err = filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
@@ -1713,10 +1641,7 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		fmt.Println(data.ClientID, "  ", data.ClientSecret)
-		clientID = data.ClientID
-		clientSecret = data.ClientSecret
-		updateIGDBKeys(clientID, clientSecret)
+		fmt.Println(clientID, clientSecret)
 		gameToFind := data.NameToSearch
 		accessToken = getAccessToken(clientID, clientSecret)
 		gameStruct = searchGame(accessToken, gameToFind)
@@ -1893,18 +1818,13 @@ func setupRouter() *gin.Engine {
 
 	r.POST("/PlayStationImport", func(c *gin.Context) {
 		var data struct {
-			Npsso        string `json:"npsso"`
-			ClientID     string `json:"clientID"`
-			ClientSecret string `json:"clientSecret"`
+			Npsso string `json:"npsso"`
 		}
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		npsso := data.Npsso
-		clientID = data.ClientID
-		clientSecret = data.ClientSecret
-		updateIGDBKeys(clientID, clientSecret)
 		updateNpsso(npsso)
 		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
 		gamesAndError := playstationImportUserGames(npsso, clientID, clientSecret)

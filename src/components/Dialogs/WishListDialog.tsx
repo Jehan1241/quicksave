@@ -99,8 +99,6 @@ function MetaDataView() {
         headers: { "Content-type": "application/json" },
         body: JSON.stringify({
           NameToSearch: title,
-          clientID: "bg50w140115zmfq2pi0uc0wujj9pn6",
-          clientSecret: "1nk95mh97tui5t1ct1q5i7sqyfmqvd",
         }),
       });
       const resp = await response.json();

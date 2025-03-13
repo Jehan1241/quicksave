@@ -11,7 +11,10 @@ require (
 	modernc.org/sqlite v1.29.10
 )
 
-require github.com/google/go-cmp v0.6.0 // indirect
+require (
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
+)
 
 require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
