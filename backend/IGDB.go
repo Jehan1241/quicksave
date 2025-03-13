@@ -25,7 +25,7 @@ func getAccessToken(clientID string, clientSecret string) (string, error) {
 	//POST request
 	resp, err := http.Post(AuthenticationString, "", bytes.NewBuffer([]byte{}))
 	if err != nil {
-		return "", fmt.Errorf("failed to send request %w", err)
+		return "", fmt.Errorf("failed to send request")
 	}
 	defer resp.Body.Close()
 
