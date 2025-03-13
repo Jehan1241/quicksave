@@ -397,6 +397,7 @@ function MetaDataView({
           description: description,
           coverImage: coverImage,
           ssImage: ssImage,
+          isWishlist: 0,
         }),
       });
 

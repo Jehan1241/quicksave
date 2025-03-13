@@ -324,24 +324,22 @@ function MetaDataView() {
   ) => {
     try {
       setAddGameLoading(true);
-      const response = await fetch(
-        `http://localhost:8080/addGameToDBWishlist`,
-        {
-          method: "POST",
-          headers: { "Content-type": "application/json" },
-          body: JSON.stringify({
-            title: title,
-            releaseDate: releaseDate,
-            selectedPlatforms: selectedPlatforms,
-            rating: rating,
-            selectedDevs: selectedDevs,
-            selectedTags: selectedTags,
-            description: description,
-            coverImage: coverImage,
-            ssImage: ssImage,
-          }),
-        }
-      );
+      const response = await fetch(`http://localhost:8080/addGameToDB`, {
+        method: "POST",
+        headers: { "Content-type": "application/json" },
+        body: JSON.stringify({
+          title: title,
+          releaseDate: releaseDate,
+          selectedPlatforms: selectedPlatforms,
+          rating: rating,
+          selectedDevs: selectedDevs,
+          selectedTags: selectedTags,
+          description: description,
+          coverImage: coverImage,
+          ssImage: ssImage,
+          isWishlist: 1,
+        }),
+      });
       const resp = await response.json();
       if (resp.insertionStatus === false) {
         console.log(resp.insertionStatus);

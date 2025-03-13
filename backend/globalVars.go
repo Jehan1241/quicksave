@@ -441,4 +441,5 @@ type IGDBInsertGameReturn struct {
 	Description string   `json:"description"`
 	CoverImage  string   `json:"coverImage"`
 	SSImage     []string `json:"ssImage"`
+	IsWishlist  int      `json:"isWishlist"`
 }
