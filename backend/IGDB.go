@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	"time"
 )
 
-func getAccessToken(clientID string, clientSecret string) string {
+func getAccessToken(clientID string, clientSecret string) (string, error) {
 	// Struct Holds AccessToken which expires in a few thousand seconds
 	var accessStruct struct {
 		AccessToken string `json:"access_token"`
@@ -23,21 +24,40 @@ func getAccessToken(clientID string, clientSecret string) string {
 
 	//POST request
 	resp, err := http.Post(AuthenticationString, "", bytes.NewBuffer([]byte{}))
-	bail(err)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request %w", err)
+	}
 	defer resp.Body.Close()
 
 	//Passes response into body
 	body, err := io.ReadAll(resp.Body)
-	bail(err)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Incase resp is not OK
+	if resp.StatusCode != http.StatusOK {
+		// Try to parse the error message
+		var errorResp struct {
+			Status  int    `json:"status"`
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(body, &errorResp); err != nil {
+			return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+		return "", fmt.Errorf("API request failed with status %d: %s", errorResp.Status, errorResp.Message)
+	}
 
 	//Unmarshalls body into accessStruct
 	err = json.Unmarshal(body, &accessStruct)
-	bail(err)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse JSON response: %w", err)
+	}
 
-	return (accessStruct.AccessToken)
+	return accessStruct.AccessToken, nil
 }
 
-func searchGame(accessToken string, gameTofind string) gameStruct {
+func searchGame(accessToken string, gameTofind string) (gameStruct, error) {
 
 	var gameStruct gameStruct
 
@@ -45,161 +65,189 @@ func searchGame(accessToken string, gameTofind string) gameStruct {
 	// Here Category 0,8,9 sets it as a search for main game, remakes and remasters
 	bodyString := fmt.Sprintf(`fields *; search "%s"; limit 20; where category=(0,8,9);`, gameTofind)
 
-	postReturn := post(postString, bodyString, accessToken)
-	//fmt.Println(string(postReturn))
+	result, err := post(postString, bodyString, accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch game data: %w", err)
+	}
 
 	//Unmarshalls body into accessStruct
-	err := json.Unmarshal(postReturn, &gameStruct)
-	bail(err)
+	err = json.Unmarshal(result, &gameStruct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse IGDB response: %w", err)
+	}
 
-	return (gameStruct)
+	return gameStruct, nil
 }
 func returnFoundGames(gameStruct gameStruct) map[int]map[string]interface{} {
 	foundGames := make(map[int]map[string]interface{})
 
-	for i := range len(gameStruct) {
-		UNIX_releaseDate := gameStruct[i].FirstReleaseDate
+	for i, game := range gameStruct {
+		UNIX_releaseDate := game.FirstReleaseDate
 		releaseDateTemp := time.Unix(int64(UNIX_releaseDate), 0)
 		releaseDateTime = releaseDateTemp.Format("2 Jan, 2006")
-		foundGames[i] = make(map[string]interface{})
-		foundGames[i]["name"] = gameStruct[i].Name
-		foundGames[i]["date"] = releaseDateTime
-		foundGames[i]["appid"] = gameStruct[i].ID
+		foundGames[i] = map[string]interface{}{
+			"name":  gameStruct[i].Name,
+			"date":  releaseDateTime,
+			"appid": gameStruct[i].ID,
+		}
 	}
 	return (foundGames)
 }
 
-func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform string) map[string]interface{} {
+func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform string) (map[string]interface{}, error) {
 	// Initialize the map to store metadata
 	metadataMap := make(map[string]interface{})
+	//Find gameIndex in gameStruct
 	var gameIndex int = -1
 	for i := range gameStruct {
 		if gameStruct[i].ID == gameID {
 			gameIndex = i
+			break
 		}
 	}
-
 	if gameIndex == -1 {
-		fmt.Println("error")
-	} else {
-
-		involvedCompaniesStruct = nil
-		playerPerspectiveStruct = nil
-		genresStruct = nil
-		themeStruct = nil
-		gameModesStruct = nil
-		gameEngineStruct = nil
-		coverStruct = nil
-		screenshotStruct = nil
-
-		summary = gameStruct[gameIndex].Summary
-		gameID = gameStruct[gameIndex].ID
-		UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
-		tempTime := time.Unix(int64(UNIX_releaseDate), 0)
-		releaseDateTime := tempTime.Format("2006-01-02")
-		AggregatedRating = gameStruct[gameIndex].AggregatedRating
-		Name = gameStruct[gameIndex].Name
-		UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
-
-		metadataMap["description"] = summary
-		metadataMap["appID"] = gameID
-		metadataMap["releaseDate"] = releaseDateTime
-		metadataMap["aggregatedRating"] = AggregatedRating
-		metadataMap["name"] = Name
-		metadataMap["uid"] = UID
-
-		db, err := SQLiteReadConfig("IGDB_Database.db")
-		bail(err)
-		defer db.Close()
-
-		QueryString := "SELECT UID FROM GameMetaData"
-		rows, err := db.Query(QueryString)
-		bail(err)
-		defer rows.Close()
-
-		insert := true
-		for rows.Next() {
-			var UIDdb string
-			rows.Scan(&UIDdb)
-			if UIDdb == UID {
-				insert = false
-			}
-		}
-
-		if insert {
-			// Seperate Cause it needs 2 API calls
-			metadataMap["involvedCompanies"] = make(map[int]string)
-			getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
-
-			var involvedCompaniesSlice []string
-			for _, item := range involvedCompaniesStruct {
-				involvedCompaniesSlice = append(involvedCompaniesSlice, item.Name)
-			}
-			metadataMap["involvedCompanies"] = involvedCompaniesSlice
-
-			// Tags
-			var tagsSlice []string
-			postString := "https://api.igdb.com/v4/player_perspectives"
-			passer := gameStruct[gameIndex].PlayerPerspectives
-			playerPerspectiveStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
-			postString = "https://api.igdb.com/v4/genres"
-			passer = gameStruct[gameIndex].Genres
-			genresStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
-			postString = "https://api.igdb.com/v4/themes"
-			passer = gameStruct[gameIndex].Themes
-			themeStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
-			postString = "https://api.igdb.com/v4/game_modes"
-			passer = gameStruct[gameIndex].GameModes
-			gameModesStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
-			postString = "https://api.igdb.com/v4/game_engines"
-			passer = gameStruct[gameIndex].GameEngines
-			gameEngineStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
-
-			for _, item := range playerPerspectiveStruct {
-				tagsSlice = append(tagsSlice, item.Name)
-			}
-			for _, item := range genresStruct {
-				tagsSlice = append(tagsSlice, item.Name)
-			}
-			for _, item := range themeStruct {
-				tagsSlice = append(tagsSlice, item.Name)
-			}
-			for _, item := range gameModesStruct {
-				tagsSlice = append(tagsSlice, item.Name)
-			}
-			for _, item := range gameEngineStruct {
-				tagsSlice = append(tagsSlice, item.Name)
-			}
-
-			metadataMap["tags"] = tagsSlice
-
-			//Images
-
-			postString = "https://api.igdb.com/v4/covers"
-			folderName := "coverArt"
-			coverStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
-			metadataMap["cover"] = coverStruct[0].URL
-
-			postString = "https://api.igdb.com/v4/screenshots"
-			folderName = "screenshots"
-			screenshotStruct = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
-			var screenshotsSlice []string
-
-			for _, item := range screenshotStruct {
-				screenshotsSlice = append(screenshotsSlice, item.URL)
-			}
-
-			metadataMap["screenshots"] = screenshotsSlice
-		}
-
+		return nil, fmt.Errorf("game ID %d not found in gameStruct", gameID)
 	}
-	return metadataMap
+
+	involvedCompaniesStruct = nil
+	playerPerspectiveStruct = nil
+	genresStruct = nil
+	themeStruct = nil
+	gameModesStruct = nil
+	gameEngineStruct = nil
+	coverStruct = nil
+	screenshotStruct = nil
+
+	summary = gameStruct[gameIndex].Summary
+	gameID = gameStruct[gameIndex].ID
+	UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
+	tempTime := time.Unix(int64(UNIX_releaseDate), 0)
+	releaseDateTime := tempTime.Format("2006-01-02")
+	AggregatedRating = gameStruct[gameIndex].AggregatedRating
+	Name = gameStruct[gameIndex].Name
+	UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
+
+	metadataMap["description"] = summary
+	metadataMap["appID"] = gameID
+	metadataMap["releaseDate"] = releaseDateTime
+	metadataMap["aggregatedRating"] = AggregatedRating
+	metadataMap["name"] = Name
+	metadataMap["uid"] = UID
+
+	db, err := SQLiteReadConfig("IGDB_Database.db")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	var exists bool
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM GameMetaData WHERE UID=?)", UID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query database: %w", err)
+	}
+
+	if !exists {
+		// Seperate Cause it needs 2 API calls
+		metadataMap["involvedCompanies"] = make(map[int]string)
+		err = getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get Involved Companies: %w", err)
+		}
+
+		var involvedCompaniesSlice []string
+		for _, item := range involvedCompaniesStruct {
+			involvedCompaniesSlice = append(involvedCompaniesSlice, item.Name)
+		}
+		metadataMap["involvedCompanies"] = involvedCompaniesSlice
+
+		// Tags
+		var tagsSlice []string
+		postString := "https://api.igdb.com/v4/player_perspectives"
+		passer := gameStruct[gameIndex].PlayerPerspectives
+		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get player perspectives: %w", err)
+		}
+		postString = "https://api.igdb.com/v4/genres"
+		passer = gameStruct[gameIndex].Genres
+		genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get genres: %w", err)
+		}
+		postString = "https://api.igdb.com/v4/themes"
+		passer = gameStruct[gameIndex].Themes
+		themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get themes: %w", err)
+		}
+		postString = "https://api.igdb.com/v4/game_modes"
+		passer = gameStruct[gameIndex].GameModes
+		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get game modes: %w", err)
+		}
+		postString = "https://api.igdb.com/v4/game_engines"
+		passer = gameStruct[gameIndex].GameEngines
+		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get game engine: %w", err)
+		}
+
+		for _, item := range playerPerspectiveStruct {
+			tagsSlice = append(tagsSlice, item.Name)
+		}
+		for _, item := range genresStruct {
+			tagsSlice = append(tagsSlice, item.Name)
+		}
+		for _, item := range themeStruct {
+			tagsSlice = append(tagsSlice, item.Name)
+		}
+		for _, item := range gameModesStruct {
+			tagsSlice = append(tagsSlice, item.Name)
+		}
+		for _, item := range gameEngineStruct {
+			tagsSlice = append(tagsSlice, item.Name)
+		}
+
+		metadataMap["tags"] = tagsSlice
+
+		//Images
+
+		postString = "https://api.igdb.com/v4/covers"
+		folderName := "coverArt"
+		coverStruct, err = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cover art: %w", err)
+		}
+		metadataMap["cover"] = coverStruct[0].URL
+
+		postString = "https://api.igdb.com/v4/screenshots"
+		folderName = "screenshots"
+		screenshotStruct, err = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get screenshots: %w", err)
+		}
+		var screenshotsSlice []string
+
+		for _, item := range screenshotStruct {
+			screenshotsSlice = append(screenshotsSlice, item.URL)
+		}
+
+		metadataMap["screenshots"] = screenshotsSlice
+	}
+
+	return metadataMap, nil
 }
-func getMetaData_Images(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
+func getMetaData_Images(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) (ImgStruct, error) {
 	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
-	body := post(postString, bodyString, accessToken)
-	err := json.Unmarshal(body, &GeneralStruct)
-	bail(err)
+	body, err := post(postString, bodyString, accessToken)
+	if err != nil {
+		return GeneralStruct, fmt.Errorf("failed to fetch images: %w", err)
+	}
+	err = json.Unmarshal(body, &GeneralStruct)
+	if err != nil {
+		return GeneralStruct, fmt.Errorf("failed to unmarshal images: %w", err)
+	}
 	for i := range len(GeneralStruct) {
 		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
 		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
@@ -208,35 +256,47 @@ func getMetaData_Images(accessToken string, postString string, UID string, gameI
 		//filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
 		//getImageFromURL(getString, location, filename)
 	}
-	return (GeneralStruct)
+	return GeneralStruct, nil
 }
-func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArray []int, GeneralStruct TagsStruct) TagsStruct {
+func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArray []int, GeneralStruct TagsStruct) (TagsStruct, error) {
 	if GeneralArray == nil {
-	} else {
-		postString := postString
-
-		Perspectives := GeneralArray
-
-		var buffer bytes.Buffer
-		buffer.WriteString("fields name; where id=(")
-		for i := range len(Perspectives) {
-			tempString := fmt.Sprintf(`%d,`, Perspectives[i])
-			buffer.WriteString(tempString)
-		}
-		tempString := buffer.String()
-		tempString, _ = strings.CutSuffix(tempString, ",")
-		bodyString := tempString + ");"
-		body := post(postString, bodyString, accessToken)
-		json.Unmarshal(body, &GeneralStruct)
+		return GeneralStruct, nil
 	}
-	return (GeneralStruct)
+	Perspectives := GeneralArray
+	var buffer bytes.Buffer
+	_, err := buffer.WriteString("fields name; where id=(")
+	if err != nil {
+		return GeneralStruct, fmt.Errorf("failed to write to buffer: %w", err)
+	}
+	for _, perspective := range Perspectives {
+		tempString := fmt.Sprintf(`%d,`, perspective)
+		_, err := buffer.WriteString(tempString)
+		if err != nil {
+			return GeneralStruct, fmt.Errorf("failed to write to buffer: %w", err)
+		}
+	}
+	tempString := buffer.String()
+	tempString, _ = strings.CutSuffix(tempString, ",")
+	bodyString := tempString + ");"
+	body, err := post(postString, bodyString, accessToken)
+	if err != nil {
+		return GeneralStruct, fmt.Errorf("failed to fetch tags/engine: %w", err)
+	}
+	err = json.Unmarshal(body, &GeneralStruct)
+	if err != nil {
+		return GeneralStruct, fmt.Errorf("failed to unmarshal tags/engine: %w", err)
+	}
+
+	return GeneralStruct, nil
 }
-func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessToken string) {
+func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessToken string) error {
 	// This function will neeed 2 API calls to get an actual company name due to nested IDs
 	if gameStruct[gameIndex].InvolvedCompanies == nil {
 		body := `[{"id":-1 , "name":"Unknown"}]`
 		err := json.Unmarshal([]byte(body), &involvedCompaniesStruct)
-		bail(err)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal unknown company: %w", err)
+		}
 	} else {
 		var CompaniesStruct []struct {
 			ID      int `json:"id"`
@@ -247,157 +307,183 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		InvolvedCompanies := gameStruct[gameIndex].InvolvedCompanies
 
 		var buffer bytes.Buffer
-		buffer.WriteString("fields company; where id=(")
-		for i := range len(InvolvedCompanies) {
-			tempString := fmt.Sprintf(`%d,`, InvolvedCompanies[i])
-			buffer.WriteString(tempString)
+		_, err := buffer.WriteString("fields company; where id=(")
+		if err != nil {
+			return fmt.Errorf("Buffer Writer Error: %w", err)
+		}
+		for _, company := range InvolvedCompanies {
+			tempString := fmt.Sprintf(`%d,`, company)
+			_, err = buffer.WriteString(tempString)
+			if err != nil {
+				return fmt.Errorf("Buffer Writer Error: %w", err)
+			}
 		}
 		tempString := buffer.String()
 		tempString, _ = strings.CutSuffix(tempString, ",")
 		bodyString := tempString + ");"
-		body := post(postString, bodyString, accessToken)
 
-		err := json.Unmarshal(body, &CompaniesStruct)
-		bail(err)
+		body, err := post(postString, bodyString, accessToken)
+		if err != nil {
+			return fmt.Errorf("failed to fetch involved companies: %w", err)
+		}
+
+		err = json.Unmarshal(body, &CompaniesStruct)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal involved companies: %w", err)
+		}
+
 		postString = "https://api.igdb.com/v4/companies"
 		buffer.Reset()
-		buffer.WriteString("fields name; where id=(")
+		_, err = buffer.WriteString("fields name; where id=(")
+		if err != nil {
+			return fmt.Errorf("Buffer Writer Error: %w", err)
+		}
 
-		for i := range len(CompaniesStruct) {
-			tempString1 := fmt.Sprintf(`%d,`, CompaniesStruct[i].Company)
-			buffer.WriteString(tempString1)
+		for _, company := range CompaniesStruct {
+			tempString1 := fmt.Sprintf(`%d,`, company.Company)
+			_, err = buffer.WriteString(tempString1)
+			if err != nil {
+				return fmt.Errorf("Buffer Writer Error: %w", err)
+			}
 		}
 		tempString = buffer.String()
 		tempString, _ = strings.CutSuffix(tempString, ",")
 		bodyString = tempString + ");"
-		body = post(postString, bodyString, accessToken)
+		body, err = post(postString, bodyString, accessToken)
+		if err != nil {
+			return fmt.Errorf("failed to fetch company names: %w", err)
+		}
 		err = json.Unmarshal(body, &involvedCompaniesStruct)
-		bail(err)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal company names: %w", err)
+		}
 	}
+	return nil
 }
-func addGameToDB(title string, releaseDate string, platform string, timePlayed string, rating string, devs []string, tags []string, descripton string, coverImage string, screenshots []string, isWishlist int) bool {
+func addGameToDB(title string, releaseDate string, platform string, timePlayed string, rating string, devs []string, tags []string, descripton string, coverImage string, screenshots []string, isWishlist int) (bool, error) {
 	releaseDate = strings.Split(releaseDate, "T")[0]
 	releaseYear := strings.Split(releaseDate, "-")[0]
-	fmt.Println(releaseYear)
 	UID := GetMD5Hash(title + releaseYear + platform)
 
 	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
+	if err != nil {
+		return false, fmt.Errorf("error opening database: %v", err)
+	}
 
-	QueryString := "SELECT UID FROM GameMetaData"
-	rows, err := db.Query(QueryString)
-	bail(err)
-	defer rows.Close()
-
-	insert := true
-	for rows.Next() {
-		var UIDdb string
-		rows.Scan(&UIDdb)
-		if UIDdb == UID {
-			insert = false
-		}
+	var UIDdb string
+	err = db.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID).Scan(&UIDdb)
+	if err == nil { // No error means match
+		log.Println("Game already exists in database:", title)
+		return false, nil
+	} else if err != sql.ErrNoRows { // Means real error occured
+		return false, fmt.Errorf("database error %v", err)
 	}
 	db.Close()
 
-	if insert {
-		fmt.Println("Inserting", title)
+	fmt.Println("Inserting", title)
 
-		//Download Screenshots
-		var wg sync.WaitGroup
-		if len(screenshots) > 0 {
-			for i, screenshot := range screenshots {
-				if screenshot != "" {
-					wg.Add(1)
-					go func(i int, screenshot string) {
-						defer wg.Done()
-						getString := screenshots[i]
-						location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-						filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
-						getImageFromURL(getString, location, filename)
-					}(i, screenshot)
-				}
+	//Download Screenshots concurrently
+	var wg sync.WaitGroup
+	if len(screenshots) > 0 {
+		for i, screenshot := range screenshots {
+			if screenshot != "" {
+				wg.Add(1)
+				go func(i int, screenshot string) {
+					defer wg.Done()
+					getString := screenshots[i]
+					location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
+					filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+					getImageFromURL(getString, location, filename)
+				}(i, screenshot)
 			}
 		}
-
-		//Download Coverart
-		if coverImage != "" {
-			getString := coverImage
-			location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
-			filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
-			getImageFromURL(getString, location, filename)
-		}
-
-		//Program waits here outside transaction till all downloads done
-		wg.Wait()
-
-		//create and store Screenshotpaths and cover-art path
-		ScreenshotPaths := make([]string, len(screenshots))
-		for i := range ScreenshotPaths {
-			ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
-		}
-		coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
-
-		db, err := SQLiteWriteConfig("IGDB_Database.db")
-		bail(err)
-		defer db.Close()
-
-		tx, err := db.Begin()
-		bail(err)
-		defer func() {
-			if r := recover(); r != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", r)
-			} else if err != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", err)
-			} else {
-				tx.Commit()
-			}
-		}()
-
-		// Incase its a new Platforms, its added
-		preparedStatement, err := tx.Prepare("INSERT INTO Platforms (Name) VALUES (?)")
-		bail(err)
-		defer preparedStatement.Close()
-		preparedStatement.Exec(platform)
-
-		//Insert to GameMetaData Table
-		preparedStatement, err = tx.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
-		bail(err)
-		defer preparedStatement.Close()
-		_, err = preparedStatement.Exec(UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
-		bail(err)
-
-		//Insert to Screenshots Table
-		preparedStatement, err = tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-		bail(err)
-		defer preparedStatement.Close()
-		for _, screenshotPath := range ScreenshotPaths {
-			_, err = preparedStatement.Exec(UID, screenshotPath)
-			bail(err)
-		}
-
-		//Insert to InvolvedCompanies table
-		preparedStatement, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-		bail(err)
-		defer preparedStatement.Close()
-		for _, dev := range devs {
-			_, err = preparedStatement.Exec(UID, dev)
-			bail(err)
-		}
-
-		//Insert to Tags Table
-		preparedStatement, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-		bail(err)
-		defer preparedStatement.Close()
-		for _, tag := range tags {
-			_, err = preparedStatement.Exec(UID, tag)
-			bail(err)
-		}
-
-		return (true)
-	} else {
-		return (false)
 	}
+
+	//Download Coverart
+	if coverImage != "" {
+		getString := coverImage
+		location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
+		filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
+		getImageFromURL(getString, location, filename)
+	}
+
+	//wait outside transaction till all downloads done
+	wg.Wait()
+
+	//create and store Screenshotpaths and cover-art path
+	ScreenshotPaths := make([]string, len(screenshots))
+	for i := range ScreenshotPaths {
+		ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+	}
+	coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
+
+	db, err = SQLiteWriteConfig("IGDB_Database.db")
+	if err != nil {
+		return false, fmt.Errorf("error opening write DB: %v", err)
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return false, fmt.Errorf("error starting transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	// Incase its a new Platforms, its added
+	_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT(Name) DO NOTHING", platform)
+	if err != nil {
+		return false, fmt.Errorf("DB write error - inserting platform: %w", err)
+	}
+
+	//Insert to GameMetaData Table
+	_, err = tx.Exec("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)",
+		UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, AggregatedRating)
+	if err != nil {
+		return false, fmt.Errorf("DB write error - inserting GameMetaData: %v", err)
+	}
+
+	//Insert to Screenshots Table
+	stmt, err := tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+	if err != nil {
+		return false, fmt.Errorf("error preparing DB statement - screenshots: %v", err)
+	}
+	for _, screenshotPath := range ScreenshotPaths {
+		_, err = stmt.Exec(UID, screenshotPath)
+		if err != nil {
+			return false, fmt.Errorf("DB write error - inserting screenshots: %v", err)
+		}
+	}
+	stmt.Close()
+
+	//Insert to InvolvedCompanies table
+	stmt, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+	if err != nil {
+		return false, fmt.Errorf("error preparing DB statement - companies: %v", err)
+	}
+	for _, dev := range devs {
+		_, err = stmt.Exec(UID, dev)
+		if err != nil {
+			return false, fmt.Errorf("DB write error - inserting companies: %v", err)
+		}
+	}
+	stmt.Close()
+
+	//Insert to Tags Table
+	stmt, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+	if err != nil {
+		return false, fmt.Errorf("error preparing DB statement - tags: %v", err)
+	}
+	for _, tag := range tags {
+		_, err = stmt.Exec(UID, tag)
+		if err != nil {
+			return false, fmt.Errorf("DB write error - inserting tags: %v", err)
+		}
+	}
+	stmt.Close()
+	err = tx.Commit()
+	if err != nil {
+		return false, fmt.Errorf("DB commit error: %v", err)
+	}
+	return true, nil
 }

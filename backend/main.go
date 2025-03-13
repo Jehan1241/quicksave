@@ -690,11 +690,13 @@ func getFilterState() map[string][]string {
 }
 
 // Repeated Call Funcs
-func post(postString string, bodyString string, accessToken string) []byte {
+func post(postString string, bodyString string, accessToken string) ([]byte, error) {
 	data := []byte(bodyString)
 
 	req, err := http.NewRequest("POST", postString, bytes.NewBuffer(data))
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
 	defer req.Body.Close()
 
 	accessTokenStr := fmt.Sprintf("Bearer %s", accessToken)
@@ -703,12 +705,22 @@ func post(postString string, bodyString string, accessToken string) []byte {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	bail(err)
-	return (body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check if the response status is not 200 OK
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d - %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
 }
 func getImageFromURL(getURL string, location string, filename string) {
 	fmt.Println(getURL, location, filename)
@@ -1641,14 +1653,26 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		fmt.Println(clientID, clientSecret)
 		gameToFind := data.NameToSearch
-		accessToken = getAccessToken(clientID, clientSecret)
-		gameStruct = searchGame(accessToken, gameToFind)
+		accessToken, err := getAccessToken(clientID, clientSecret)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to obtain IGDB access token", "details": err.Error()})
+			return
+		}
+		gameStruct, err = searchGame(accessToken, gameToFind)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search on IGDB", "details": err.Error()})
+			return
+		}
 		foundGames = returnFoundGames(gameStruct)
 		foundGamesJSON, err := json.Marshal(foundGames)
-		fmt.Println()
-		bail(err)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process IGDB data", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"foundGames": string(foundGamesJSON)})
 	})
 
@@ -1681,34 +1705,28 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		fmt.Println("Received Get IGDB Info", data.Key)
+		fmt.Println("Received Get IGDB Info")
 		appID = data.Key
-		metaData := getMetaData(appID, gameStruct, accessToken, "PlayStation 4")
+
+		accessToken, err := getAccessToken(clientID, clientSecret)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to obtain IGDB access token", "details": err.Error()})
+			return
+		}
+
+		metaData, err := getMetaData(appID, gameStruct, accessToken, "PlayStation 4")
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get game metadata", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"metadata": metaData})
 	})
 
 	r.POST("/addGameToDB", func(c *gin.Context) {
-		var gameData struct {
-			Title             string `json:"title"`
-			ReleaseDate       string `json:"releaseDate"`
-			SelectedPlatforms []struct {
-				Value string `json:"value"`
-				Label string `json:"label"`
-			} `json:"selectedPlatforms"`
-			TimePlayed   string `json:"timePlayed"`
-			Rating       string `json:"rating"`
-			SelectedDevs []struct {
-				Value string `json:"value"`
-				Label string `json:"label"`
-			} `json:"selectedDevs"`
-			SelectedTags []struct {
-				Value string `json:"value"`
-				Label string `json:"label"`
-			} `json:"selectedTags"`
-			Description string   `json:"description"`
-			CoverImage  string   `json:"coverImage"`
-			SSImage     []string `json:"ssImage"`
-		}
+		//Struct to hold POST return
+		var gameData IGDBInsertGameReturn
 
 		if err := c.BindJSON(&gameData); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1738,7 +1756,12 @@ func setupRouter() *gin.Engine {
 
 		fmt.Println("Received Add Game To DB", title, releaseDate, platform, timePlayed, rating, "\n", devs, tags, descripton, coverImage, screenshots)
 
-		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
+		insertionStatus, err := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert game", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"insertionStatus": insertionStatus})
 		sendSSEMessage("Inserted Game")
 	})
@@ -1793,7 +1816,12 @@ func setupRouter() *gin.Engine {
 
 		fmt.Println("Received Add Game To DB Wishlist", title, releaseDate, platform, timePlayed, rating, "\n", devs, tags, descripton, coverImage, screenshots)
 
-		insertionStatus := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
+		insertionStatus, err := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get game metadata", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"insertionStatus": insertionStatus})
 		sendSSEMessage("Inserted Game")
 	})

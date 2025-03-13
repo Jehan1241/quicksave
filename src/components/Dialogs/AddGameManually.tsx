@@ -142,16 +142,28 @@ function MetaDataView({
     try {
       const response = await fetch(`http://localhost:8080/IGDBsearch`, {
         method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          NameToSearch: title,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ NameToSearch: title }),
       });
+
+      if (!response.ok) {
+        const errorResp = await response.json();
+        const errorMessage = errorResp.error || "An unknown error occurred.";
+        const errorDetails = errorResp.details || "";
+        throw errorMessage + " -- " + errorDetails;
+      }
+
       const resp = await response.json();
       setData(resp.foundGames);
       setLoading(false);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      setLoading(false);
+      console.error("Fetch Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Search Failed!",
+        description: error || "An unknown error occurred",
+      });
     }
   };
 
@@ -207,12 +219,6 @@ function MetaDataView({
     fetchTagsDevsPlatforms();
   }, []);
 
-  useEffect(() => {
-    if (data) {
-      console.log("Found games:", data);
-    }
-  }, [data]); // Runs every time data is updated
-
   const downloadIgdbMetadata = () => {
     const titleElement = document.getElementById(
       "title"
@@ -224,8 +230,6 @@ function MetaDataView({
       fetchData(title);
     }
   };
-
-  const [date, setDate] = React.useState<Date>();
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [ssImage, setSsImage] = useState<(string | null)[]>([null]); // Three empty image slots
@@ -395,6 +399,14 @@ function MetaDataView({
           ssImage: ssImage,
         }),
       });
+
+      if (!response.ok) {
+        const errorResp = await response.json();
+        const errorMessage = errorResp.error || "An unknown error occurred.";
+        const errorDetails = errorResp.details || "";
+        throw errorMessage + " -- " + errorDetails;
+      }
+
       const resp = await response.json();
       if (resp.insertionStatus === false) {
         console.log(resp.insertionStatus);
@@ -404,9 +416,14 @@ function MetaDataView({
         console.log(resp.insertionStatus);
         setGameInsertError(false);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
       setAddGameLoading(false);
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Game Insert Failed!",
+        description: error || "An unknown error occurred",
+      });
     }
     setAddGameLoading(false);
   };
@@ -940,6 +957,8 @@ function FoundGames({
   const [gameInfoLoading, setGameInfoLoading] = useState(false);
   const [loadingAppId, setLoadingAppId] = useState<string | null>(null);
 
+  const { toast } = useToast();
+
   const IgdbGameClicked = async (appid: any) => {
     try {
       setGameInfoLoading(true);
@@ -953,6 +972,14 @@ function FoundGames({
           key: appid,
         }),
       });
+
+      if (!response.ok) {
+        const errorResp = await response.json();
+        const errorMessage = errorResp.error || "An unknown error occurred.";
+        const errorDetails = errorResp.details || "";
+        throw errorMessage + " -- " + errorDetails;
+      }
+
       const data = await response.json();
       console.log(data);
 
@@ -984,10 +1011,15 @@ function FoundGames({
       setData(null);
       setGameInfoLoading(false);
       setLoadingAppId(null);
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (error: any) {
       setGameInfoLoading(false);
       setLoadingAppId(null);
+      console.error("Fetch Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Get Metadata!",
+        description: error || "An unknown error occurred",
+      });
     }
   };
 

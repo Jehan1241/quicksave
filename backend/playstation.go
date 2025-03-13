@@ -205,8 +205,8 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 
 				titleToStoreInDB := normalizeTitleToStore(title)
 				titleToSendIGDB := normalizeTitleToSend(title)
-				accessToken := getAccessToken(clientID, clientSecret)
-				gameStruct := searchGame(accessToken, titleToSendIGDB)
+				accessToken, _ := getAccessToken(clientID, clientSecret)
+				gameStruct, _ := searchGame(accessToken, titleToSendIGDB)
 				foundGames := returnFoundGames(gameStruct)
 				Match := false
 				for game := range foundGames {
@@ -357,8 +357,8 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 			fmt.Println("Trying to Insert", title)
 			titleToStoreInDB := normalizeTitleToStore(title)
 			titleToSendIGDB := normalizeTitleToSend(title)
-			accessToken := getAccessToken(clientID, clientSecret)
-			gameStruct := searchGame(accessToken, titleToSendIGDB)
+			accessToken, _ := getAccessToken(clientID, clientSecret)
+			gameStruct, _ := searchGame(accessToken, titleToSendIGDB)
 			foundGames := returnFoundGames(gameStruct)
 			Match := false
 			for game := range foundGames {
@@ -377,7 +377,7 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 			Match2 := false
 			if !Match {
 				fmt.Println("Failed First Pass For : ", title)
-				gameStruct = searchGame(accessToken, titleToSendIGDB)
+				gameStruct, _ = searchGame(accessToken, titleToSendIGDB)
 				foundGames = returnFoundGames(gameStruct)
 				for game := range foundGames {
 					IGDBtitle := foundGames[game]["name"].(string)
@@ -455,19 +455,19 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 			// Tags
 			postString := "https://api.igdb.com/v4/player_perspectives"
 			passer := gameStruct[gameIndex].PlayerPerspectives
-			playerPerspectiveStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+			playerPerspectiveStruct, _ = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
 			postString = "https://api.igdb.com/v4/genres"
 			passer = gameStruct[gameIndex].Genres
-			genresStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+			genresStruct, _ = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
 			postString = "https://api.igdb.com/v4/themes"
 			passer = gameStruct[gameIndex].Themes
-			themeStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+			themeStruct, _ = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
 			postString = "https://api.igdb.com/v4/game_modes"
 			passer = gameStruct[gameIndex].GameModes
-			gameModesStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+			gameModesStruct, _ = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
 			postString = "https://api.igdb.com/v4/game_engines"
 			passer = gameStruct[gameIndex].GameEngines
-			gameEngineStruct = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+			gameEngineStruct, _ = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
 
 			//Images
 
@@ -595,7 +595,7 @@ func insertMetaDataInDB(title string, platform string, time string) {
 
 func getMetaData_ImagesPSN(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) ImgStruct {
 	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
-	body := post(postString, bodyString, accessToken)
+	body, _ := post(postString, bodyString, accessToken)
 	json.Unmarshal(body, &GeneralStruct)
 
 	var wg sync.WaitGroup

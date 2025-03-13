@@ -420,3 +420,25 @@ var PSTrophyStruct struct {
 	} `json:"trophyTitles"`
 	TotalItemCount int `json:"totalItemCount"`
 }
+
+type IGDBInsertGameReturn struct {
+	Title             string `json:"title"`
+	ReleaseDate       string `json:"releaseDate"`
+	SelectedPlatforms []struct {
+		Value string `json:"value"`
+		Label string `json:"label"`
+	} `json:"selectedPlatforms"`
+	TimePlayed   string `json:"timePlayed"`
+	Rating       string `json:"rating"`
+	SelectedDevs []struct {
+		Value string `json:"value"`
+		Label string `json:"label"`
+	} `json:"selectedDevs"`
+	SelectedTags []struct {
+		Value string `json:"value"`
+		Label string `json:"label"`
+	} `json:"selectedTags"`
+	Description string   `json:"description"`
+	CoverImage  string   `json:"coverImage"`
+	SSImage     []string `json:"ssImage"`
+}
