@@ -1162,20 +1162,6 @@ func getSteamCreds() []string {
 	return (creds)
 }
 
-func updateNpsso(Npsso string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := "DELETE FROM PlayStationNpsso"
-	_, err = db.Exec(QueryString)
-	bail(err)
-
-	QueryString = "INSERT INTO PlayStationNpsso (Npsso) VALUES (?)"
-	_, err = db.Exec(QueryString, Npsso)
-	bail(err)
-}
-
 func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
 	fmt.Println(uid)
 	fmt.Println(checkedParams["titleChecked"])
@@ -1792,12 +1778,20 @@ func setupRouter() *gin.Engine {
 			return
 		}
 		npsso := data.Npsso
-		updateNpsso(npsso)
 		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
-		gamesAndError := playstationImportUserGames(npsso, clientID, clientSecret)
-		psnError := gamesAndError["error"].(bool)
-		gamesNotMatched := gamesAndError["gamesNotMatched"].([]string)
-		c.JSON(http.StatusOK, gin.H{"error": psnError, "gamesNotMatched": gamesNotMatched})
+		err := updateNpsso(npsso)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update NPSSO", "details": err.Error()})
+			return
+		}
+		gamesNotMatched, err := playstationImportUserGames(npsso, clientID, clientSecret)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "PSN Import Failed", "details": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"gamesNotMatched": gamesNotMatched})
 	})
 
 	r.GET("/LoadPreferences", func(c *gin.Context) {

@@ -465,6 +465,10 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	if err != nil {
 		return fmt.Errorf("failed to insert into SteamAppIds: %w", err)
 	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction %w", err)
+	}
 
 	msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
 	sendSSEMessage(msg)

@@ -29,35 +29,7 @@ export default function Integrations() {
   const [npssoEmpty, setNpssoEmpty] = useState(false);
   const [psnGamesNotMatched, setPsnGamesNotMatched] = useState<string[]>([]);
   const [steamLoading, setSteamLoading] = useState<boolean>(false);
-  const [psnLoading, setPsnLoading] = useState<
-    "true" | "false" | "error" | "init"
-  >("init");
-
-  useEffect(() => {
-    if (psnLoading !== "init") {
-      if (psnLoading === "true") {
-        toast({
-          variant: "default",
-          title: "PSN Integration Started!",
-          description: "You can safely leave this page now.",
-        });
-      }
-      if (psnLoading !== "true") {
-        toast({
-          variant: psnLoading === "error" ? "destructive" : "default",
-          title:
-            psnLoading === "error"
-              ? "PSN Integration Error!"
-              : "Library Integrated!",
-          description:
-            psnLoading === "error"
-              ? "Please check your npsso and try again."
-              : "Your PSN library has been successfully integrated.",
-        });
-        setPsnLoading("false");
-      }
-    }
-  }, [psnLoading]);
+  const [psnLoading, setPsnLoading] = useState<boolean>(false);
 
   const SteamLibraryImportHandler = () => {
     if (!steamID) {
@@ -86,7 +58,8 @@ export default function Integrations() {
       npsso,
       setPsnLoading,
       setPsnGamesNotMatched,
-      setIntegrationLoadCount
+      setIntegrationLoadCount,
+      toast
     );
   };
 
@@ -229,12 +202,10 @@ export default function Integrations() {
                     <Button
                       variant="dialogSaveButton"
                       onClick={PlayStationLibraryImportHandler}
-                      disabled={psnLoading === "true"}
+                      disabled={psnLoading}
                     >
                       Import Library
-                      {psnLoading === "true" && (
-                        <Loader2 className="animate-spin" />
-                      )}
+                      {psnLoading && <Loader2 className="animate-spin" />}
                     </Button>
                   </div>
                 </div>

@@ -50,16 +50,16 @@ export const importSteamLibrary = async (
       title: "Failed to Get Metadata!",
       description: error || "An unknown error occurred",
     });
-    return;
   }
   setIntegrationLoadCount((prev: number) => prev - 1);
 };
 
 export const importPlaystationLibrary = async (
   npsso: string,
-  setPsnLoading: (loading: "true" | "false" | "error") => void,
+  setPsnLoading: (loading: boolean) => void,
   setPsnGamesNotMatched: (games: string[]) => void,
-  setIntegrationLoadCount: (fn: (prev: number) => number) => void
+  setIntegrationLoadCount: (fn: (prev: number) => number) => void,
+  toast: any
 ) => {
   if (!npsso) {
     console.error("NPSSO token is required.");
@@ -67,10 +67,15 @@ export const importPlaystationLibrary = async (
   }
 
   console.log("Sending PlayStation Import Req", npsso);
-  setIntegrationLoadCount((prev: number) => prev + 1);
-  setPsnLoading("true");
 
+  setIntegrationLoadCount((prev: number) => prev + 1);
+  setPsnLoading(true);
   try {
+    toast({
+      variant: "default",
+      title: "PSN Integration Started!",
+      description: "You can safely leave this page now.",
+    });
     const response = await fetch("http://localhost:8080/PlayStationImport", {
       method: "POST",
       headers: {
@@ -82,20 +87,31 @@ export const importPlaystationLibrary = async (
         clientSecret: "1nk95mh97tui5t1ct1q5i7sqyfmqvd",
       }),
     });
+    if (!response.ok) {
+      const errorResp = await response.json();
+      const errorMessage = errorResp.error || "An unknown error occurred.";
+      const errorDetails = errorResp.details || "";
+      throw errorMessage + " -- " + errorDetails;
+    }
 
     const resp = await response.json();
-    console.log("PSN Error:", resp.error);
     console.log("PSN Games Not Matched:", resp.gamesNotMatched);
 
-    setPsnLoading(resp.error);
-    if (!resp.error) {
-      setPsnGamesNotMatched(resp.gamesNotMatched);
-    }
+    toast({
+      variant: "default",
+      title: "Library Integrated!",
+      description: "Your PSN library has been successfully integrated.",
+    });
+    setPsnLoading(false);
+    setPsnGamesNotMatched(resp.gamesNotMatched);
   } catch (error) {
+    setPsnLoading(false);
     console.error("Error:", error);
-    setPsnLoading("error");
+    toast({
+      variant: "destructive",
+      title: "Failed to Get Metadata!",
+      description: error || "An unknown error occurred",
+    });
   }
-
-  setPsnLoading("false");
   setIntegrationLoadCount((prev: number) => prev - 1);
 };
