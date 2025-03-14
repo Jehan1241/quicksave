@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { CircleHelp, Loader2 } from "lucide-react";
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import {
   importPlaystationLibrary,
   importSteamLibrary,
@@ -29,38 +28,10 @@ export default function Integrations() {
   const [npsso, setNpsso] = useState("");
   const [npssoEmpty, setNpssoEmpty] = useState(false);
   const [psnGamesNotMatched, setPsnGamesNotMatched] = useState<string[]>([]);
-  const [steamLoading, setSteamLoading] = useState<
-    "true" | "false" | "error" | "init"
-  >("init");
+  const [steamLoading, setSteamLoading] = useState<boolean>(false);
   const [psnLoading, setPsnLoading] = useState<
     "true" | "false" | "error" | "init"
   >("init");
-
-  useEffect(() => {
-    if (steamLoading != "init") {
-      if (steamLoading === "true") {
-        toast({
-          variant: "default",
-          title: "Steam Integration Started!",
-          description: "You can safely leave this page now.",
-        });
-      }
-      if (steamLoading !== "true") {
-        toast({
-          variant: steamLoading === "error" ? "destructive" : "default",
-          title:
-            steamLoading === "error"
-              ? "Steam Integration Error!"
-              : "Library Integrated!",
-          description:
-            steamLoading === "error"
-              ? "Please check your credentials and try again."
-              : "Your Steam library has been successfully integrated.",
-        });
-        setSteamLoading("false");
-      }
-    }
-  }, [steamLoading]);
 
   useEffect(() => {
     if (psnLoading !== "init") {
@@ -101,7 +72,8 @@ export default function Integrations() {
       steamID,
       apiKey,
       setSteamLoading,
-      setIntegrationLoadCount
+      setIntegrationLoadCount,
+      toast
     );
   };
 
@@ -203,12 +175,10 @@ export default function Integrations() {
                   <Button
                     variant="dialogSaveButton"
                     onClick={SteamLibraryImportHandler}
-                    disabled={steamLoading === "true"}
+                    disabled={steamLoading}
                   >
                     Import Library{" "}
-                    {steamLoading === "true" && (
-                      <Loader2 className="animate-spin" />
-                    )}
+                    {steamLoading && <Loader2 className="animate-spin" />}
                   </Button>
                 </div>
               </TabsContent>

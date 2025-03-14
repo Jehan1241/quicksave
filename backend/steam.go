@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,49 +11,87 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func steamImportUserGames(SteamID string, APIkey string) bool {
+func updateSteamCreds(steamID string, steamAPIKey string) error {
+	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	if err != nil {
+		return fmt.Errorf("error opening Write DB: %w", err)
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	_, err = tx.Exec("REPLACE INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)", steamID, steamAPIKey)
+	if err != nil {
+		return fmt.Errorf("DB write error %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction %w", err)
+	}
+
+	return nil
+}
+
+func steamImportUserGames(SteamID string, APIkey string) error {
 
 	var allSteamGamesStruct allSteamGamesStruct
 
 	getString := fmt.Sprintf(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=%s&steamid=%s&include_appinfo=true&include_played_free_games=true`, APIkey, SteamID)
 	resp, err := http.Get(getString)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Steam user games")
+	}
 	defer resp.Body.Close()
 
 	// IF BAD REQ (Wrong ID / API Key)
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized {
-			return true // Return false for Bad Request (400) or Unauthorized (401)
+			return fmt.Errorf("invalid Steam ID or API key (HTTP %d)", resp.StatusCode)
 		}
-		panic(fmt.Sprintf("Received non-OK HTTP status: %d", resp.StatusCode))
+		return fmt.Errorf("unexpected HTTP status: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to read Steam API response: %w", err)
+	}
 
-	err = json.Unmarshal(body, &allSteamGamesStruct)
-	bail(err)
+	if err := json.Unmarshal(body, &allSteamGamesStruct); err != nil {
+		return fmt.Errorf("failed to parse Steam API response: %w", err)
+	}
 
 	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
 	defer db.Close()
 
 	QueryString := "SELECT AppID FROM SteamAppIds"
 	rows, err := db.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("DB read Error - SteamAppIds: %w", err)
+	}
 
 	defer rows.Close()
 
 	var AppIDsInDB []int
 	for rows.Next() {
 		var AppID int
-		rows.Scan(&AppID)
+		if err := rows.Scan(&AppID); err != nil {
+			return fmt.Errorf("DB scan error - SteamAppIds row: %w", err)
+		}
 		AppIDsInDB = append(AppIDsInDB, AppID)
 	}
 
-	for i := range allSteamGamesStruct.Response.Games {
+	for i, game := range allSteamGamesStruct.Response.Games {
 		insert := true
-		AppID := allSteamGamesStruct.Response.Games[i].Appid
+		AppID := game.Appid
 
 		for j := range AppIDsInDB {
 			AppIDinDB := AppIDsInDB[j]
@@ -66,26 +103,38 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 		if !insert {
 			QueryString := fmt.Sprintf(`SELECT UID FROM SteamAppIds Where AppID=%d`, AppID)
 			rows, err := db.Query(QueryString)
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("DB read error - SteamAppIds: %w", err)
+			}
 
 			defer rows.Close()
 			var UID string
 			for rows.Next() {
-				rows.Scan(&UID)
+				err = rows.Scan(&UID)
+				if err != nil {
+					return fmt.Errorf("DB scan error - SteamAppIds: %w", err)
+				}
 			}
 
 			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %f WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
 			_, err = db.Exec(updateQuery)
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("error updating time played: %w", err)
+			}
 			// This forces games to become non wishlist items incase found in library
 			updateQuery = fmt.Sprintf(`UPDATE GameMetaData SET isDLC = %d WHERE UID = "%s"`, 0, UID)
 			_, err = db.Exec(updateQuery)
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("error switching wishlisted game to library: %w", err)
+			}
 
-		} else if insert {
-			fmt.Println("Inserting ", allSteamGamesStruct.Response.Games[i].Name)
-			Appid := allSteamGamesStruct.Response.Games[i].Appid
-			getAndInsertSteamGameMetaData(Appid, allSteamGamesStruct.Response.Games[i].PlaytimeForever)
+		} else {
+			fmt.Println("Inserting ", game.Name)
+			Appid := game.Appid
+			err = getAndInsertSteamGameMetaData(Appid, game.PlaytimeForever)
+			if err != nil {
+				return fmt.Errorf("error getting steam games metadata: %w", err)
+			}
 		}
 	}
 
@@ -94,17 +143,19 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 
 	getString = fmt.Sprintf(`https://api.steampowered.com/IWishlistService/GetWishlist/v1/?key=%s&steamid=%s`, APIkey, SteamID)
 	resp, err = http.Get(getString)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("error getting player wishlist")
+	}
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to parse wishlist response: %w", err)
+	}
 
 	err = json.Unmarshal(body, &steamWishlistStruct)
-	bail(err)
-
-	for _, item := range steamWishlistStruct.Response.Items {
-		fmt.Println(item.Appid)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal wishlist games: %w", err)
 	}
 
 	for _, item := range steamWishlistStruct.Response.Items {
@@ -120,51 +171,64 @@ func steamImportUserGames(SteamID string, APIkey string) bool {
 		}
 		if insert {
 			fmt.Println("Inserting ", item.Appid)
-			getAndInsertSteamWishlistGame(AppID)
+			err = getAndInsertSteamWishlistGame(AppID)
+			if err != nil {
+				return fmt.Errorf("error getting steam wishlist games metadata: %w", err)
+			}
 		}
 	}
-
-	return (false)
+	return (nil)
 }
 
-func getAndInsertSteamWishlistGame(Appid int) {
+func getAndInsertSteamWishlistGame(Appid int) error {
 	var SteamGameMetadataStruct SteamGameMetadataStruct
 	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d`, Appid)
 	resp, err := http.Get(getURL)
-	bail(err)
-
+	if err != nil {
+		return fmt.Errorf("failed to fetch Steam API metadata: %w", err)
+	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Steam API request returned HTTP %d", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to read Steam API response: %w", err)
+	}
 
 	prefixCut := fmt.Sprintf("{\"%d\":", Appid)
 	suffixCut := "}"
-	prefixRemoved, _ := strings.CutPrefix(string(body), prefixCut)
-	suffixRemoved, _ := strings.CutSuffix(prefixRemoved, suffixCut)
+	prefixRemoved, hasPrefix := strings.CutPrefix(string(body), prefixCut)
+	suffixRemoved, hasSuffix := strings.CutSuffix(prefixRemoved, suffixCut)
+
+	if !hasPrefix || !hasSuffix {
+		return fmt.Errorf("unexpected JSON response from steam API")
+	}
 
 	err = json.Unmarshal([]byte(suffixRemoved), &SteamGameMetadataStruct)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal Steam API response: %w", err)
+	}
 
 	// For User Defined Tags
 	url := fmt.Sprintf(`https://store.steampowered.com/app/%d`, Appid)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to create HTTP request for Steam store page: %w", err)
 	}
 	req.Header.Add("Cookie", "birthtime=28801") // To bypass Steam Age Check
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to fetch Steam store page: %w", err)
 	}
 	defer res.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to parse Steam store page HTML: %w", err)
 	}
 
 	tags := []string{}
@@ -174,53 +238,68 @@ func getAndInsertSteamWishlistGame(Appid int) {
 		tags = append(tags, tag)
 	})
 	// Delete the last element of tags if it exists the +
-	if len(tags) > 0 {
+	if len(tags) > 0 && tags[len(tags)-1] == "+" {
 		tags = tags[:len(tags)-1]
 	}
 
 	if SteamGameMetadataStruct.Success {
-		InsertSteamGameMetaData(Appid, 0, SteamGameMetadataStruct, tags, 1)
+		err = InsertSteamGameMetaData(Appid, 0, SteamGameMetadataStruct, tags, 1)
+		if err != nil {
+			return fmt.Errorf("failed to insert Steam game metadata into DB: %w", err)
+		}
 	}
+	return nil
 }
 
-func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) {
+func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) error {
 	var SteamGameMetadataStruct SteamGameMetadataStruct
 	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d&l=%s`, Appid, "english")
 	resp, err := http.Get(getURL)
-	bail(err)
-
+	if err != nil {
+		return fmt.Errorf("failed to fetch Steam API metadata: %w", err)
+	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Steam API request returned HTTP %d", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to read Steam API response: %w", err)
+	}
 
 	prefixCut := fmt.Sprintf("{\"%d\":", Appid)
 	suffixCut := "}"
-	prefixRemoved, _ := strings.CutPrefix(string(body), prefixCut)
-	suffixRemoved, _ := strings.CutSuffix(prefixRemoved, suffixCut)
+	prefixRemoved, hasPrefix := strings.CutPrefix(string(body), prefixCut)
+	suffixRemoved, hasSuffix := strings.CutSuffix(prefixRemoved, suffixCut)
+
+	if !hasPrefix || !hasSuffix {
+		return fmt.Errorf("unexpected JSON response from steam API")
+	}
 
 	err = json.Unmarshal([]byte(suffixRemoved), &SteamGameMetadataStruct)
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal Steam API response: %w", err)
+	}
 
 	// For User Defined Tags
 	url := fmt.Sprintf(`https://store.steampowered.com/app/%d`, Appid)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to create HTTP request for Steam store page: %w", err)
 	}
 	req.Header.Add("Cookie", "birthtime=28801") // To bypass Steam Age Check
 
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to fetch Steam store page: %w", err)
 	}
 	defer res.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to parse Steam store page HTML: %w", err)
 	}
 
 	tags := []string{}
@@ -235,11 +314,15 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) {
 	}
 
 	if SteamGameMetadataStruct.Success {
-		InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags, 0)
+		err = InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags, 0)
+		if err != nil {
+			return fmt.Errorf("failed to insert Steam game metadata into DB: %w", err)
+		}
 	}
+	return nil
 }
 
-func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string, isDLC int) {
+func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStruct SteamGameMetadataStruct, tags []string, isDLC int) error {
 	timePlayedHours := timePlayed / 60
 	name := SteamGameMetadataStruct.Data.Name
 	releaseDate := SteamGameMetadataStruct.Data.ReleaseDate.Date
@@ -276,102 +359,117 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	wg.Wait()
 
 	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("failed to open DB: %w", err)
+	}
 	defer db.Close()
 
 	tx, err := db.Begin()
-	bail(err)
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
-		} else {
-			tx.Commit()
-		}
-	}()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
 
 	//Insert to GameMetaData Table
-	preparedStatement, err := tx.Prepare("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)")
-	bail(err)
-	defer preparedStatement.Close()
-	_, err = preparedStatement.Exec(UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
-	bail(err)
+	_, err = tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
+	if err != nil {
+		return fmt.Errorf("failed to insert into GameMetaData: %w", err)
+	}
 
 	//Insert to Screenshots
-	preparedStatement, err = tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-	bail(err)
-	defer preparedStatement.Close()
+	stmt, err := tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
+	if err != nil {
+		return fmt.Errorf("failed to prepare ScreenShots statement: %w", err)
+	}
 
 	if len(screenshotPaths) == 0 {
-		_, err = preparedStatement.Exec(UID, "")
+		_, err = stmt.Exec(UID, "")
 		bail(err)
 	} else {
 		for _, screenshotPath := range screenshotPaths {
-			_, err = preparedStatement.Exec(UID, screenshotPath)
-			bail(err)
+			_, err = stmt.Exec(UID, screenshotPath)
+			if err != nil {
+				return fmt.Errorf("failed to insert into ScreenShots: %w", err)
+			}
 		}
 	}
+	stmt.Close()
 
 	//Insert to InvolvedCompanies table
-	preparedStatement, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-	bail(err)
-	defer preparedStatement.Close()
+	stmt, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
+	if err != nil {
+		return fmt.Errorf("failed to prepare InvolvedCompanies statement: %w", err)
+	}
 	developers := SteamGameMetadataStruct.Data.Developers
 	publishers := SteamGameMetadataStruct.Data.Publishers
 
 	if len(developers) == 0 {
-		_, err = preparedStatement.Exec(UID, "Unknown")
-		bail(err)
+		_, err = stmt.Exec(UID, "Unknown")
+		if err != nil {
+			return fmt.Errorf("failed to insert into InvolvedCompanies (Developers): %w", err)
+		}
 	} else {
 		for _, dev := range developers {
-			_, err = preparedStatement.Exec(UID, dev)
-			bail(err)
+			_, err = stmt.Exec(UID, dev)
+			if err != nil {
+				return fmt.Errorf("failed to insert into InvolvedCompanies (Developers): %w", err)
+			}
 		}
 	}
 	if len(publishers) == 0 {
-		_, err = preparedStatement.Exec(UID, "Unknown")
-		bail(err)
+		_, err = stmt.Exec(UID, "Unknown")
+		if err != nil {
+			return fmt.Errorf("failed to insert into InvolvedCompanies (Publishers): %w", err)
+		}
 	} else {
 		for _, pub := range publishers {
-			_, err = preparedStatement.Exec(UID, pub)
-			bail(err)
+			_, err = stmt.Exec(UID, pub)
+			if err != nil {
+				return fmt.Errorf("failed to insert into InvolvedCompanies (Publishers): %w", err)
+			}
 		}
 	}
+	stmt.Close()
 
 	//Insert to Tags
-	preparedStatement, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-	bail(err)
-	defer preparedStatement.Close()
+	stmt, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
+	if err != nil {
+		return fmt.Errorf("failed to prepare Tags statement: %w", err)
+	}
 
 	if len(tags) == 0 && len(SteamGameMetadataStruct.Data.Genres) == 0 {
-		_, err = preparedStatement.Exec(UID, "NA")
-		bail(err)
+		_, err = stmt.Exec(UID, "none")
+
 	} else {
 		if len(tags) == 0 {
 			for _, genre := range SteamGameMetadataStruct.Data.Genres {
-				_, err = preparedStatement.Exec(UID, genre.Description)
-				bail(err)
+				_, err = stmt.Exec(UID, genre.Description)
+
 			}
 		} else {
 			for _, tag := range tags {
-				_, err = preparedStatement.Exec(UID, tag)
-				bail(err)
+				_, err = stmt.Exec(UID, tag)
+
 			}
 		}
 	}
+	if err != nil {
+		return fmt.Errorf("failed to insert into Tags: %w", err)
+	}
+	stmt.Close()
 
 	//Insert SteamAppIDs
-	preparedStatement, err = tx.Prepare("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?)")
-	bail(err)
-	defer preparedStatement.Close()
-	_, err = preparedStatement.Exec(UID, Appid)
-	bail(err)
+	_, err = tx.Exec("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?) ON CONFLICT DO NOTHING", UID, Appid)
+	if err != nil {
+		return fmt.Errorf("failed to insert into SteamAppIds: %w", err)
+	}
 
 	msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
 	sendSSEMessage(msg)
+
+	return nil
 }
 
 func getSteamAppID(uid string) int {

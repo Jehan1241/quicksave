@@ -1162,20 +1162,6 @@ func getSteamCreds() []string {
 	return (creds)
 }
 
-func updateSteamCreds(steamID string, steamAPIKey string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := "DELETE FROM SteamCreds"
-	_, err = db.Exec(QueryString)
-	bail(err)
-
-	QueryString = "INSERT INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)"
-	_, err = db.Exec(QueryString, steamID, steamAPIKey)
-	bail(err)
-}
-
 func updateNpsso(Npsso string) {
 	db, err := SQLiteWriteConfig("IGDB_Database.db")
 	bail(err)
@@ -1781,10 +1767,20 @@ func setupRouter() *gin.Engine {
 		SteamID := data.SteamID
 		APIkey := data.APIkey
 		fmt.Println("Received Steam Import", SteamID, APIkey)
-		updateSteamCreds(SteamID, APIkey)
-		error := steamImportUserGames(SteamID, APIkey)
+		err := updateSteamCreds(SteamID, APIkey)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update steam credentials", "details": err.Error()})
+			return
+		}
+		err = steamImportUserGames(SteamID, APIkey)
+		if err != nil {
+			log.Printf("ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Steam Import Failed", "details": err.Error()})
+			return
+		}
 		checkSteamInstalledValidity()
-		c.JSON(http.StatusOK, gin.H{"error": error})
+		c.JSON(http.StatusOK, gin.H{"error": false})
 	})
 
 	r.POST("/PlayStationImport", func(c *gin.Context) {
