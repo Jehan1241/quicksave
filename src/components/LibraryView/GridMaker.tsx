@@ -34,7 +34,8 @@ export default function GridMaker({
 }: GridMakerProps) {
   const navigate = useNavigate();
   const [preloadData, setPreloadData] = useState<GameData | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
 
   const tileClickHandler = () => {
     console.log(uid);
@@ -60,15 +61,37 @@ export default function GridMaker({
       console.error("Failed to preload game data:", error);
     }
   }, [uid]);
+
   const { cacheBuster } = useSortContext();
-  const imageUrl = `http://localhost:8080/cover-art/${cover}?t=${cacheBuster}`;
+  const imageUrl = `http://localhost:8080/cover-art/${cover}`;
+
+  //Check if image exists & is loadable
+  const checkImageLoadable = async (url: string) => {
+    try {
+      const response = await fetch(url, { method: "HEAD" });
+      if (response.ok) {
+        const img = new Image();
+        img.src = `${url}?t=${cacheBuster}`;
+        img.onload = () => {
+          setImageSrc(img.src);
+          setImageLoadFailed(false);
+        };
+        img.onerror = () => {
+          console.error("Image load failed:", url);
+          setImageLoadFailed(true);
+        };
+      } else {
+        setImageLoadFailed(true);
+      }
+    } catch (error) {
+      console.error("Image check error:", error);
+      setImageLoadFailed(true);
+    }
+  };
 
   useEffect(() => {
-    const img = new Image();
-    img.src = imageUrl;
-    img.onload = () => setImageLoaded(true);
-    img.onerror = () => setImageLoaded(false);
-  }, []);
+    checkImageLoadable(imageUrl);
+  }, [imageUrl, cacheBuster]);
 
   return (
     <div
@@ -77,12 +100,12 @@ export default function GridMaker({
       className="inline-flex rounded-md transition duration-300 ease-in-out hover:scale-105"
       style={style}
     >
-      {imageLoaded ? (
+      {!imageLoadFailed ? (
         <div
           className="rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow relative"
           style={{
             ...style,
-            backgroundImage: `url('${imageUrl}')`,
+            backgroundImage: `url('${imageSrc}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",

@@ -25,9 +25,14 @@ func updateSteamCreds(steamID string, steamAPIKey string) error {
 
 	defer tx.Rollback()
 
-	_, err = tx.Exec("REPLACE INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)", steamID, steamAPIKey)
+	_, err = db.Exec("DELETE FROM SteamCreds")
 	if err != nil {
-		return fmt.Errorf("DB write error %w", err)
+		return fmt.Errorf("error deleting old steam creds %w", err)
+	}
+
+	_, err = db.Exec("INSERT INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)", steamID, steamAPIKey)
+	if err != nil {
+		return fmt.Errorf("error inserting steam creds %w", err)
 	}
 
 	err = tx.Commit()
@@ -177,6 +182,7 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 			}
 		}
 	}
+	checkSteamInstalledValidity()
 	return (nil)
 }
 

@@ -1,5 +1,7 @@
 github.com/HugoSmits86/nativewebp v1.0.0 h1:WeZlyAb1gY5vebQ6CaPKPRDLEihNs5BeyZPmTPcrLtc=
 github.com/HugoSmits86/nativewebp v1.0.0/go.mod h1:YNQuWenlVmSUUASVNhTDwf4d7FwYQGbGhklC8p72Vr8=
+github.com/HugoSmits86/nativewebp v1.1.4 h1:ocw31WY20MF4JJ2gfieer3LWs2MXi00TeOiBRH8w3aA=
+github.com/HugoSmits86/nativewebp v1.1.4/go.mod h1:YNQuWenlVmSUUASVNhTDwf4d7FwYQGbGhklC8p72Vr8=
 github.com/PuerkitoBio/goquery v1.9.2 h1:4/wZksC3KgkQw7SQgkKotmKljk0M6V8TUvA8Wb4yPeE=
 github.com/PuerkitoBio/goquery v1.9.2/go.mod h1:GHPCaP0ODyyxqcNoFGYlAprUFH81NuRPd0GX3Zu2Mvk=
 github.com/andybalholm/cascadia v1.3.2 h1:3Xi6Dw5lHF15JtdcmAHD3i1+T8plmv7BQ/nsViSLyss=

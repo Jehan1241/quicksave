@@ -26,7 +26,7 @@ export function DeleteDialog({
     } catch (error) {
       console.error(error);
     }
-    navigate("/", { replace: true });
+    navigate(-1);
   };
 
   return (

@@ -30,6 +30,7 @@ function App() {
     isIntegrationsDialogOpen,
     isWishlistAddDialogOpen,
     setIntegrationLoadCount,
+    setCacheBuster,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]);
@@ -128,7 +129,7 @@ function App() {
     };
     initFunc();
 
-    attachSSEListener(fetchData);
+    attachSSEListener(fetchData, setCacheBuster);
   }, []);
 
   useEffect(() => {

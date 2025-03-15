@@ -643,7 +643,7 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 	defer tx.Rollback()
 
 	// Incase its a new Platforms, its added
-	_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?)")
+	_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT DO NOTHING", platform)
 	if err != nil {
 		return fmt.Errorf("inserting to platforms: %w", err)
 	}

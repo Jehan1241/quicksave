@@ -12,7 +12,7 @@ const useIntersectionObserver = (data: any[], view: any) => {
   const initObserver = () => {
     const options = {
       root: gridScrollRef.current, // Observe inside the gridScroll container
-      rootMargin: "400px", // A buffer to preload items before they enter view
+      rootMargin: "800px", // A buffer to preload items before they enter view
       threshold: 0, // Trigger when 10% of the element is visible
     };
 
@@ -23,12 +23,11 @@ const useIntersectionObserver = (data: any[], view: any) => {
         if (entry.isIntersecting) {
           newVisibleItems.current.add(id);
         } else {
-          //newVisibleItems.current.delete(id);
+          newVisibleItems.current.delete(id);
         }
       });
 
       setVisibleItems((prev) => new Set(newVisibleItems.current));
-
       //setVisibleItems(newVisibleItems.current);
     }, options);
   };

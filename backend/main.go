@@ -1420,7 +1420,13 @@ func addSSEClient(c *gin.Context) {
 	}
 }
 func sendSSEMessage(msg string) {
-	sseBroadcast <- msg
+	log.Println("Sending SSE:", msg)
+	select {
+	case sseBroadcast <- msg:
+		log.Println("SSE message sent successfully")
+	default:
+		log.Println("SSE channel blocked, dropping message")
+	}
 }
 
 func setupRouter() *gin.Engine {
@@ -1765,7 +1771,6 @@ func setupRouter() *gin.Engine {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Steam Import Failed", "details": err.Error()})
 			return
 		}
-		checkSteamInstalledValidity()
 		c.JSON(http.StatusOK, gin.H{"error": false})
 	})
 
