@@ -244,11 +244,11 @@ app.on("ready", () => {
   } else {
     // Production: The backend folder is next to the packaged Electron executable
     const execDir = path.dirname(process.execPath); // Use execPath instead of __dirname
-    serverPath = path.join(execDir, "backend", "thismodule.exe");
+    serverPath = path.join(execDir, "resources/backend", "thismodule.exe");
   }
   console.log("Launching Go server from:", serverPath);
 
-  const goServer = spawn(serverPath, [], {
+  goServer = spawn(serverPath, [], {
     cwd: path.dirname(serverPath),
     shell: false,
     stdio: ["ignore", "pipe", "pipe"], // Capture stdout and stderr
@@ -282,14 +282,19 @@ app.on("ready", () => {
 const killGoServer = () => {
   if (goServer && !goServer.killed) {
     console.log("Attempting to kill Go server...");
-    goServer.kill("SIGTERM"); // Graceful shutdown
+    goServer.kill("SIGTERM");
 
     setTimeout(() => {
       if (!goServer.killed) {
         console.log("Force killing Go server...");
-        goServer.kill("SIGKILL"); // Hard kill if needed
+
+        if (process.platform === "win32") {
+          require("child_process").exec(`taskkill /PID ${goServer.pid} /F`);
+        } else {
+          process.kill(-goServer.pid, "SIGKILL"); // Kill entire process group
+        }
       }
-    }, 2000); // Wait 2s before force kill
+    }, 2000);
   }
 };
 
@@ -302,10 +307,8 @@ process.on("SIGTERM", killGoServer);
 
 app.on("window-all-closed", () => {
   console.log("And");
-  if (goServer) {
-    console.log("Here");
-    goServer.kill();
-  }
+  console.log("Here");
+  goServer.kill();
   win = null;
   if (process.platform !== "darwin") app.quit();
 });

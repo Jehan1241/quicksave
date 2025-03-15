@@ -6,17 +6,18 @@
     "output": "release/${version}"
   },
   "files": ["dist-electron", "dist"],
+  "extraResources": [
+    {
+      "from": "backend/thismodule.exe",
+      "to": "./backend/thismodule.exe"
+    }
+  ],
   "mac": {
     "artifactName": "${productName}_${version}.${ext}",
     "target": ["dmg", "zip"]
   },
   "win": {
-    "target": [
-      {
-        "target": "portable",
-        "arch": ["x64"]
-      }
-    ],
+    "target": "nsis",
     "artifactName": "${productName}_${version}.${ext}"
   },
   "nsis": {
