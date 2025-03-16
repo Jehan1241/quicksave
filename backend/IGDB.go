@@ -134,14 +134,8 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform
 	metadataMap["name"] = Name
 	metadataMap["uid"] = UID
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
 	var exists bool
-	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM GameMetaData WHERE UID=?)", UID).Scan(&exists)
+	err := readDB.QueryRow("SELECT EXISTS(SELECT 1 FROM GameMetaData WHERE UID=?)", UID).Scan(&exists)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query database: %w", err)
 	}
@@ -309,13 +303,13 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		var buffer bytes.Buffer
 		_, err := buffer.WriteString("fields company; where id=(")
 		if err != nil {
-			return fmt.Errorf("Buffer Writer Error: %w", err)
+			return fmt.Errorf("buffer writer error: %w", err)
 		}
 		for _, company := range InvolvedCompanies {
 			tempString := fmt.Sprintf(`%d,`, company)
 			_, err = buffer.WriteString(tempString)
 			if err != nil {
-				return fmt.Errorf("Buffer Writer Error: %w", err)
+				return fmt.Errorf("buffer writer error: %w", err)
 			}
 		}
 		tempString := buffer.String()
@@ -336,14 +330,14 @@ func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessT
 		buffer.Reset()
 		_, err = buffer.WriteString("fields name; where id=(")
 		if err != nil {
-			return fmt.Errorf("Buffer Writer Error: %w", err)
+			return fmt.Errorf("buffer writer error: %w", err)
 		}
 
 		for _, company := range CompaniesStruct {
 			tempString1 := fmt.Sprintf(`%d,`, company.Company)
 			_, err = buffer.WriteString(tempString1)
 			if err != nil {
-				return fmt.Errorf("Buffer Writer Error: %w", err)
+				return fmt.Errorf("buffer writer error: %w", err)
 			}
 		}
 		tempString = buffer.String()
@@ -365,20 +359,14 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 	releaseYear := strings.Split(releaseDate, "-")[0]
 	UID := GetMD5Hash(title + releaseYear + platform)
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	if err != nil {
-		return false, fmt.Errorf("error opening database: %v", err)
-	}
-
 	var UIDdb string
-	err = db.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID).Scan(&UIDdb)
+	err := readDB.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID).Scan(&UIDdb)
 	if err == nil { // No error means match
 		log.Println("Game already exists in database:", title)
 		return false, nil
 	} else if err != sql.ErrNoRows { // Means real error occured
 		return false, fmt.Errorf("database error %v", err)
 	}
-	db.Close()
 
 	fmt.Println("Inserting", title)
 
@@ -417,71 +405,52 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 	}
 	coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
 
-	db, err = SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return false, fmt.Errorf("error opening write DB: %v", err)
-	}
-	defer db.Close()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return false, fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback()
-
-	// Incase its a new Platforms, its added
-	_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT(Name) DO NOTHING", platform)
-	if err != nil {
-		return false, fmt.Errorf("DB write error - inserting platform: %w", err)
-	}
-
-	//Insert to GameMetaData Table
-	_, err = tx.Exec("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)",
-		UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, AggregatedRating)
-	if err != nil {
-		return false, fmt.Errorf("DB write error - inserting GameMetaData: %v", err)
-	}
-
-	//Insert to Screenshots Table
-	stmt, err := tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-	if err != nil {
-		return false, fmt.Errorf("error preparing DB statement - screenshots: %v", err)
-	}
-	for _, screenshotPath := range ScreenshotPaths {
-		_, err = stmt.Exec(UID, screenshotPath)
+	err = txWrite(func(tx *sql.Tx) error {
+		// Incase its a new Platforms, its added
+		_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT(Name) DO NOTHING", platform)
 		if err != nil {
-			return false, fmt.Errorf("DB write error - inserting screenshots: %v", err)
+			return fmt.Errorf("DB write error - inserting platform: %w", err)
 		}
-	}
-	stmt.Close()
 
-	//Insert to InvolvedCompanies table
-	stmt, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-	if err != nil {
-		return false, fmt.Errorf("error preparing DB statement - companies: %v", err)
-	}
-	for _, dev := range devs {
-		_, err = stmt.Exec(UID, dev)
+		//Insert to GameMetaData Table
+		_, err = tx.Exec("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)",
+			UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, AggregatedRating)
 		if err != nil {
-			return false, fmt.Errorf("DB write error - inserting companies: %v", err)
+			return fmt.Errorf("DB write error - inserting GameMetaData: %v", err)
 		}
-	}
-	stmt.Close()
 
-	//Insert to Tags Table
-	stmt, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-	if err != nil {
-		return false, fmt.Errorf("error preparing DB statement - tags: %v", err)
-	}
-	for _, tag := range tags {
-		_, err = stmt.Exec(UID, tag)
-		if err != nil {
-			return false, fmt.Errorf("DB write error - inserting tags: %v", err)
+		if len(ScreenshotPaths) > 0 {
+			var values [][]any
+			for _, screenshotPath := range ScreenshotPaths {
+				values = append(values, []any{UID, screenshotPath})
+			}
+			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("DB write error - inserting screenshots: %v", err)
+			}
 		}
-	}
-	stmt.Close()
-	err = tx.Commit()
+		if len(devs) > 0 {
+			var values [][]any
+			for _, dev := range devs {
+				values = append(values, []any{UID, dev})
+			}
+			err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("DB write error - inserting companies: %v", err)
+			}
+		}
+		if len(tags) > 0 {
+			var values [][]any
+			for _, tag := range tags {
+				values = append(values, []any{UID, tag})
+			}
+			err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("DB write error - inserting tags: %v", err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return false, fmt.Errorf("DB commit error: %v", err)
 	}

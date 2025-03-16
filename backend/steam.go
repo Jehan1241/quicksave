@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,35 +13,19 @@ import (
 )
 
 func updateSteamCreds(steamID string, steamAPIKey string) error {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("error opening Write DB: %w", err)
-	}
-	defer db.Close()
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM SteamCreds")
+		if err != nil {
+			return fmt.Errorf("error deleting old steam creds %w", err)
+		}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback()
-
-	_, err = db.Exec("DELETE FROM SteamCreds")
-	if err != nil {
-		return fmt.Errorf("error deleting old steam creds %w", err)
-	}
-
-	_, err = db.Exec("INSERT INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)", steamID, steamAPIKey)
-	if err != nil {
-		return fmt.Errorf("error inserting steam creds %w", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction %w", err)
-	}
-
-	return nil
+		_, err = tx.Exec("INSERT INTO SteamCreds (SteamID, SteamAPIKey) VALUES (?, ?)", steamID, steamAPIKey)
+		if err != nil {
+			return fmt.Errorf("error inserting steam creds %w", err)
+		}
+		return nil
+	})
+	return err
 }
 
 func steamImportUserGames(SteamID string, APIkey string) error {
@@ -71,18 +56,10 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 		return fmt.Errorf("failed to parse Steam API response: %w", err)
 	}
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	QueryString := "SELECT AppID FROM SteamAppIds"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query("SELECT AppID FROM SteamAppIds")
 	if err != nil {
 		return fmt.Errorf("DB read Error - SteamAppIds: %w", err)
 	}
-
 	defer rows.Close()
 
 	var AppIDsInDB []int
@@ -106,31 +83,29 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 			}
 		}
 		if !insert {
-			QueryString := fmt.Sprintf(`SELECT UID FROM SteamAppIds Where AppID=%d`, AppID)
-			rows, err := db.Query(QueryString)
+			var UID string
+			err := readDB.QueryRow("SELECT UID FROM SteamAppIds WHERE AppID = ?", AppID).Scan(&UID)
 			if err != nil {
+				if err == sql.ErrNoRows {
+					return fmt.Errorf("no UID found for AppID %d", AppID)
+				}
 				return fmt.Errorf("DB read error - SteamAppIds: %w", err)
 			}
 
-			defer rows.Close()
-			var UID string
-			for rows.Next() {
-				err = rows.Scan(&UID)
+			err = txWrite(func(tx *sql.Tx) error {
+				_, err = tx.Exec("UPDATE GameMetaData SET TimePlayed = ? WHERE UID = ?", allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
 				if err != nil {
-					return fmt.Errorf("DB scan error - SteamAppIds: %w", err)
+					return fmt.Errorf("error updating time played: %w", err)
 				}
-			}
-
-			updateQuery := fmt.Sprintf(`UPDATE GameMetaData SET TimePlayed = %f WHERE UID = "%s"`, allSteamGamesStruct.Response.Games[i].PlaytimeForever/60, UID)
-			_, err = db.Exec(updateQuery)
+				// This forces games to become non wishlist items incase found in library
+				_, err = tx.Exec("UPDATE GameMetaData SET isDLC = ? WHERE UID = ?", 0, UID)
+				if err != nil {
+					return fmt.Errorf("error switching wishlisted game to library: %w", err)
+				}
+				return nil
+			})
 			if err != nil {
-				return fmt.Errorf("error updating time played: %w", err)
-			}
-			// This forces games to become non wishlist items incase found in library
-			updateQuery = fmt.Sprintf(`UPDATE GameMetaData SET isDLC = %d WHERE UID = "%s"`, 0, UID)
-			_, err = db.Exec(updateQuery)
-			if err != nil {
-				return fmt.Errorf("error switching wishlisted game to library: %w", err)
+				return err
 			}
 
 		} else {
@@ -195,7 +170,7 @@ func getAndInsertSteamWishlistGame(Appid int) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Steam API request returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("steam API request returned HTTP %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -266,7 +241,7 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Steam API request returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("steam API request returned HTTP %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -364,118 +339,78 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	}
 	wg.Wait()
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("failed to open DB: %w", err)
-	}
-	defer db.Close()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	//Insert to GameMetaData Table
-	_, err = tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
-	if err != nil {
-		return fmt.Errorf("failed to insert into GameMetaData: %w", err)
-	}
-
-	//Insert to Screenshots
-	stmt, err := tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("failed to prepare ScreenShots statement: %w", err)
-	}
-
-	if len(screenshotPaths) == 0 {
-		_, err = stmt.Exec(UID, "")
-		bail(err)
-	} else {
-		for _, screenshotPath := range screenshotPaths {
-			_, err = stmt.Exec(UID, screenshotPath)
-			if err != nil {
-				return fmt.Errorf("failed to insert into ScreenShots: %w", err)
-			}
-		}
-	}
-	stmt.Close()
-
-	//Insert to InvolvedCompanies table
-	stmt, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("failed to prepare InvolvedCompanies statement: %w", err)
-	}
-	developers := SteamGameMetadataStruct.Data.Developers
-	publishers := SteamGameMetadataStruct.Data.Publishers
-
-	if len(developers) == 0 {
-		_, err = stmt.Exec(UID, "Unknown")
+	err := txWrite(func(tx *sql.Tx) error {
+		//Insert to GameMetaData Table
+		_, err := tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) 
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+			UID, name, releaseDate, coverArtPath, description, isDLC, platform, timePlayedHours, AggregatedRating)
 		if err != nil {
-			return fmt.Errorf("failed to insert into InvolvedCompanies (Developers): %w", err)
+			return fmt.Errorf("failed to insert into GameMetaData: %w", err)
 		}
-	} else {
-		for _, dev := range developers {
-			_, err = stmt.Exec(UID, dev)
-			if err != nil {
-				return fmt.Errorf("failed to insert into InvolvedCompanies (Developers): %w", err)
-			}
-		}
-	}
-	if len(publishers) == 0 {
-		_, err = stmt.Exec(UID, "Unknown")
-		if err != nil {
-			return fmt.Errorf("failed to insert into InvolvedCompanies (Publishers): %w", err)
-		}
-	} else {
-		for _, pub := range publishers {
-			_, err = stmt.Exec(UID, pub)
-			if err != nil {
-				return fmt.Errorf("failed to insert into InvolvedCompanies (Publishers): %w", err)
-			}
-		}
-	}
-	stmt.Close()
-
-	//Insert to Tags
-	stmt, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("failed to prepare Tags statement: %w", err)
-	}
-
-	if len(tags) == 0 && len(SteamGameMetadataStruct.Data.Genres) == 0 {
-		_, err = stmt.Exec(UID, "none")
-
-	} else {
-		if len(tags) == 0 {
-			for _, genre := range SteamGameMetadataStruct.Data.Genres {
-				_, err = stmt.Exec(UID, genre.Description)
-
-			}
+		//Insert to Screenshots
+		var values [][]any
+		if len(screenshotPaths) == 0 {
+			values = append(values, []any{UID, ""})
 		} else {
-			for _, tag := range tags {
-				_, err = stmt.Exec(UID, tag)
-
+			for _, screenshotPath := range screenshotPaths {
+				values = append(values, []any{UID, screenshotPath})
 			}
 		}
-	}
-	if err != nil {
-		return fmt.Errorf("failed to insert into Tags: %w", err)
-	}
-	stmt.Close()
+		err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+		if err != nil {
+			return fmt.Errorf("failed to insert into screenshots: %w", err)
+		}
+		values = [][]any{}
+		//Insert to involved companies
+		if len(SteamGameMetadataStruct.Data.Developers) == 0 {
+			values = append(values, []any{UID, "Unknown"})
+		} else {
+			for _, dev := range SteamGameMetadataStruct.Data.Developers {
+				values = append(values, []any{UID, dev})
+			}
+		}
+		if len(SteamGameMetadataStruct.Data.Publishers) == 0 {
+			values = append(values, []any{UID, "Unknown"})
+		} else {
+			for _, pub := range SteamGameMetadataStruct.Data.Publishers {
+				values = append(values, []any{UID, pub})
+			}
+		}
+		err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)", values)
+		if err != nil {
+			return fmt.Errorf("failed to insert into InvolvedCompanies: %w", err)
+		}
+		values = [][]any{}
 
-	//Insert SteamAppIDs
-	_, err = tx.Exec("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?) ON CONFLICT DO NOTHING", UID, Appid)
-	if err != nil {
-		return fmt.Errorf("failed to insert into SteamAppIds: %w", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction %w", err)
-	}
+		if len(tags) == 0 && len(SteamGameMetadataStruct.Data.Genres) == 0 {
+			values = append(values, []any{UID, "none"})
+		} else {
+			if len(tags) == 0 {
+				for _, genre := range SteamGameMetadataStruct.Data.Genres {
+					values = append(values, []any{UID, genre.Description})
 
+				}
+			} else {
+				for _, tag := range tags {
+					values = append(values, []any{UID, tag})
+
+				}
+			}
+		}
+		err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?,?)", values)
+		if err != nil {
+			return fmt.Errorf("failed to insert into tags: %w", err)
+		}
+		//Insert SteamAppIDs
+		_, err = tx.Exec("INSERT INTO SteamAppIds (UID, AppID) VALUES (?,?) ON CONFLICT DO NOTHING", UID, Appid)
+		if err != nil {
+			return fmt.Errorf("failed to insert into SteamAppIds: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("transaction failed: %w", err)
+	}
 	msg := fmt.Sprintf("Game added: %s", SteamGameMetadataStruct.Data.Name)
 	sendSSEMessage(msg)
 
@@ -483,17 +418,14 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 }
 
 func getSteamAppID(uid string) int {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	QueryString := fmt.Sprintf(`SELECT AppID FROM SteamAppIds WHERE UID="%s"`, uid)
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 	var appid int
 	for rows.Next() {
-		rows.Scan(&appid)
+		err = rows.Scan(&appid)
+		bail(err)
 	}
 	return (appid)
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"database/sql"
 	"encoding/base64"
@@ -20,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -32,6 +34,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
+var (
+	readDB  *sql.DB
+	writeDB *sql.DB
+	mu      sync.Mutex
+)
+
 func bail(err error) {
 	if err != nil {
 		panic(err)
@@ -42,10 +50,23 @@ func main() {
 	checkAndCreateDB()
 	checkAndCreateFolders()
 	initAPIKeys()
+
+	err := connectToDB()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go handleShutdown(cancel)
+
 	checkSteamInstalledValidity()
-	checkManualInstalledValidity()
+	_ = checkManualInstalledValidity()
 	startSSEListener()
 	routing()
+
+	<-ctx.Done()
+	closeDB()
 }
 
 func initAPIKeys() {
@@ -157,183 +178,11 @@ func SQLiteWriteConfig(dbFile string) (*sql.DB, error) {
 	// Return the configured write database connection
 	return db, nil
 }
-func checkAndCreateDB() {
-	if _, err := os.Stat("IGDB_Database.db"); os.IsNotExist(err) {
-		fmt.Println("Database not found. Creating the database...")
-		// Creates DB if not found
-		db, err := SQLiteWriteConfig("IGDB_Database.db")
-		bail(err)
-		defer db.Close()
-
-		createTables(db)
-		initializeDefaultDBValues(db)
-
-	} else {
-		fmt.Println("DB Found")
-	}
-}
-func createTables(db *sql.DB) {
-	tx, err := db.Begin()
-	bail(err)
-
-	defer func() {
-		if err != nil {
-			tx.Rollback() // Rollback in case of error
-		} else {
-			err = tx.Commit() // Commit the transaction if no error
-		}
-	}()
-
-	queries := []string{`CREATE TABLE IF NOT EXISTS "GameMetaData" (
-	"UID"	TEXT NOT NULL UNIQUE,
-	"Name"	TEXT NOT NULL,
-	"ReleaseDate"	TEXT NOT NULL,
-	"CoverArtPath"	TEXT NOT NULL,
-	"Description"	TEXT NOT NULL,
-	"isDLC"	INTEGER NOT NULL,
-	"OwnedPlatform"	TEXT NOT NULL,
-	"TimePlayed"	INTEGER NOT NULL,
-	"AggregatedRating"	INTEGER NOT NULL,
-	"InstallPath"	TEXT,
-	PRIMARY KEY("UID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "HiddenGames" (
-	"UID"	TEXT NOT NULL UNIQUE
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "InvolvedCompanies" (
-	"UUID"	INTEGER NOT NULL UNIQUE,
-	"UID"	TEXT NOT NULL,
-	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("UUID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "Platforms" (
-	"UID"	INTEGER NOT NULL UNIQUE,
-	"Name"	TEXT NOT NULL UNIQUE,
-	PRIMARY KEY("UID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "ScreenShots" (
-	"UUID"	INTEGER NOT NULL UNIQUE,
-	"UID"	TEXT NOT NULL,
-	"ScreenshotPath"	TEXT NOT NULL,
-	PRIMARY KEY("UUID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "SortState" (
-	"Type"	TEXT,
-	"Value"	TEXT
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "SteamAppIds" (
-	"UID"	TEXT NOT NULL UNIQUE,
-	"AppID"	INTEGER NOT NULL UNIQUE,
-	PRIMARY KEY("UID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "Tags" (
-	"UUID"	INTEGER NOT NULL UNIQUE,
-	"UID"	TEXT NOT NULL,
-	"Tags"	TEXT NOT NULL,
-	PRIMARY KEY("UUID")
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "PlayStationNpsso" (
-		"Npsso"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE IF NOT EXISTS "SteamCreds" (
-		"SteamID"	TEXT NOT NULL,
-		"SteamAPIKey"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE "FilterTags" (
-		"Tag"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE "FilterDevs" (
-		"Dev"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE "FilterName" (
-		"Name"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE "FilterPlatform" (
-		"Platform"	TEXT NOT NULL
-	);`,
-
-		`CREATE TABLE "GamePreferences" (
-		"UID"	TEXT NOT NULL UNIQUE,
-		"CustomTitle"	TEXT NOT NULL,
-		"UseCustomTitle"	NUMERIC NOT NULL,
-		"CustomTime"	NUMERIC NOT NULL,
-		"UseCustomTime"	NUMERIC NOT NULL,
-		"CustomTimeOffset"	NUMERIC NOT NULL,
-		"UseCustomTimeOffset"	NUMERIC NOT NULL,
-		"CustomReleaseDate"	NUMERIC NOT NULL,
-		"UseCustomReleaseDate"	NUMERIC NOT NULL,
-		"CustomRating"	NUMERIC NOT NULL,
-		"UseCustomRating"	NUMERIC NOT NULL,
-		PRIMARY KEY("UID")
-	);`,
-	}
-
-	for _, query := range queries {
-		_, err := tx.Exec(query)
-		bail(err)
-	}
-
-	err = tx.Commit()
-	bail(err)
-}
-func initializeDefaultDBValues(db *sql.DB) {
-	tx, err := db.Begin()
-	bail(err)
-
-	defer func() {
-		if err != nil {
-			tx.Rollback() // Rollback in case of error
-		} else {
-			err = tx.Commit() // Commit the transaction if no error
-		}
-	}()
-
-	platforms := []string{
-		"Sony Playstation 1",
-		"Sony Playstation 2",
-		"Sony Playstation 3",
-		"Sony Playstation 4",
-		"Sony Playstation 5",
-		"Xbox 360",
-		"Xbox One",
-		"Xbox Series X",
-		"PC",
-		"Steam",
-	}
-	for _, platform := range platforms {
-		_, err := tx.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
-		bail(err)
-	}
-
-	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Type', 'TimePlayed')`)
-	bail(err)
-
-	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
-	bail(err)
-
-	fmt.Println("DB Default Values Initialized.")
-}
 
 func getAllTags() []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
 
 	QueryString := "SELECT DISTINCT Tags FROM Tags"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -349,12 +198,9 @@ func getAllTags() []string {
 }
 
 func getAllDevelopers() []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
 
 	QueryString := "SELECT DISTINCT Name FROM InvolvedCompanies"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -362,7 +208,10 @@ func getAllDevelopers() []string {
 
 	for rows.Next() {
 		var dev string
-		rows.Scan(&dev)
+		err = rows.Scan(&dev)
+		if err != nil {
+			bail(err)
+		}
 		devs = append(devs, dev)
 	}
 
@@ -371,21 +220,16 @@ func getAllDevelopers() []string {
 
 func getGameDetails(UID string) map[string]interface{} {
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	// Map to store game data
 	m := make(map[string]map[string]interface{})
 
 	// Query 1 GameMetaData
 	QueryString := fmt.Sprintf(`SELECT UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating FROM GameMetaData Where UID = "%s"`, UID)
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
 	for rows.Next() {
-
 		var UID, Name, ReleaseDate, CoverArtPath, Description, OwnedPlatform string
 		var isDLC int
 		var TimePlayed float64
@@ -408,7 +252,7 @@ func getGameDetails(UID string) map[string]interface{} {
 
 	// Query 2 GamePreferences : Override meta-data with user prefs
 	QueryString = fmt.Sprintf(`SELECT * FROM GamePreferences Where GamePreferences.UID = "%s"`, UID)
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -440,7 +284,7 @@ func getGameDetails(UID string) map[string]interface{} {
 
 	// Query 3: Tags
 	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`, UID)
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -466,7 +310,7 @@ func getGameDetails(UID string) map[string]interface{} {
 
 	// Query 4: InvolvedCompanies
 	QueryString = fmt.Sprintf(`SELECT * FROM InvolvedCompanies Where InvolvedCompanies.UID = "%s"`, UID)
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -492,7 +336,7 @@ func getGameDetails(UID string) map[string]interface{} {
 
 	// Query 5: ScreenShots
 	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -535,111 +379,101 @@ func getGameDetails(UID string) map[string]interface{} {
 }
 
 func setTagsFilter(FilterStruct FilterStruct) {
-	// Open the database for reading and writing
-	dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer dbWrite.Close()
 
-	tx, err := dbWrite.Begin()
-	bail(err)
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
-		} else {
-			tx.Commit()
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM FilterTags")
+		if err != nil {
+			return err
 		}
-	}()
+		_, err = tx.Exec("DELETE FROM FilterPlatform")
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM FilterDevs")
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM FilterName")
+		if err != nil {
+			return err
+		}
 
-	_, err = tx.Exec("DELETE FROM FilterTags")
-	bail(err)
-	_, err = tx.Exec("DELETE FROM FilterPlatform")
-	bail(err)
-	_, err = tx.Exec("DELETE FROM FilterDevs")
-	bail(err)
-	_, err = tx.Exec("DELETE FROM FilterName")
-	bail(err)
+		var tagValues, nameValues, platformValues, devValues [][]any
+		for _, tag := range FilterStruct.Tags {
+			tagValues = append(tagValues, []any{tag})
+		}
+		for _, name := range FilterStruct.Name {
+			nameValues = append(nameValues, []any{name})
+		}
+		for _, platform := range FilterStruct.Platforms {
+			platformValues = append(platformValues, []any{platform})
+		}
+		for _, dev := range FilterStruct.Devs {
+			devValues = append(devValues, []any{dev})
+		}
 
-	insertStmtTags, err := tx.Prepare("INSERT INTO FilterTags (Tag) VALUES (?)")
+		if len(tagValues) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO FilterTags (Tag) VALUES (?)", tagValues)
+			if err != nil {
+				return err
+			}
+		}
+		if len(nameValues) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO FilterName (Name) VALUES (?)", nameValues)
+			if err != nil {
+				return err
+			}
+		}
+		if len(platformValues) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO FilterPlatform (Platform) VALUES (?)", platformValues)
+			if err != nil {
+				return err
+			}
+		}
+		if len(devValues) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO FilterDevs (Dev) VALUES (?)", devValues)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	bail(err)
-	defer insertStmtTags.Close()
-
-	insertStmtPlats, err := tx.Prepare("INSERT INTO FilterPlatform (Platform) VALUES (?)")
-	bail(err)
-	defer insertStmtPlats.Close()
-
-	insertStmtDevs, err := tx.Prepare("INSERT INTO FilterDevs (Dev) VALUES (?)")
-	bail(err)
-	defer insertStmtDevs.Close()
-
-	insertStmtName, err := tx.Prepare("INSERT INTO FilterName (Name) VALUES (?)")
-	bail(err)
-	defer insertStmtName.Close()
-
-	// Insert each tag into the table
-	for _, tag := range FilterStruct.Tags {
-		_, err := insertStmtTags.Exec(tag)
-		bail(err)
-	}
-	for _, tag := range FilterStruct.Name {
-		_, err := insertStmtName.Exec(tag)
-		bail(err)
-	}
-	for _, tag := range FilterStruct.Platforms {
-		_, err := insertStmtPlats.Exec(tag)
-		bail(err)
-	}
-	for _, tag := range FilterStruct.Devs {
-		_, err := insertStmtDevs.Exec(tag)
-		bail(err)
-	}
 }
 
 func clearFilter() {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	tx, err := db.Begin()
-	bail(err)
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
-		} else {
-			tx.Commit()
+	err := txWrite(func(tx *sql.Tx) error {
+		QueryString := "DELETE FROM FilterDevs"
+		_, err := tx.Exec(QueryString)
+		if err != nil {
+			return err
 		}
-	}()
-
-	QueryString := "DELETE FROM FilterDevs"
-	_, err = tx.Exec(QueryString)
-	bail(err)
-	QueryString = "DELETE FROM FilterName"
-	_, err = tx.Exec(QueryString)
-	bail(err)
-	QueryString = "DELETE FROM FilterPlatform"
-	_, err = tx.Exec(QueryString)
-	bail(err)
-	QueryString = "DELETE FROM FilterTags"
-	_, err = tx.Exec(QueryString)
+		QueryString = "DELETE FROM FilterName"
+		_, err = tx.Exec(QueryString)
+		if err != nil {
+			return err
+		}
+		QueryString = "DELETE FROM FilterPlatform"
+		_, err = tx.Exec(QueryString)
+		if err != nil {
+			return err
+		}
+		QueryString = "DELETE FROM FilterTags"
+		_, err = tx.Exec(QueryString)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	bail(err)
 }
 
 func getFilterState() map[string][]string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
 
 	var filterDevs, filterName, filterPlatform, filterTags []string
 	returnMap := make(map[string][]string)
 	QueryString := "SELECT * FROM FilterDevs"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
@@ -649,7 +483,7 @@ func getFilterState() map[string][]string {
 	bail(err)
 
 	QueryString = "SELECT * FROM FilterName"
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
@@ -659,7 +493,7 @@ func getFilterState() map[string][]string {
 	bail(err)
 
 	QueryString = "SELECT * FROM FilterPlatform"
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
@@ -670,7 +504,7 @@ func getFilterState() map[string][]string {
 	bail(err)
 
 	QueryString = "SELECT * FROM FilterTags"
-	rows, err = db.Query(QueryString)
+	rows, err = readDB.Query(QueryString)
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
@@ -686,7 +520,6 @@ func getFilterState() map[string][]string {
 	fmt.Println("This", returnMap["Devs"])
 
 	return (returnMap)
-
 }
 
 // Repeated Call Funcs
@@ -746,14 +579,20 @@ func getImageFromURL(getURL string, location string, filename string) {
 		defer response.Body.Close()
 
 		img, _, err = image.Decode(response.Body)
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 	} else {
 		// Case 3: If getURL is not a base64 string or URL, assume it's a local file path
 		imgData, err := ioutil.ReadFile(getURL)
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 		// Decode the image from the byte slice
 		img, _, err = image.Decode(bytes.NewReader(imgData))
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	file, err := os.Create(location + filename)
@@ -762,7 +601,9 @@ func getImageFromURL(getURL string, location string, filename string) {
 
 	if img != nil {
 		err = nativewebp.Encode(file, img, nil)
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
@@ -783,61 +624,62 @@ func GetMD5Hash(text string) string {
 }
 
 func deleteGameFromDB(uid string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM GameMetaData WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM GamePreferences WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM HiddenGames WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM ScreenShots WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM SteamAppIds WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec("DELETE FROM Tags WHERE UID=?", uid)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	bail(err)
-	defer db.Close()
-
-	// function to prepare and execute delete queries
-	executeDelete := func(query string, uid string) {
-		preparedStatement, err := db.Prepare(query)
-		bail(err)
-		defer preparedStatement.Close()
-
-		// Execute the query with the UID
-		_, err = preparedStatement.Exec(uid)
-		bail(err)
-	}
-	executeDelete("DELETE FROM GameMetaData WHERE UID=?", uid)
-	executeDelete("DELETE FROM GamePreferences WHERE UID=?", uid)
-	executeDelete("DELETE FROM HiddenGames WHERE UID=?", uid)
-	executeDelete("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
-	executeDelete("DELETE FROM ScreenShots WHERE UID=?", uid)
-	executeDelete("DELETE FROM SteamAppIds WHERE UID=?", uid)
-	executeDelete("DELETE FROM Tags WHERE UID=?", uid)
 }
 
 func hideGame(uid string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	// Query to check if the game with the specified UID exists
-	QueryStatement := `INSERT INTO HiddenGames (UID) VALUES (?)`
-	_, err = db.Exec(QueryStatement, uid)
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("INSERT INTO HiddenGames (UID) VALUES (?)", uid)
+		return err
+	})
 	bail(err)
 }
 
 func unhideGame(uid string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	// Query to check if the game with the specified UID exists
-	QueryStatement := `DELETE FROM HiddenGames WHERE UID = ?`
-	_, err = db.Exec(QueryStatement, uid)
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM HiddenGames WHERE UID = ?", uid)
+		return err
+	})
 	bail(err)
 }
 
 func sortDB(sortType string, order string) map[string]interface{} {
 
-	dbRead, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer dbRead.Close()
-
 	// Retrieve sort state from DB if type is default
 	if sortType == "default" {
 		QueryString := "SELECT * FROM SortState"
-		rows, err := dbRead.Query(QueryString)
+		rows, err := readDB.Query(QueryString)
 		bail(err)
 		defer rows.Close()
 
@@ -857,27 +699,12 @@ func sortDB(sortType string, order string) map[string]interface{} {
 			}
 		}
 	}
-	dbRead.Close()
 
-	dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
+	err := txWrite(func(tx *sql.Tx) error {
+		err := txBatchUpdate(tx, "UPDATE SortState SET Value=? WHERE Type=?", [][]any{{sortType, "Sort Type"}, {order, "Sort Order"}})
+		return err
+	})
 	bail(err)
-	defer dbWrite.Close()
-
-	// Update SortState table with the new sort type and order
-	QueryString := "UPDATE SortState SET Value=? WHERE Type=?"
-	stmt, err := dbWrite.Prepare(QueryString)
-	bail(err)
-	defer stmt.Close()
-
-	_, err = stmt.Exec(sortType, "Sort Type")
-	bail(err)
-	_, err = stmt.Exec(order, "Sort Order")
-	bail(err)
-	dbWrite.Close()
-
-	dbRead, err = SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer dbRead.Close()
 
 	// Check FilterTags
 	Query := `
@@ -887,7 +714,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
         EXISTS (SELECT 1 FROM FilterPlatform),
         EXISTS (SELECT 1 FROM FilterName)
 `
-	row := dbRead.QueryRow(Query)
+	row := readDB.QueryRow(Query)
 
 	var tagsFilterSetInt, devsFilterSetInt, platsFilterSetInt, nameFilterSetInt int
 	err = row.Scan(&tagsFilterSetInt, &devsFilterSetInt, &platsFilterSetInt, &nameFilterSetInt)
@@ -995,7 +822,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 
 	BaseQuery += fmt.Sprintf(`ORDER BY %s %s;`, sortType, order)
 
-	rows, err := dbRead.Query(BaseQuery)
+	rows, err := readDB.Query(BaseQuery)
 	bail(err)
 	defer rows.Close()
 
@@ -1031,8 +858,8 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		i++
 	}
 
-	QueryString = "SELECT * FROM HiddenGames"
-	rows, err = dbRead.Query(QueryString)
+	QueryString := "SELECT * FROM HiddenGames"
+	rows, err = readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -1054,12 +881,8 @@ func sortDB(sortType string, order string) map[string]interface{} {
 }
 
 func getSortOrder() map[string]string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	QueryString := "SELECT * FROM SortState"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -1081,12 +904,8 @@ func getSortOrder() map[string]string {
 }
 
 func getPlatforms() []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	QueryString := "SELECT * FROM Platforms ORDER BY Name"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -1100,36 +919,9 @@ func getPlatforms() []string {
 	return (platforms)
 }
 
-func getIGDBKeys() []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := "SELECT * FROM IgdbAPIKeys"
-	rows, err := db.Query(QueryString)
-	bail(err)
-	defer rows.Close()
-
-	keys := []string{}
-	for rows.Next() {
-		var clientID, clientSecret string
-
-		err = rows.Scan(&clientID, &clientSecret)
-		bail(err)
-
-		keys = append(keys, clientID)
-		keys = append(keys, clientSecret)
-	}
-	return (keys)
-}
-
 func getNpsso() string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	QueryString := "SELECT * FROM PlayStationNpsso"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query(QueryString)
 	bail(err)
 	defer rows.Close()
 
@@ -1142,12 +934,7 @@ func getNpsso() string {
 }
 
 func getSteamCreds() []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := "SELECT * FROM SteamCreds"
-	rows, err := db.Query(QueryString)
+	rows, err := readDB.Query("SELECT * FROM SteamCreds")
 	bail(err)
 	defer rows.Close()
 
@@ -1201,35 +988,22 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 		ratingCheckedNumeric = 1
 	}
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	QueryString := `
-    INSERT OR REPLACE INTO GamePreferences 
-    (UID, CustomTitle, UseCustomTitle, CustomTime, UseCustomTime, CustomTimeOffset, UseCustomTimeOffset, CustomReleaseDate, UseCustomReleaseDate, CustomRating, UseCustomRating)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-    `
-	preparedStatement, err := db.Prepare(QueryString)
-	bail(err)
-	defer preparedStatement.Close()
-
-	_, err = preparedStatement.Exec(uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric, releaseDate, releaseDateCheckedNumeric, rating, ratingCheckedNumeric)
+	err := txWrite(func(tx *sql.Tx) error {
+		query := `
+		INSERT OR REPLACE INTO GamePreferences 
+		(UID, CustomTitle, UseCustomTitle, CustomTime, UseCustomTime, CustomTimeOffset, UseCustomTimeOffset, CustomReleaseDate, UseCustomReleaseDate, CustomRating, UseCustomRating)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+		`
+		_, err := tx.Exec(query, uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric, releaseDate, releaseDateCheckedNumeric, rating, ratingCheckedNumeric)
+		return err
+	})
 	bail(err)
 }
 
 func getPreferences(uid string) map[string]interface{} {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
+	rows, err := readDB.Query("SELECT * FROM GamePreferences WHERE UID=?", uid)
 	bail(err)
-	defer db.Close()
-
-	QueryString := `SELECT * FROM GamePreferences WHERE UID=?`
-	preparedStatement, err := db.Prepare(QueryString)
-	bail(err)
-	defer preparedStatement.Close()
-
-	rows, err := preparedStatement.Query(uid)
-	bail(err)
+	defer rows.Close()
 
 	var storedUID, customTitle, customTime, customTimeOffset, customReleaseDate, customRating string
 	var useCustomTitle, useCustomTime, useCustomTimeOffset, useCustomReleaseDate, useCustomRating int
@@ -1261,6 +1035,8 @@ func getPreferences(uid string) map[string]interface{} {
 }
 
 func setCustomImage(UID string, coverImage string, ssImage []string) {
+	var validNames []string
+
 	if coverImage != "" {
 		getString := coverImage
 		location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
@@ -1268,31 +1044,32 @@ func setCustomImage(UID string, coverImage string, ssImage []string) {
 		getImageFromURL(getString, location, filename)
 	}
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM ScreenShots WHERE UID=?", UID)
+		if err != nil {
+			return err
+		}
+
+		for i := range ssImage {
+			pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
+			_, err = tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", UID, pathString)
+			if err != nil {
+				return err
+			}
+			validNames = append(validNames, filepath.Join("screenshots", UID, fmt.Sprintf("%s-%d.webp", UID, i)))
+		}
+		return nil
+	})
 	bail(err)
-	defer db.Close()
 
-	QueryString := `DELETE FROM ScreenShots WHERE UID=?`
-	_, err = db.Exec(QueryString, UID)
-	bail(err)
-
-	var validNames []string
-
+	// Save screenshots outside of transaction for a faster commit
 	for i, image := range ssImage {
-		pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
-		fmt.Println(image)
-		QueryString := `INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)`
-		_, err = db.Exec(QueryString, UID, pathString)
-		bail(err)
-
-		getString := image
 		location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-		filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
-		getImageFromURL(getString, location, filename)
-		validNames = append(validNames, location+filename)
+		filename := fmt.Sprintf("%s-%d.webp", UID, i)
+		getImageFromURL(image, location, filename)
 	}
-	fmt.Println(validNames)
 
+	//Delete old images
 	screenshotFolder := fmt.Sprintf("screenshots/%s", UID)
 	err = filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -1300,7 +1077,7 @@ func setCustomImage(UID string, coverImage string, ssImage []string) {
 		}
 
 		// Convert path to use forward slashes
-		path = strings.Replace(path, "\\", "/", -1)
+		//path = strings.Replace(path, "\\", "/", -1)
 
 		// Only delete files, keep the directories
 		if !info.IsDir() {
@@ -1443,17 +1220,6 @@ func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 	r.Use(cors.Default())
-	// r.Use(func(c *gin.Context) {
-	// 	filepath := c.Param("filepath")
-
-	// 	if (strings.HasSuffix(filepath, ".webp")) {
-
-	// 		c.Header("Cache-Control", "public, max-age=3600") // Cache for 1 hour
-	// 		c.Header("Pragma", "cache")
-	// 		c.Header("Expires", time.Now().Add(1*time.Hour).Format(time.RFC1123))
-	// 	}
-	// 	c.Next()
-	// })
 
 	r.GET("/sse-steam-updates", addSSEClient)
 
@@ -1560,13 +1326,6 @@ func setupRouter() *gin.Engine {
 		unhideGame(UID)
 		sendSSEMessage("Un-Hidden Game")
 		c.JSON(http.StatusOK, gin.H{"Hidden": "Success Var?"})
-	})
-
-	r.GET("/IGDBKeys", func(c *gin.Context) {
-		fmt.Println("Recieved IGDBKeys")
-		IGDBKeys := getIGDBKeys()
-		fmt.Println(IGDBKeys)
-		c.JSON(http.StatusOK, gin.H{"IGDBKeys": IGDBKeys})
 	})
 
 	r.GET("/Npsso", func(c *gin.Context) {

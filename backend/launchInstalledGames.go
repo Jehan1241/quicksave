@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,12 +15,9 @@ import (
 )
 
 func getGamePath(uid string) string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
 
 	var path sql.NullString
-	err = db.QueryRow("SELECT InstallPath FROM GameMetaData WHERE UID = ?", uid).Scan(&path)
+	err := readDB.QueryRow("SELECT InstallPath FROM GameMetaData WHERE UID = ?", uid).Scan(&path)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ""
@@ -36,39 +32,21 @@ func getGamePath(uid string) string {
 }
 
 func setInstallPath(uid string, path string) {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	tx, err := db.Begin()
-	bail(err)
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
+	err := txWrite(func(tx *sql.Tx) error {
+		if path != "" {
+			_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", path, uid)
+			if err != nil {
+				return err
+			}
 		} else {
-			tx.Commit()
+			_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", nil, uid)
+			if err != nil {
+				return err
+			}
 		}
-	}()
-
-	fmt.Println(path, uid)
-
-	preparedStatement, err := tx.Prepare(`
-    UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?
-	`)
+		return nil
+	})
 	bail(err)
-	defer preparedStatement.Close()
-
-	if path == "" {
-		_, err = preparedStatement.Exec(nil, uid)
-		bail(err)
-	} else {
-		preparedStatement.Exec(path, uid)
-		bail(err)
-	}
 }
 
 func launchGameFromPath(path string, uid string) {
@@ -99,27 +77,13 @@ func launchGameFromPath(path string, uid string) {
 		// Calculate playtime
 		playTime := time.Since(startTime)
 		fmt.Printf("Game exited. Total playtime: %.4f hours\n", playTime.Hours())
-		dbWrite, err := SQLiteWriteConfig("IGDB_Database.db")
-		bail(err)
-		defer dbWrite.Close()
 
-		tx, err := dbWrite.Begin()
-		bail(err)
-		defer func() {
-			if r := recover(); r != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", r)
-			} else if err != nil {
-				tx.Rollback()
-				log.Println("Transaction rolled back due to error:", err)
-			} else {
-				tx.Commit()
-			}
-		}()
-
-		_, err = tx.Exec(
-			"UPDATE GameMetaData SET TimePlayed = COALESCE(TimePlayed, 0) + ? WHERE UID = ?",
-			playTime.Hours(), uid)
+		err = txWrite(func(tx *sql.Tx) error {
+			_, err = tx.Exec(
+				"UPDATE GameMetaData SET TimePlayed = COALESCE(TimePlayed, 0) + ? WHERE UID = ?",
+				playTime.Hours(), uid)
+			return err
+		})
 		bail(err)
 
 	case "linux":
@@ -184,7 +148,10 @@ func checkSteamInstalledValidity() {
 	installedAppIDs := getInstalledAppIDs(steamPath)
 	installedUIDs := getInstalledUIDs(installedAppIDs)
 	fmt.Println(installedUIDs)
-	setSteamGamesToInstalled(installedUIDs)
+	err := setSteamGamesToInstalled(installedUIDs)
+	if err != nil {
+		bail(err)
+	}
 }
 
 func getSteamPath() string {
@@ -251,15 +218,11 @@ func getInstalledAppIDs(steamPath string) []string {
 }
 
 func getInstalledUIDs(appIDs []string) []string {
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
 	var UIDs []string
 
 	for _, appID := range appIDs {
 		var path string
-		err = db.QueryRow("SELECT UID FROM SteamAppIds WHERE AppId = ?", appID).Scan(&path)
+		err := readDB.QueryRow("SELECT UID FROM SteamAppIds WHERE AppId = ?", appID).Scan(&path)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				continue
@@ -269,83 +232,65 @@ func getInstalledUIDs(appIDs []string) []string {
 		UIDs = append(UIDs, path)
 
 	}
-	db.Close()
 	return UIDs
 }
 
-func setSteamGamesToInstalled(UIDs []string) {
+func setSteamGamesToInstalled(UIDs []string) error {
 	if len(UIDs) == 0 {
-		return
+		return nil
 	}
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	tx, err := db.Begin()
-	bail(err)
-
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", r)
-		} else if err != nil {
-			tx.Rollback()
-			log.Println("Transaction rolled back due to error:", err)
-		} else {
-			tx.Commit()
+	err := txWrite(func(tx *sql.Tx) error {
+		// Makes all games uninstalled
+		_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = NULL WHERE InstallPath = 'steam'")
+		if err != nil {
+			return err
 		}
-	}()
 
-	//Makes all uninstalled
-	_, err = tx.Exec("UPDATE GameMetaData SET InstallPath = NULL WHERE InstallPath = 'steam'")
-	bail(err)
+		// Marks current UIDs as installed
+		for _, uid := range UIDs {
+			_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", "steam", uid)
+			if err != nil {
+				return err
+			}
+		}
 
-	// Marks current UIDs as installed
-	for _, uid := range UIDs {
-		_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", "steam", uid)
-		bail(err)
-	}
+		return nil // ✅ Success, commit transaction
+	})
+	return err
 }
 
-func checkManualInstalledValidity() {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	bail(err)
-	defer db.Close()
-
-	rows, err := db.Query("SELECT UID, InstallPath FROM GameMetaData WHERE InstallPath IS NOT NULL AND InstallPath != 'steam'")
-	bail(err)
+func checkManualInstalledValidity() error {
+	rows, err := readDB.Query("SELECT UID, InstallPath FROM GameMetaData WHERE InstallPath IS NOT NULL AND InstallPath != 'steam'")
+	if err != nil {
+		return err
+	}
 	defer rows.Close()
 
-	uninstalledUIDs := []string{}
+	uninstalledUIDs := [][]any{}
 
 	for rows.Next() {
 		var uid, installPath string
 		err := rows.Scan(&uid, &installPath)
-		bail(err)
+		if err != nil {
+			return err
+		}
 
 		// Check if file exists
 		if _, err := os.Stat(installPath); os.IsNotExist(err) {
-			uninstalledUIDs = append(uninstalledUIDs, uid)
+			uninstalledUIDs = append(uninstalledUIDs, []any{uid})
 		}
 	}
 
 	if len(uninstalledUIDs) == 0 {
 		fmt.Println("All manually added games are valid.")
-		return
+		return nil
 	}
 
 	// Update database to set invalid paths to NULL
-	tx, err := db.Begin()
-	bail(err)
-
-	for _, uid := range uninstalledUIDs {
-		_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = NULL WHERE UID = ?", uid)
-		bail(err)
-	}
-
-	err = tx.Commit()
-	bail(err)
-
-	fmt.Printf("Removed invalid install paths for %d games.", len(uninstalledUIDs))
+	err = txWrite(func(tx *sql.Tx) error {
+		err := txBatchUpdate(tx, "UPDATE GameMetaData SET InstallPath = NULL WHERE UID = ?", uninstalledUIDs)
+		return err
+	})
+	return err
 }

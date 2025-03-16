@@ -16,34 +16,21 @@ import (
 )
 
 func updateNpsso(Npsso string) error {
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("failed to open DB: %w", err)
-	}
-	defer db.Close()
+	err := txWrite(func(tx *sql.Tx) error {
+		QueryString := "DELETE FROM PlayStationNpsso"
+		_, err := tx.Exec(QueryString)
+		if err != nil {
+			return fmt.Errorf("failed to delete old Npsso: %w", err)
+		}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	QueryString := "DELETE FROM PlayStationNpsso"
-	_, err = tx.Exec(QueryString)
-	if err != nil {
-		return fmt.Errorf("failed to delete old Npsso: %w", err)
-	}
-
-	QueryString = "INSERT INTO PlayStationNpsso (Npsso) VALUES (?)"
-	_, err = tx.Exec(QueryString, Npsso)
-	if err != nil {
-		return fmt.Errorf("failed to insert new Npsso: %w", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction %w", err)
-	}
-	return nil
+		QueryString = "INSERT INTO PlayStationNpsso (Npsso) VALUES (?)"
+		_, err = tx.Exec(QueryString, Npsso)
+		if err != nil {
+			return fmt.Errorf("failed to insert new Npsso: %w", err)
+		}
+		return nil
+	})
+	return err
 }
 
 func playstationImportUserGames(npsso string, clientID string, clientSecret string) ([]string, error) {
@@ -160,21 +147,13 @@ func getAuthToken(code string) (string, error) {
 }
 
 func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret string) (map[string]interface{}, error) {
-
 	returnMap := make(map[string]interface{})
 	var allGamesNotMatched []string
 	var allPSgameList_NormalAPI_Normalized []string
 
-	db, err := SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
-	}
-	defer db.Close()
-
 	// Query database for existing PlayStation game titles
 	existingTitles := make(map[string]bool)
-	query := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
-	rows, err := db.Query(query)
+	rows, err := readDB.Query("SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')")
 	if err != nil {
 		return nil, fmt.Errorf("database query error: %w", err)
 	}
@@ -241,20 +220,17 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 			timePlayedHours := convertToHours(timePlayed)
 
 			if existingTitles[titleToStoreInDB] {
-				tx, err := db.Begin()
+				err := txWrite(func(tx *sql.Tx) error {
+					_, err = tx.Exec("UPDATE GameMetaData SET TimePlayed = ? WHERE Name = ? AND OwnedPlatform IN ('Sony PlayStation 5', 'Sony PlayStation 4', 'Sony PlayStation 3', 'Sony PlayStation x')", timePlayedHours, titleToStoreInDB)
+					if err != nil {
+						return fmt.Errorf("error updating playtime: %w", err)
+					}
+					return nil
+				})
 				if err != nil {
-					return nil, fmt.Errorf("error starting database transaction: %w", err)
+					return nil, err
 				}
-				updateQuery := `UPDATE GameMetaData SET TimePlayed = ? WHERE Name = ? AND OwnedPlatform IN ('Sony PlayStation 5', 'Sony PlayStation 4', 'Sony PlayStation 3', 'Sony PlayStation x')`
-				_, err = tx.Exec(updateQuery, timePlayedHours, titleToStoreInDB)
-				if err != nil {
-					tx.Rollback()
-					return nil, fmt.Errorf("error updating playtime: %w", err)
-				}
-				err = tx.Commit()
-				if err != nil {
-					fmt.Printf("Error committing update for %s: %v\n", titleToStoreInDB, err)
-				}
+
 			} else {
 				platform := game.Category // ps4_game ps5_native_game can be unknown
 				if platform == "ps4_game" {
@@ -283,9 +259,9 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 
 				foundGames := returnFoundGames(gameStruct)
 				Match := false
-				for game := range foundGames {
-					IGDBtitle := foundGames[game]["name"].(string)
-					AppID := foundGames[game]["appid"].(int)
+				for _, game := range foundGames {
+					IGDBtitle := game["name"].(string)
+					AppID := game["appid"].(int)
 					IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 					if IGDBtitleNormalized == titleToSendIGDB {
 						err = getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
@@ -325,7 +301,6 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 }
 
 func getGameTrophyAPI(token string) ([]map[string]string, error) {
-
 	newURL := "https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles?limit=800"
 	req, err := http.NewRequest("GET", newURL, nil)
 	if err != nil {
@@ -400,16 +375,10 @@ func RemoveDuplicatesFromTrophiesList(NormalAPIGamesList []string, TrophyAPIGame
 func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID string, clientSecret string) ([]string, error) {
 	var gamesNotMatched []string
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
-	}
-	defer db.Close()
-
 	// Fetch all existing game names from DB once
 	existingGames := make(map[string]bool)
 	query := "SELECT Name FROM GameMetaData WHERE OwnedPlatform IN ('Sony PlayStation 4', 'Sony PlayStation 5', 'Sony PlayStation 3', 'Sony PlayStation x')"
-	rows, err := db.Query(query)
+	rows, err := readDB.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("database query error: %w", err)
 	}
@@ -537,14 +506,7 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 	Name = Title
 	UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("error opening database: %w", err)
-	}
-	defer db.Close()
-
-	query := "SELECT UID FROM GameMetaData WHERE UID = ?"
-	row := db.QueryRow(query, UID)
+	row := readDB.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID)
 
 	var existingUID string
 	if err := row.Scan(&existingUID); err == nil {
@@ -555,28 +517,40 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 	}
 
 	// Seperate Cause it needs 2 API calls
-	err = getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+	err := getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
 	if err != nil {
-		return fmt.Errorf("Error getting involved companies: %w", err)
+		return fmt.Errorf("error getting involved companies: %w", err)
 	}
 	// Tags
 	postString := "https://api.igdb.com/v4/player_perspectives"
 	passer := gameStruct[gameIndex].PlayerPerspectives
 	playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+	if err != nil {
+		return fmt.Errorf("error getting tags: %w", err)
+	}
 	postString = "https://api.igdb.com/v4/genres"
 	passer = gameStruct[gameIndex].Genres
 	genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+	if err != nil {
+		return fmt.Errorf("error getting tags: %w", err)
+	}
 	postString = "https://api.igdb.com/v4/themes"
 	passer = gameStruct[gameIndex].Themes
 	themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+	if err != nil {
+		return fmt.Errorf("error getting tags: %w", err)
+	}
 	postString = "https://api.igdb.com/v4/game_modes"
 	passer = gameStruct[gameIndex].GameModes
 	gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+	if err != nil {
+		return fmt.Errorf("error getting tags: %w", err)
+	}
 	postString = "https://api.igdb.com/v4/game_engines"
 	passer = gameStruct[gameIndex].GameEngines
 	gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
 	if err != nil {
-		return fmt.Errorf("Error getting tags: %w", err)
+		return fmt.Errorf("error getting tags: %w", err)
 	}
 
 	//Images
@@ -584,14 +558,14 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 	folderName := "screenshots"
 	screenshotStruct, err = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 	if err != nil {
-		return fmt.Errorf("Error getting PSN screenshots: %w", err)
+		return fmt.Errorf("error getting PSN screenshots: %w", err)
 	}
 
 	postString = "https://api.igdb.com/v4/covers"
 	folderName = "coverArt"
 	coverStruct, err = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 	if err != nil {
-		return fmt.Errorf("Error getting PSN covers: %w", err)
+		return fmt.Errorf("error getting PSN covers: %w", err)
 	}
 	return nil
 }
@@ -603,14 +577,8 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 
 	UID := GetMD5Hash(title + strings.Split(releaseDateTime, "-")[0] + platform)
 
-	db, err := SQLiteReadConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("error opening DB: %w", err)
-	}
-	defer db.Close()
-
 	query := "SELECT UID FROM GameMetaData WHERE UID = ?"
-	row := db.QueryRow(query, UID)
+	row := readDB.QueryRow(query, UID)
 
 	var existingUID string
 	if err := row.Scan(&existingUID); err == nil {
@@ -619,7 +587,6 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 	} else if err != sql.ErrNoRows {
 		return fmt.Errorf("error querying database: %w", err)
 	}
-	db.Close()
 
 	fmt.Println("Inserting", title)
 
@@ -630,84 +597,66 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 	}
 	coverArtPath := fmt.Sprintf(`/%s/%s-0.webp`, UID, UID)
 
-	db, err = SQLiteWriteConfig("IGDB_Database.db")
-	if err != nil {
-		return fmt.Errorf("error opening DB: %w", err)
-	}
-	defer db.Close()
+	err := txWrite(func(tx *sql.Tx) error {
+		// Incase its a new Platforms, its added
+		_, err := tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT DO NOTHING", platform)
+		if err != nil {
+			return fmt.Errorf("inserting to platforms: %w", err)
+		}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-	defer tx.Rollback()
+		//Insert to GameMetaData Table
+		_, err = tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating)
+			VALUES (?,?,?,?,?,?,?,?,?)`, UID, title, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
+		if err != nil {
+			return fmt.Errorf("error inserting to GameMetaData: %w", err)
+		}
 
-	// Incase its a new Platforms, its added
-	_, err = tx.Exec("INSERT INTO Platforms (Name) VALUES (?) ON CONFLICT DO NOTHING", platform)
-	if err != nil {
-		return fmt.Errorf("inserting to platforms: %w", err)
-	}
+		// Insert Screenshots
+		if len(ScreenshotPaths) > 0 {
+			var values [][]any
+			for _, screenshotPath := range ScreenshotPaths {
+				values = append(values, []any{UID, screenshotPath})
+			}
+			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("error inserting into ScreenShots: %w", err)
+			}
+		}
+		// Insert Involved Companies
+		if len(involvedCompaniesStruct) > 0 {
+			var values [][]any
+			for _, dev := range involvedCompaniesStruct {
+				values = append(values, []any{UID, dev.Name})
+			}
+			err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("error inserting into InvolvedCompanies: %w", err)
+			}
+		}
 
-	//Insert to GameMetaData Table
-	_, err = tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating)
-		VALUES (?,?,?,?,?,?,?,?,?)`, UID, title, releaseDateTime, coverArtPath, summary, 0, platform, time, AggregatedRating)
-	if err != nil {
-		return fmt.Errorf("error inserting to GameMetaData: %w", err)
-	}
-
-	//Insert to Screenshots Table
-	stmt, err := tx.Prepare("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-	defer stmt.Close()
-	for _, screenshotPath := range ScreenshotPaths {
-		_, err = stmt.Exec(UID, screenshotPath)
-	}
-	if err != nil {
-		return fmt.Errorf("error inserting to screenshots: %w", err)
-	}
-
-	//Insert to InvolvedCompanies table
-	stmt, err = tx.Prepare("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-	defer stmt.Close()
-	for _, dev := range involvedCompaniesStruct {
-		_, err = stmt.Exec(UID, dev.Name)
-	}
-	if err != nil {
-		return fmt.Errorf("error inserting to InvolvedCompanies: %w", err)
-	}
-
-	//Insert to Tags Table
-	stmt, err = tx.Prepare("INSERT INTO Tags (UID, Tags) VALUES (?,?)")
-	if err != nil {
-		return fmt.Errorf("error preparing statement: %w", err)
-	}
-	defer stmt.Close()
-
-	for _, theme := range themeStruct {
-		stmt.Exec(UID, theme.Name)
-	}
-	for _, perspective := range playerPerspectiveStruct {
-		_, err = stmt.Exec(UID, perspective.Name)
-	}
-	for _, genre := range genresStruct {
-		_, err = stmt.Exec(UID, genre.Name)
-	}
-	for _, gameMode := range gameModesStruct {
-		_, err = stmt.Exec(UID, gameMode.Name)
-	}
-	if err != nil {
-		return fmt.Errorf("error inserting to Tags: %w", err)
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction %w", err)
-	}
-	return nil
+		// Insert Tags (Themes, Perspectives, Genres, Modes)
+		var values [][]any
+		for _, theme := range themeStruct {
+			values = append(values, []any{UID, theme.Name})
+		}
+		for _, perspective := range playerPerspectiveStruct {
+			values = append(values, []any{UID, perspective.Name})
+		}
+		for _, genre := range genresStruct {
+			values = append(values, []any{UID, genre.Name})
+		}
+		for _, gameMode := range gameModesStruct {
+			values = append(values, []any{UID, gameMode.Name})
+		}
+		if len(values) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?,?)", values)
+			if err != nil {
+				return fmt.Errorf("error inserting into Tags: %w", err)
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 func getMetaData_ImagesPSN(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) (ImgStruct, error) {
