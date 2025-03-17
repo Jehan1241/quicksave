@@ -206,7 +206,7 @@ type SteamGameMetadataStruct struct {
 	} `json:"data"`
 }
 
-type gameStruct []struct {
+type igdbSearchResult []struct {
 	ID                    int     `json:"id"`
 	AlternativeNames      []int   `json:"alternative_names"`
 	Category              int     `json:"category"`
@@ -269,39 +269,14 @@ type ImgStruct []struct {
 	URL string `json:"url"`
 }
 
-var playerPerspectiveStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-var themeStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-var genresStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-var gameModesStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-var involvedCompaniesStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-var gameEngineStruct []struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-var coverStruct []struct {
-	ID  int    `json:"id"`
-	URL string `json:"url"`
-}
-var screenshotStruct []struct {
-	ID  int    `json:"id"`
-	URL string `json:"url"`
-}
+var playerPerspectiveStruct TagsStruct
+var themeStruct TagsStruct
+var genresStruct TagsStruct
+var gameModesStruct TagsStruct
+var involvedCompaniesStruct TagsStruct
+var gameEngineStruct TagsStruct
+var coverStruct ImgStruct
+var screenshotStruct ImgStruct
 
 type SteamWishlistStruct struct {
 	Response struct {

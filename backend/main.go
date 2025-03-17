@@ -1216,7 +1216,7 @@ func setupRouter() *gin.Engine {
 		ClientSecret string `json:"clientSecret"`
 	}
 	var accessToken string
-	var gameStruct gameStruct
+	var gameStruct igdbSearchResult
 
 	r := gin.Default()
 	r.Use(cors.Default())

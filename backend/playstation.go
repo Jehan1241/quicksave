@@ -483,7 +483,7 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 	sendSSEMessage(msg)
 	return gamesNotMatched, nil
 }
-func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, accessToken string, platform string) error {
+func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchResult, accessToken string, platform string) error {
 
 	var gameIndex int = -1
 	for i := range gameStruct {
@@ -517,7 +517,7 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct gameStruct, 
 	}
 
 	// Seperate Cause it needs 2 API calls
-	err := getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+	err := getMetaData_InvolvedCompanies(gameIndex, &involvedCompaniesStruct, gameStruct, accessToken)
 	if err != nil {
 		return fmt.Errorf("error getting involved companies: %w", err)
 	}

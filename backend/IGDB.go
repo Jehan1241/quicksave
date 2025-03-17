@@ -57,9 +57,9 @@ func getAccessToken(clientID string, clientSecret string) (string, error) {
 	return accessStruct.AccessToken, nil
 }
 
-func searchGame(accessToken string, gameTofind string) (gameStruct, error) {
+func searchGame(accessToken string, gameTofind string) (igdbSearchResult, error) {
 
-	var gameStruct gameStruct
+	var igdbSearchResult igdbSearchResult
 
 	postString := ("https://api.igdb.com/v4/games")
 	// Here Category 0,8,9 sets it as a search for main game, remakes and remasters
@@ -71,14 +71,13 @@ func searchGame(accessToken string, gameTofind string) (gameStruct, error) {
 	}
 
 	//Unmarshalls body into accessStruct
-	err = json.Unmarshal(result, &gameStruct)
+	err = json.Unmarshal(result, &igdbSearchResult)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse IGDB response: %w", err)
 	}
-
-	return gameStruct, nil
+	return igdbSearchResult, nil
 }
-func returnFoundGames(gameStruct gameStruct) map[int]map[string]interface{} {
+func returnFoundGames(gameStruct igdbSearchResult) map[int]map[string]interface{} {
 	foundGames := make(map[int]map[string]interface{})
 
 	for i, game := range gameStruct {
@@ -94,37 +93,38 @@ func returnFoundGames(gameStruct gameStruct) map[int]map[string]interface{} {
 	return (foundGames)
 }
 
-func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform string) (map[string]interface{}, error) {
+func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken string, platform string) (map[string]interface{}, error) {
 	// Initialize the map to store metadata
 	metadataMap := make(map[string]interface{})
-	//Find gameIndex in gameStruct
+
+	//Find gameIndex in igdbSearchResult
 	var gameIndex int = -1
-	for i := range gameStruct {
-		if gameStruct[i].ID == gameID {
+	for i := range igdbSearchResult {
+		if igdbSearchResult[i].ID == gameID {
 			gameIndex = i
 			break
 		}
 	}
 	if gameIndex == -1 {
-		return nil, fmt.Errorf("game ID %d not found in gameStruct", gameID)
+		return nil, fmt.Errorf("game ID %d not found in igdbSearchResult", gameID)
 	}
 
-	involvedCompaniesStruct = nil
-	playerPerspectiveStruct = nil
-	genresStruct = nil
-	themeStruct = nil
-	gameModesStruct = nil
-	gameEngineStruct = nil
-	coverStruct = nil
-	screenshotStruct = nil
+	var involvedCompaniesStruct TagsStruct
+	var playerPerspectiveStruct TagsStruct
+	var genresStruct TagsStruct
+	var themeStruct TagsStruct
+	var gameModesStruct TagsStruct
+	var gameEngineStruct TagsStruct
+	var coverStruct ImgStruct
+	var screenshotStruct ImgStruct
 
-	summary = gameStruct[gameIndex].Summary
-	gameID = gameStruct[gameIndex].ID
-	UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
+	summary = igdbSearchResult[gameIndex].Summary
+	gameID = igdbSearchResult[gameIndex].ID
+	UNIX_releaseDate := igdbSearchResult[gameIndex].FirstReleaseDate
 	tempTime := time.Unix(int64(UNIX_releaseDate), 0)
 	releaseDateTime := tempTime.Format("2006-01-02")
-	AggregatedRating = gameStruct[gameIndex].AggregatedRating
-	Name = gameStruct[gameIndex].Name
+	AggregatedRating = igdbSearchResult[gameIndex].AggregatedRating
+	Name = igdbSearchResult[gameIndex].Name
 	UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
 
 	metadataMap["description"] = summary
@@ -143,7 +143,7 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform
 	if !exists {
 		// Seperate Cause it needs 2 API calls
 		metadataMap["involvedCompanies"] = make(map[int]string)
-		err = getMetaData_InvolvedCompanies(gameIndex, gameStruct, accessToken)
+		err = getMetaData_InvolvedCompanies(gameIndex, &involvedCompaniesStruct, igdbSearchResult, accessToken)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get Involved Companies: %w", err)
 		}
@@ -157,32 +157,27 @@ func getMetaData(gameID int, gameStruct gameStruct, accessToken string, platform
 		// Tags
 		var tagsSlice []string
 		postString := "https://api.igdb.com/v4/player_perspectives"
-		passer := gameStruct[gameIndex].PlayerPerspectives
-		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].PlayerPerspectives, playerPerspectiveStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get player perspectives: %w", err)
 		}
 		postString = "https://api.igdb.com/v4/genres"
-		passer = gameStruct[gameIndex].Genres
-		genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+		genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].Genres, genresStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get genres: %w", err)
 		}
 		postString = "https://api.igdb.com/v4/themes"
-		passer = gameStruct[gameIndex].Themes
-		themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+		themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].Themes, themeStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get themes: %w", err)
 		}
 		postString = "https://api.igdb.com/v4/game_modes"
-		passer = gameStruct[gameIndex].GameModes
-		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].GameModes, gameModesStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game modes: %w", err)
 		}
 		postString = "https://api.igdb.com/v4/game_engines"
-		passer = gameStruct[gameIndex].GameEngines
-		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].GameEngines, gameEngineStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game engine: %w", err)
 		}
@@ -283,7 +278,7 @@ func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArr
 
 	return GeneralStruct, nil
 }
-func getMetaData_InvolvedCompanies(gameIndex int, gameStruct gameStruct, accessToken string) error {
+func getMetaData_InvolvedCompanies(gameIndex int, involvedCompaniesStruct *TagsStruct, gameStruct igdbSearchResult, accessToken string) error {
 	// This function will neeed 2 API calls to get an actual company name due to nested IDs
 	if gameStruct[gameIndex].InvolvedCompanies == nil {
 		body := `[{"id":-1 , "name":"Unknown"}]`
