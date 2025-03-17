@@ -156,6 +156,7 @@ export default function GameView() {
                   screenshotsArray={screenshotsArray}
                   platform={metadata?.OwnedPlatform}
                   tags={tagsArray}
+                  companies={companiesArray}
                 />
                 <HideDialog
                   uid={uid}

@@ -1000,7 +1000,7 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 	bail(err)
 }
 
-func updateTags(uid string, tags []string) {
+func updateTagsandDevs(uid string, tags []string, devs []string) {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM Tags WHERE UID = ?", uid)
 		bail(err)
@@ -1010,8 +1010,23 @@ func updateTags(uid string, tags []string) {
 		}
 		if len(tags) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?, ?)", values)
+			bail(err)
 		} else {
 			_, err = tx.Exec("INSERT INTO Tags (UID, Tags) VALUES (?, ?)", uid, "unknown")
+			bail(err)
+		}
+
+		_, err = tx.Exec("DELETE FROM InvolvedCompanies WHERE UID = ?", uid)
+		bail(err)
+		values = [][]any{}
+		for _, dev := range devs {
+			values = append(values, []any{uid, dev})
+		}
+		if len(devs) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?, ?)", values)
+			bail(err)
+		} else {
+			_, err = tx.Exec("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?, ?)", uid, "unknown")
 			bail(err)
 		}
 
@@ -1612,6 +1627,7 @@ func setupRouter() *gin.Engine {
 			CustomReleaseDateChecked bool     `json:"customReleaseDateChecked"`
 			CustomReleaseDate        string   `json:"customReleaseDate"`
 			SelectedTags             []string `json:"selectedTags"`
+			SelectedDevs             []string `json:"selectedDevs"`
 		}
 
 		if err := c.BindJSON(&data); err != nil {
@@ -1638,7 +1654,7 @@ func setupRouter() *gin.Engine {
 		uid := data.UID
 		fmt.Println("Received Save Preferences : ", data.CustomRating, data.CustomReleaseDate)
 		updatePreferences(uid, checkedParams, params)
-		updateTags(uid, data.SelectedTags)
+		updateTagsandDevs(uid, data.SelectedTags, data.SelectedDevs)
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})

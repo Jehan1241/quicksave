@@ -16,10 +16,16 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import MultipleSelector from "@/components/ui/multiple-selector";
 
-export function MetadataTab({ uid, fetchData, tags }: any) {
+export function MetadataTab({ uid, fetchData, tags, companies }: any) {
   let selectedTags = Array.isArray(tags)
     ? tags.map((tag: string) => ({ label: tag, value: tag }))
     : [];
+  let selectedCompanies = Array.isArray(companies)
+    ? companies.map((company: string) => ({ label: company, value: company }))
+    : [];
+
+  console.log("abawd", companies, selectedCompanies);
+
   const [customTitleChecked, setCustomTitleChecked] = useState<
     CheckedState | undefined
   >(false);
@@ -42,6 +48,9 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
   >(false);
   const [loading, setLoading] = useState(false);
   const [tagOptions, setTagOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [devOptions, setDevOptions] = useState<
     { label: string; value: string }[]
   >([]);
 
@@ -93,7 +102,21 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
         label: tag,
       }));
       setTagOptions(tagsAsKeyValuePairs);
-      console.log("TTTATT", tagOptions);
+
+      const devsResponse = await fetch(
+        "http://localhost:8080/getAllDevelopers"
+      );
+      const devsData = await devsResponse.json();
+      console.log(devsData);
+
+      // Transform the developers into key-value pairs
+      const devsAsKeyValuePairs = devsData.devs.map((dev: any) => ({
+        value: dev,
+        label: dev,
+      }));
+      setDevOptions(devsAsKeyValuePairs);
+
+      console.log("TTTATT", devOptions);
     } catch (error) {
       console.error(error);
     }
@@ -102,6 +125,9 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
   const saveClickHandler = () => {
     const selectedTagValues = selectedTags.map(
       (tag: { value: string }) => tag.value
+    );
+    const selectedDevValues = selectedCompanies.map(
+      (dev: { value: string }) => dev.value
     );
 
     console.log("SELECTED", selectedTagValues);
@@ -121,6 +147,7 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
         : "", // Empty string if undefined
       UID: uid,
       selectedTags: selectedTagValues,
+      selectedDevs: selectedDevValues,
     };
     savePreferences(postData);
   };
@@ -310,7 +337,7 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
             />
           </div>
           <div className="flex items-center col-span-2 gap-8">
-            <Label>Tags</Label>
+            <Label className="w-20">Tags</Label>
             <MultipleSelector
               options={tagOptions}
               value={selectedTags}
@@ -319,7 +346,23 @@ export function MetadataTab({ uid, fetchData, tags }: any) {
                 selectedTags = selected;
               }}
               hidePlaceholderWhenSelected={true}
-              placeholder="Select Platforms"
+              placeholder="Select Tags"
+              emptyIndicator={
+                <p className="text-center text-sm">Type to create new tag.</p>
+              }
+            />
+          </div>
+          <div className="flex items-center col-span-2 gap-8">
+            <Label className="w-20">Developers</Label>
+            <MultipleSelector
+              options={devOptions}
+              value={selectedCompanies}
+              creatable
+              onChange={(selected: any) => {
+                selectedCompanies = selected;
+              }}
+              hidePlaceholderWhenSelected={true}
+              placeholder="Select Developers"
               emptyIndicator={
                 <p className="text-center text-sm">Type to create new tag.</p>
               }
