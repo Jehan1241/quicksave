@@ -156,23 +156,23 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 		// Tags
 		var tagsSlice []string
-		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/player_perspectives", igdbSearchResult[gameIndex].PlayerPerspectives, playerPerspectiveStruct)
+		err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/player_perspectives", igdbSearchResult[gameIndex].PlayerPerspectives, &playerPerspectiveStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get player perspectives: %w", err)
 		}
-		genresStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/genres", igdbSearchResult[gameIndex].Genres, genresStruct)
+		err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/genres", igdbSearchResult[gameIndex].Genres, &genresStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get genres: %w", err)
 		}
-		themeStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/themes", igdbSearchResult[gameIndex].Themes, themeStruct)
+		err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/themes", igdbSearchResult[gameIndex].Themes, &themeStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get themes: %w", err)
 		}
-		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_modes", igdbSearchResult[gameIndex].GameModes, gameModesStruct)
+		err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_modes", igdbSearchResult[gameIndex].GameModes, &gameModesStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game modes: %w", err)
 		}
-		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_engines", igdbSearchResult[gameIndex].GameEngines, gameEngineStruct)
+		err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_engines", igdbSearchResult[gameIndex].GameEngines, &gameEngineStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game engine: %w", err)
 		}
@@ -197,13 +197,13 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 		//Images
 
-		coverStruct, err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/covers", gameID, coverStruct)
+		err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/covers", gameID, &coverStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cover art: %w", err)
 		}
 		metadataMap["cover"] = coverStruct[0].URL
 
-		screenshotStruct, err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/screenshots", gameID, coverStruct)
+		err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/screenshots", gameID, &coverStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get screenshots: %w", err)
 		}
@@ -218,37 +218,37 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 	return metadataMap, nil
 }
-func getMetaData_Images(accessToken string, postString string, gameID int, GeneralStruct ImgStruct) (ImgStruct, error) {
+func getMetaData_Images(accessToken string, postString string, gameID int, GeneralStruct *ImgStruct) error {
 	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
 	body, err := post(postString, bodyString, accessToken)
 	if err != nil {
-		return GeneralStruct, fmt.Errorf("failed to fetch images: %w", err)
+		return fmt.Errorf("failed to fetch images: %w", err)
 	}
-	err = json.Unmarshal(body, &GeneralStruct)
+	err = json.Unmarshal(body, GeneralStruct)
 	if err != nil {
-		return GeneralStruct, fmt.Errorf("failed to unmarshal images: %w", err)
+		return fmt.Errorf("failed to unmarshal images: %w", err)
 	}
-	for i := range len(GeneralStruct) {
-		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
-		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
+	for i := range *GeneralStruct {
+		(*GeneralStruct)[i].URL = strings.Replace((*GeneralStruct)[i].URL, "t_thumb", "t_1080p", 1)
+		(*GeneralStruct)[i].URL = "https:" + (*GeneralStruct)[i].URL
 	}
-	return GeneralStruct, nil
+	return nil
 }
-func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArray []int, GeneralStruct TagsStruct) (TagsStruct, error) {
+func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArray []int, GeneralStruct *TagsStruct) error {
 	if GeneralArray == nil {
-		return GeneralStruct, nil
+		return nil
 	}
 	Perspectives := GeneralArray
 	var buffer bytes.Buffer
 	_, err := buffer.WriteString("fields name; where id=(")
 	if err != nil {
-		return GeneralStruct, fmt.Errorf("failed to write to buffer: %w", err)
+		return fmt.Errorf("failed to write to buffer: %w", err)
 	}
 	for _, perspective := range Perspectives {
 		tempString := fmt.Sprintf(`%d,`, perspective)
 		_, err := buffer.WriteString(tempString)
 		if err != nil {
-			return GeneralStruct, fmt.Errorf("failed to write to buffer: %w", err)
+			return fmt.Errorf("failed to write to buffer: %w", err)
 		}
 	}
 	tempString := buffer.String()
@@ -256,14 +256,14 @@ func getMetaData_TagsAndEngine(accessToken string, postString string, GeneralArr
 	bodyString := tempString + ");"
 	body, err := post(postString, bodyString, accessToken)
 	if err != nil {
-		return GeneralStruct, fmt.Errorf("failed to fetch tags/engine: %w", err)
+		return fmt.Errorf("failed to fetch tags/engine: %w", err)
 	}
 	err = json.Unmarshal(body, &GeneralStruct)
 	if err != nil {
-		return GeneralStruct, fmt.Errorf("failed to unmarshal tags/engine: %w", err)
+		return fmt.Errorf("failed to unmarshal tags/engine: %w", err)
 	}
 
-	return GeneralStruct, nil
+	return nil
 }
 func getMetaData_InvolvedCompanies(gameIndex int, involvedCompaniesStruct *TagsStruct, gameStruct igdbSearchResult, accessToken string) error {
 	// This function will neeed 2 API calls to get an actual company name due to nested IDs

@@ -48,7 +48,11 @@ export function HideDialog({ uid, hideDialogOpen, setHideDialogOpen }: any) {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex items-end">
-          <Button variant={"secondary"} onClick={hide} className="h-12 w-32">
+          <Button
+            variant={"dialogSaveButton"}
+            onClick={hide}
+            className="h-12 w-32"
+          >
             Hide Game
           </Button>
         </DialogFooter>

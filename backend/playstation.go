@@ -535,31 +535,31 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchRe
 	// Tags
 	postString := "https://api.igdb.com/v4/player_perspectives"
 	passer := gameStruct[gameIndex].PlayerPerspectives
-	playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
+	err = getMetaData_TagsAndEngine(accessToken, postString, passer, &playerPerspectiveStruct)
 	if err != nil {
 		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/genres"
 	passer = gameStruct[gameIndex].Genres
-	genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
+	err = getMetaData_TagsAndEngine(accessToken, postString, passer, &genresStruct)
 	if err != nil {
 		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/themes"
 	passer = gameStruct[gameIndex].Themes
-	themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
+	err = getMetaData_TagsAndEngine(accessToken, postString, passer, &themeStruct)
 	if err != nil {
 		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/game_modes"
 	passer = gameStruct[gameIndex].GameModes
-	gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
+	err = getMetaData_TagsAndEngine(accessToken, postString, passer, &gameModesStruct)
 	if err != nil {
 		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/game_engines"
 	passer = gameStruct[gameIndex].GameEngines
-	gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
+	err = getMetaData_TagsAndEngine(accessToken, postString, passer, &gameEngineStruct)
 	if err != nil {
 		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
