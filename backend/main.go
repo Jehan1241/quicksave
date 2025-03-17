@@ -1215,7 +1215,7 @@ func setupRouter() *gin.Engine {
 		ClientID     string `json:"clientID"`
 		ClientSecret string `json:"clientSecret"`
 	}
-	var accessToken string
+	//	var accessToken string
 	var gameStruct igdbSearchResult
 
 	r := gin.Default()
@@ -1413,26 +1413,26 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"foundGames": string(foundGamesJSON)})
 	})
 
-	r.POST("/InsertGameInDB", func(c *gin.Context) {
-		var data struct {
-			Key              int    `json:"key"`
-			SelectedPlatform string `json:"platform"`
-			Time             string `json:"time"`
-		}
-		if err := c.BindJSON(&data); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		fmt.Println("Received", data.Key)
-		fmt.Println("Recieved", data.SelectedPlatform)
-		fmt.Println("Recieved", data.Time)
-		appID = data.Key
-		fmt.Println(appID)
-		getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
-		insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
-		c.JSON(http.StatusOK, gin.H{"status": "OK"})
-		sendSSEMessage("Inserted Game")
-	})
+	// r.POST("/InsertGameInDB", func(c *gin.Context) {
+	// 	var data struct {
+	// 		Key              int    `json:"key"`
+	// 		SelectedPlatform string `json:"platform"`
+	// 		Time             string `json:"time"`
+	// 	}
+	// 	if err := c.BindJSON(&data); err != nil {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+	// 	fmt.Println("Received", data.Key)
+	// 	fmt.Println("Recieved", data.SelectedPlatform)
+	// 	fmt.Println("Recieved", data.Time)
+	// 	appID = data.Key
+	// 	fmt.Println(appID)
+	// 	getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
+	// 	insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
+	// 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
+	// 	sendSSEMessage("Inserted Game")
+	// })
 
 	r.POST("/GetIgdbInfo", func(c *gin.Context) {
 		var data struct {

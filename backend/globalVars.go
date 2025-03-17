@@ -269,15 +269,6 @@ type ImgStruct []struct {
 	URL string `json:"url"`
 }
 
-var playerPerspectiveStruct TagsStruct
-var themeStruct TagsStruct
-var genresStruct TagsStruct
-var gameModesStruct TagsStruct
-var involvedCompaniesStruct TagsStruct
-var gameEngineStruct TagsStruct
-var coverStruct ImgStruct
-var screenshotStruct ImgStruct
-
 type SteamWishlistStruct struct {
 	Response struct {
 		Items []struct {
@@ -288,13 +279,23 @@ type SteamWishlistStruct struct {
 	} `json:"response"`
 }
 
-var summary string
-var releaseDateTime string
-var AggregatedRating float64
-var Name string
-
 var clientID string
 var clientSecret string
+
+type igdbMetaData struct {
+	Name               string
+	UID                string
+	Summary            string
+	ReleaseDateTime    string
+	AggregatedRating   float64
+	ScreenshotPaths    ImgStruct
+	CoverArtPath       ImgStruct
+	InvolvedCompanies  TagsStruct
+	Themes             TagsStruct
+	PlayerPerspectives TagsStruct
+	Genres             TagsStruct
+	GameModes          TagsStruct
+}
 
 var PsGameStruct struct {
 	Titles []struct {

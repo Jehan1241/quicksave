@@ -83,7 +83,7 @@ func returnFoundGames(gameStruct igdbSearchResult) map[int]map[string]interface{
 	for i, game := range gameStruct {
 		UNIX_releaseDate := game.FirstReleaseDate
 		releaseDateTemp := time.Unix(int64(UNIX_releaseDate), 0)
-		releaseDateTime = releaseDateTemp.Format("2 Jan, 2006")
+		releaseDateTime := releaseDateTemp.Format("2 Jan, 2006")
 		foundGames[i] = map[string]interface{}{
 			"name":  gameStruct[i].Name,
 			"date":  releaseDateTime,
@@ -118,13 +118,13 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 	var coverStruct ImgStruct
 	var screenshotStruct ImgStruct
 
-	summary = igdbSearchResult[gameIndex].Summary
+	summary := igdbSearchResult[gameIndex].Summary
 	gameID = igdbSearchResult[gameIndex].ID
 	UNIX_releaseDate := igdbSearchResult[gameIndex].FirstReleaseDate
 	tempTime := time.Unix(int64(UNIX_releaseDate), 0)
 	releaseDateTime := tempTime.Format("2006-01-02")
-	AggregatedRating = igdbSearchResult[gameIndex].AggregatedRating
-	Name = igdbSearchResult[gameIndex].Name
+	AggregatedRating := igdbSearchResult[gameIndex].AggregatedRating
+	Name := igdbSearchResult[gameIndex].Name
 	UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
 
 	metadataMap["description"] = summary
@@ -145,7 +145,7 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 		metadataMap["involvedCompanies"] = make(map[int]string)
 		err = getMetaData_InvolvedCompanies(gameIndex, &involvedCompaniesStruct, igdbSearchResult, accessToken)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to get Involved Companies: %w", err)
+			return nil, fmt.Errorf("failed to get Involved Companies: %w", err)
 		}
 
 		var involvedCompaniesSlice []string
@@ -156,28 +156,23 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 		// Tags
 		var tagsSlice []string
-		postString := "https://api.igdb.com/v4/player_perspectives"
-		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].PlayerPerspectives, playerPerspectiveStruct)
+		playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/player_perspectives", igdbSearchResult[gameIndex].PlayerPerspectives, playerPerspectiveStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get player perspectives: %w", err)
 		}
-		postString = "https://api.igdb.com/v4/genres"
-		genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].Genres, genresStruct)
+		genresStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/genres", igdbSearchResult[gameIndex].Genres, genresStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get genres: %w", err)
 		}
-		postString = "https://api.igdb.com/v4/themes"
-		themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].Themes, themeStruct)
+		themeStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/themes", igdbSearchResult[gameIndex].Themes, themeStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get themes: %w", err)
 		}
-		postString = "https://api.igdb.com/v4/game_modes"
-		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].GameModes, gameModesStruct)
+		gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_modes", igdbSearchResult[gameIndex].GameModes, gameModesStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game modes: %w", err)
 		}
-		postString = "https://api.igdb.com/v4/game_engines"
-		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, igdbSearchResult[gameIndex].GameEngines, gameEngineStruct)
+		gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, "https://api.igdb.com/v4/game_engines", igdbSearchResult[gameIndex].GameEngines, gameEngineStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get game engine: %w", err)
 		}
@@ -202,17 +197,13 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 		//Images
 
-		postString = "https://api.igdb.com/v4/covers"
-		folderName := "coverArt"
-		coverStruct, err = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+		coverStruct, err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/covers", gameID, coverStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cover art: %w", err)
 		}
 		metadataMap["cover"] = coverStruct[0].URL
 
-		postString = "https://api.igdb.com/v4/screenshots"
-		folderName = "screenshots"
-		screenshotStruct, err = getMetaData_Images(accessToken, postString, UID, gameID, coverStruct, folderName)
+		screenshotStruct, err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/screenshots", gameID, coverStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get screenshots: %w", err)
 		}
@@ -227,7 +218,7 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 
 	return metadataMap, nil
 }
-func getMetaData_Images(accessToken string, postString string, UID string, gameID int, GeneralStruct ImgStruct, folderName string) (ImgStruct, error) {
+func getMetaData_Images(accessToken string, postString string, gameID int, GeneralStruct ImgStruct) (ImgStruct, error) {
 	bodyString := fmt.Sprintf(`fields url; where game=%d;`, gameID)
 	body, err := post(postString, bodyString, accessToken)
 	if err != nil {
@@ -240,10 +231,6 @@ func getMetaData_Images(accessToken string, postString string, UID string, gameI
 	for i := range len(GeneralStruct) {
 		GeneralStruct[i].URL = strings.Replace(GeneralStruct[i].URL, "t_thumb", "t_1080p", 1)
 		GeneralStruct[i].URL = "https:" + GeneralStruct[i].URL
-		//getString := GeneralStruct[i].URL
-		//location := fmt.Sprintf(`%s/%s/`, folderName, UID)
-		//filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
-		//getImageFromURL(getString, location, filename)
 	}
 	return GeneralStruct, nil
 }
@@ -409,7 +396,7 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 
 		//Insert to GameMetaData Table
 		_, err = tx.Exec("INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) VALUES (?,?,?,?,?,?,?,?,?)",
-			UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, AggregatedRating)
+			UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
 		if err != nil {
 			return fmt.Errorf("DB write error - inserting GameMetaData: %v", err)
 		}

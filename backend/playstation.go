@@ -264,11 +264,11 @@ func getAndInsertPSGames_NormalAPI(token string, clientID string, clientSecret s
 					AppID := game["appid"].(int)
 					IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 					if IGDBtitleNormalized == titleToSendIGDB {
-						err = getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
+						igdbMetaData, err := getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform)
 						if err != nil {
 							return nil, fmt.Errorf("error getting game metadata: %w", err)
 						}
-						err = insertMetaDataInDB(titleToStoreInDB, platform, timePlayedHours)
+						err = insertMetaDataInDB(igdbMetaData, titleToStoreInDB, platform, timePlayedHours)
 						if err != nil {
 							return nil, fmt.Errorf("error inserting game to DB: %w", err)
 						}
@@ -437,10 +437,11 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 
 			IGDBtitleNormalized := normalizeTitleToSend(IGDBtitle)
 			if IGDBtitleNormalized == titleToSendIGDB {
-				if err := getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform); err != nil {
+				var gameMetaData igdbMetaData
+				if gameMetaData, err = getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform); err != nil {
 					return nil, fmt.Errorf("error getting game metadata: %w", err)
 				}
-				if err := insertMetaDataInDB(titleToStoreInDB, platform, "-1"); err != nil {
+				if err := insertMetaDataInDB(gameMetaData, titleToStoreInDB, platform, "-1"); err != nil {
 					return nil, fmt.Errorf("error inserting game to DB: %w", err)
 				}
 				Match = true
@@ -462,10 +463,11 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 
 				if IGDBtitleNormalized == titleToSendIGDB {
 					fmt.Println("Second pass match for: ", AppID)
-					if err := getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform); err != nil {
+					var gameMetaData igdbMetaData
+					if gameMetaData, err = getMetaDataFromIGDBforPS3(titleToStoreInDB, AppID, gameStruct, accessToken, platform); err != nil {
 						return nil, fmt.Errorf("error getting game metadata (2nd pass): %w", err)
 					}
-					if err := insertMetaDataInDB(titleToStoreInDB, platform, "-1"); err != nil {
+					if err := insertMetaDataInDB(gameMetaData, titleToStoreInDB, platform, "-1"); err != nil {
 						return nil, fmt.Errorf("error inserting game to DB (2nd pass): %w", err)
 					}
 					Match = true
@@ -483,7 +485,7 @@ func insertFilteredTrophyGames(FilteredTrophyGames []map[string]string, clientID
 	sendSSEMessage(msg)
 	return gamesNotMatched, nil
 }
-func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchResult, accessToken string, platform string) error {
+func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchResult, accessToken string, platform string) (igdbMetaData, error) {
 
 	var gameIndex int = -1
 	for i := range gameStruct {
@@ -494,16 +496,25 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchRe
 	}
 
 	if gameIndex == -1 {
-		return fmt.Errorf("game ID %d not found in IGDB data", gameID)
+		return igdbMetaData{}, fmt.Errorf("game ID %d not found in IGDB data", gameID)
 	}
 
-	summary = gameStruct[gameIndex].Summary
+	var playerPerspectiveStruct TagsStruct
+	var themeStruct TagsStruct
+	var genresStruct TagsStruct
+	var gameModesStruct TagsStruct
+	var involvedCompaniesStruct TagsStruct
+	var gameEngineStruct TagsStruct
+	var coverStruct ImgStruct
+	var screenshotStruct ImgStruct
+
+	summary := gameStruct[gameIndex].Summary
 	gameID = gameStruct[gameIndex].ID
 	UNIX_releaseDate := gameStruct[gameIndex].FirstReleaseDate
 	tempTime := time.Unix(int64(UNIX_releaseDate), 0)
-	releaseDateTime = tempTime.Format("2006-01-02")
-	AggregatedRating = gameStruct[gameIndex].AggregatedRating
-	Name = Title
+	releaseDateTime := tempTime.Format("2006-01-02")
+	AggregatedRating := gameStruct[gameIndex].AggregatedRating
+	Name := Title
 	UID := GetMD5Hash(Name + strings.Split(releaseDateTime, "-")[0] + platform)
 
 	row := readDB.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID)
@@ -511,46 +522,46 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchRe
 	var existingUID string
 	if err := row.Scan(&existingUID); err == nil {
 		fmt.Println("Game already exists in database:", Title)
-		return nil // No need to insert
+		return igdbMetaData{}, nil // No need to insert
 	} else if err != sql.ErrNoRows {
-		return fmt.Errorf("error querying database: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error querying database: %w", err)
 	}
 
 	// Seperate Cause it needs 2 API calls
 	err := getMetaData_InvolvedCompanies(gameIndex, &involvedCompaniesStruct, gameStruct, accessToken)
 	if err != nil {
-		return fmt.Errorf("error getting involved companies: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting involved companies: %w", err)
 	}
 	// Tags
 	postString := "https://api.igdb.com/v4/player_perspectives"
 	passer := gameStruct[gameIndex].PlayerPerspectives
 	playerPerspectiveStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, playerPerspectiveStruct)
 	if err != nil {
-		return fmt.Errorf("error getting tags: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/genres"
 	passer = gameStruct[gameIndex].Genres
 	genresStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, genresStruct)
 	if err != nil {
-		return fmt.Errorf("error getting tags: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/themes"
 	passer = gameStruct[gameIndex].Themes
 	themeStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, themeStruct)
 	if err != nil {
-		return fmt.Errorf("error getting tags: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/game_modes"
 	passer = gameStruct[gameIndex].GameModes
 	gameModesStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameModesStruct)
 	if err != nil {
-		return fmt.Errorf("error getting tags: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 	postString = "https://api.igdb.com/v4/game_engines"
 	passer = gameStruct[gameIndex].GameEngines
 	gameEngineStruct, err = getMetaData_TagsAndEngine(accessToken, postString, passer, gameEngineStruct)
 	if err != nil {
-		return fmt.Errorf("error getting tags: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting tags: %w", err)
 	}
 
 	//Images
@@ -558,22 +569,40 @@ func getMetaDataFromIGDBforPS3(Title string, gameID int, gameStruct igdbSearchRe
 	folderName := "screenshots"
 	screenshotStruct, err = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 	if err != nil {
-		return fmt.Errorf("error getting PSN screenshots: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting PSN screenshots: %w", err)
 	}
 
 	postString = "https://api.igdb.com/v4/covers"
 	folderName = "coverArt"
 	coverStruct, err = getMetaData_ImagesPSN(accessToken, postString, UID, gameID, coverStruct, folderName)
 	if err != nil {
-		return fmt.Errorf("error getting PSN covers: %w", err)
+		return igdbMetaData{}, fmt.Errorf("error getting PSN covers: %w", err)
 	}
-	return nil
+
+	igdbMetaData := igdbMetaData{
+		AggregatedRating:   AggregatedRating,
+		CoverArtPath:       coverStruct,
+		GameModes:          gameModesStruct,
+		Genres:             genresStruct,
+		InvolvedCompanies:  involvedCompaniesStruct,
+		Name:               Name,
+		UID:                UID,
+		Summary:            summary,
+		ReleaseDateTime:    releaseDateTime,
+		ScreenshotPaths:    screenshotStruct,
+		Themes:             themeStruct,
+		PlayerPerspectives: playerPerspectiveStruct,
+	}
+	return igdbMetaData, nil
 }
-func insertMetaDataInDB(title string, platform string, time string) error {
+func insertMetaDataInDB(igdbMetaData igdbMetaData, title string, platform string, time string) error {
 	//gameID := gameIndex
 	if title != "" {
-		Name = title
+		title = igdbMetaData.Name
 	}
+	releaseDateTime := igdbMetaData.ReleaseDateTime
+	summary := igdbMetaData.Summary
+	AggregatedRating := igdbMetaData.AggregatedRating
 
 	UID := GetMD5Hash(title + strings.Split(releaseDateTime, "-")[0] + platform)
 
@@ -591,7 +620,7 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 	fmt.Println("Inserting", title)
 
 	//Create SS and cover art paths
-	ScreenshotPaths := make([]string, len(screenshotStruct))
+	ScreenshotPaths := make([]string, len(igdbMetaData.ScreenshotPaths))
 	for i := range len(ScreenshotPaths) {
 		ScreenshotPaths[i] = fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
 	}
@@ -623,9 +652,9 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 			}
 		}
 		// Insert Involved Companies
-		if len(involvedCompaniesStruct) > 0 {
+		if len(igdbMetaData.InvolvedCompanies) > 0 {
 			var values [][]any
-			for _, dev := range involvedCompaniesStruct {
+			for _, dev := range igdbMetaData.InvolvedCompanies {
 				values = append(values, []any{UID, dev.Name})
 			}
 			err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)", values)
@@ -636,16 +665,16 @@ func insertMetaDataInDB(title string, platform string, time string) error {
 
 		// Insert Tags (Themes, Perspectives, Genres, Modes)
 		var values [][]any
-		for _, theme := range themeStruct {
+		for _, theme := range igdbMetaData.Themes {
 			values = append(values, []any{UID, theme.Name})
 		}
-		for _, perspective := range playerPerspectiveStruct {
+		for _, perspective := range igdbMetaData.PlayerPerspectives {
 			values = append(values, []any{UID, perspective.Name})
 		}
-		for _, genre := range genresStruct {
+		for _, genre := range igdbMetaData.Genres {
 			values = append(values, []any{UID, genre.Name})
 		}
-		for _, gameMode := range gameModesStruct {
+		for _, gameMode := range igdbMetaData.GameModes {
 			values = append(values, []any{UID, gameMode.Name})
 		}
 		if len(values) > 0 {
