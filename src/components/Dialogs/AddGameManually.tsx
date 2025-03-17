@@ -878,7 +878,7 @@ function MetaDataView({
           </Button>
         </div>
       </div>
-      <div className="flex h-full max-h-full">
+      <div className="flex h-full max-h-full 2xl:max-w-none">
         <FoundGames
           data={data}
           setData={setData}
@@ -1046,21 +1046,21 @@ function FoundGames({
               <Button
                 key={game.appid}
                 variant={"outline"}
-                className={`flex h-16 min-w-80 justify-between ${
+                className={`flex h-16 min-w-56 max-w-72 xl:max-w-none xl:min-w-80 overflow-hidden justify-between ${
                   loadingAppId === game.appid
                     ? "animate-pulse bg-black/10"
                     : null
                 }`}
                 onClick={() => IgdbGameClicked(game.appid)}
               >
-                <div className="flex flex-col gap-1 mb-auto">
-                  {game.name}
+                <div className="flex w-full flex-col gap-1 overflow-hidden">
+                  <div className="mr-auto">{game.name}</div>
                   {loadingAppId === game.appid && (
                     <Loader2 className="animate-spin" />
                   )}
-                </div>
-                <div className="mt-auto">
-                  {new Date(game.date).getFullYear()}
+                  <div className="mt-auto ml-auto">
+                    {new Date(game.date).getFullYear()}
+                  </div>
                 </div>
               </Button>
             ))}
