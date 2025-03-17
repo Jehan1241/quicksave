@@ -155,6 +155,7 @@ export default function GameView() {
                   coverArtPath={metadata?.CoverArtPath}
                   screenshotsArray={screenshotsArray}
                   platform={metadata?.OwnedPlatform}
+                  tags={tagsArray}
                 />
                 <HideDialog
                   uid={uid}

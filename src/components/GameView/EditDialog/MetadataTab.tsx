@@ -14,8 +14,12 @@ import { CheckedState } from "@radix-ui/react-checkbox";
 import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import MultipleSelector from "@/components/ui/multiple-selector";
 
-export function MetadataTab({ uid, fetchData }: any) {
+export function MetadataTab({ uid, fetchData, tags }: any) {
+  let selectedTags = Array.isArray(tags)
+    ? tags.map((tag: string) => ({ label: tag, value: tag }))
+    : [];
   const [customTitleChecked, setCustomTitleChecked] = useState<
     CheckedState | undefined
   >(false);
@@ -37,6 +41,9 @@ export function MetadataTab({ uid, fetchData }: any) {
     CheckedState | undefined
   >(false);
   const [loading, setLoading] = useState(false);
+  const [tagOptions, setTagOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   const loadPreferences = async () => {
     try {
@@ -76,12 +83,28 @@ export function MetadataTab({ uid, fetchData }: any) {
       if (json.preferences.rating.checked == "1") {
         setCustomRatingChecked(true);
       }
+
+      const tagsResponse = await fetch("http://localhost:8080/getAllTags");
+      const tagsData = await tagsResponse.json();
+
+      // Transform the tags into key-value pairs
+      const tagsAsKeyValuePairs = tagsData.tags.map((tag: any) => ({
+        value: tag,
+        label: tag,
+      }));
+      setTagOptions(tagsAsKeyValuePairs);
+      console.log("TTTATT", tagOptions);
     } catch (error) {
       console.error(error);
     }
   };
 
   const saveClickHandler = () => {
+    const selectedTagValues = selectedTags.map(
+      (tag: { value: string }) => tag.value
+    );
+
+    console.log("SELECTED", selectedTagValues);
     const postData = {
       customTitleChecked: customTitleChecked,
       customTitle: customTitle.trim(),
@@ -97,6 +120,7 @@ export function MetadataTab({ uid, fetchData }: any) {
         ? format(customReleaseDate, "yyyy-MM-dd")
         : "", // Empty string if undefined
       UID: uid,
+      selectedTags: selectedTagValues,
     };
     savePreferences(postData);
   };
@@ -164,7 +188,7 @@ export function MetadataTab({ uid, fetchData }: any) {
 
   return (
     <TabsContent value="metadata" className="h-full focus:ring-0">
-      <div className="flex h-full flex-col justify-between p-2 px-4 focus:outline-none">
+      <div className="flex h-full flex-col justify-between p-2 px-4 focus:outline-none gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex items-center">
             <Label className="w-60">Use Custom Title</Label>
@@ -283,6 +307,22 @@ export function MetadataTab({ uid, fetchData }: any) {
                   setCustomRating(value);
                 }
               }}
+            />
+          </div>
+          <div className="flex items-center col-span-2 gap-8">
+            <Label>Tags</Label>
+            <MultipleSelector
+              options={tagOptions}
+              value={selectedTags}
+              creatable
+              onChange={(selected: any) => {
+                selectedTags = selected;
+              }}
+              hidePlaceholderWhenSelected={true}
+              placeholder="Select Platforms"
+              emptyIndicator={
+                <p className="text-center text-sm">Type to create new tag.</p>
+              }
             />
           </div>
         </div>

@@ -25,8 +25,8 @@ export function EditDialog({
   coverArtPath,
   screenshotsArray,
   platform,
+  tags,
 }: any) {
-  console.log("AAA", platform);
   const isPathTabDisabled = platform === "Steam" ? true : false;
 
   return (
@@ -50,7 +50,7 @@ export function EditDialog({
                 Path
               </TabsTrigger>
             </TabsList>
-            <MetadataTab uid={uid} fetchData={fetchData} />
+            <MetadataTab tags={tags} uid={uid} fetchData={fetchData} />
             <ImagesTab
               coverArtPath={coverArtPath}
               screenshotsArray={screenshotsArray}

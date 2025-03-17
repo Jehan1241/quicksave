@@ -1000,6 +1000,26 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 	bail(err)
 }
 
+func updateTags(uid string, tags []string) {
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("DELETE FROM Tags WHERE UID = ?", uid)
+		bail(err)
+		var values [][]any
+		for _, tag := range tags {
+			values = append(values, []any{uid, tag})
+		}
+		if len(tags) > 0 {
+			err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?, ?)", values)
+		} else {
+			_, err = tx.Exec("INSERT INTO Tags (UID, Tags) VALUES (?, ?)", uid, "unknown")
+			bail(err)
+		}
+
+		return err
+	})
+	bail(err)
+}
+
 func getPreferences(uid string) map[string]interface{} {
 	rows, err := readDB.Query("SELECT * FROM GamePreferences WHERE UID=?", uid)
 	bail(err)
@@ -1580,18 +1600,20 @@ func setupRouter() *gin.Engine {
 	r.POST("/SavePreferences", func(c *gin.Context) {
 		var data struct {
 			// int string / string int error
-			CustomTitleChecked       bool   `json:"customTitleChecked"`
-			Title                    string `json:"customTitle"`
-			CustomTimeChecked        bool   `json:"customTimeChecked"`
-			Time                     string `json:"customTime"`
-			CustomTimeOffsetChecked  bool   `json:"customTimeOffsetChecked"`
-			TimeOffset               string `json:"customTimeOffset"`
-			UID                      string `json:"UID"`
-			CustomRatingChecked      bool   `json:"customRatingChecked"`
-			CustomRating             string `json:"customRating"`
-			CustomReleaseDateChecked bool   `json:"customReleaseDateChecked"`
-			CustomReleaseDate        string `json:"customReleaseDate"`
+			CustomTitleChecked       bool     `json:"customTitleChecked"`
+			Title                    string   `json:"customTitle"`
+			CustomTimeChecked        bool     `json:"customTimeChecked"`
+			Time                     string   `json:"customTime"`
+			CustomTimeOffsetChecked  bool     `json:"customTimeOffsetChecked"`
+			TimeOffset               string   `json:"customTimeOffset"`
+			UID                      string   `json:"UID"`
+			CustomRatingChecked      bool     `json:"customRatingChecked"`
+			CustomRating             string   `json:"customRating"`
+			CustomReleaseDateChecked bool     `json:"customReleaseDateChecked"`
+			CustomReleaseDate        string   `json:"customReleaseDate"`
+			SelectedTags             []string `json:"selectedTags"`
 		}
+
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -1616,6 +1638,7 @@ func setupRouter() *gin.Engine {
 		uid := data.UID
 		fmt.Println("Received Save Preferences : ", data.CustomRating, data.CustomReleaseDate)
 		updatePreferences(uid, checkedParams, params)
+		updateTags(uid, data.SelectedTags)
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
