@@ -111,7 +111,7 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 		} else {
 			fmt.Println("Inserting ", game.Name)
 			Appid := game.Appid
-			err = getAndInsertSteamGameMetaData(Appid, game.PlaytimeForever)
+			err = getAndInsertSteamGameMetaData(Appid, game.PlaytimeForever, 0)
 			if err != nil {
 				return fmt.Errorf("error getting steam games metadata: %w", err)
 			}
@@ -151,7 +151,7 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 		}
 		if insert {
 			fmt.Println("Inserting ", item.Appid)
-			err = getAndInsertSteamWishlistGame(AppID)
+			err = getAndInsertSteamGameMetaData(AppID, 0, 1)
 			if err != nil {
 				return fmt.Errorf("error getting steam wishlist games metadata: %w", err)
 			}
@@ -161,78 +161,7 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 	return (nil)
 }
 
-func getAndInsertSteamWishlistGame(Appid int) error {
-	var SteamGameMetadataStruct SteamGameMetadataStruct
-	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d`, Appid)
-	resp, err := http.Get(getURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch Steam API metadata: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("steam API request returned HTTP %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read Steam API response: %w", err)
-	}
-
-	prefixCut := fmt.Sprintf("{\"%d\":", Appid)
-	suffixCut := "}"
-	prefixRemoved, hasPrefix := strings.CutPrefix(string(body), prefixCut)
-	suffixRemoved, hasSuffix := strings.CutSuffix(prefixRemoved, suffixCut)
-
-	if !hasPrefix || !hasSuffix {
-		return fmt.Errorf("unexpected JSON response from steam API")
-	}
-
-	err = json.Unmarshal([]byte(suffixRemoved), &SteamGameMetadataStruct)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal Steam API response: %w", err)
-	}
-
-	// For User Defined Tags
-	url := fmt.Sprintf(`https://store.steampowered.com/app/%d`, Appid)
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP request for Steam store page: %w", err)
-	}
-	req.Header.Add("Cookie", "birthtime=28801") // To bypass Steam Age Check
-
-	res, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to fetch Steam store page: %w", err)
-	}
-	defer res.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		return fmt.Errorf("failed to parse Steam store page HTML: %w", err)
-	}
-
-	tags := []string{}
-
-	doc.Find(".app_tag").Each(func(i int, s *goquery.Selection) {
-		tag := strings.TrimSpace(s.Text())
-		tags = append(tags, tag)
-	})
-	// Delete the last element of tags if it exists the +
-	if len(tags) > 0 && tags[len(tags)-1] == "+" {
-		tags = tags[:len(tags)-1]
-	}
-
-	if SteamGameMetadataStruct.Success {
-		err = InsertSteamGameMetaData(Appid, 0, SteamGameMetadataStruct, tags, 1)
-		if err != nil {
-			return fmt.Errorf("failed to insert Steam game metadata into DB: %w", err)
-		}
-	}
-	return nil
-}
-
-func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) error {
+func getAndInsertSteamGameMetaData(Appid int, timePlayed float32, isWishlist int) error {
 	var SteamGameMetadataStruct SteamGameMetadataStruct
 	getURL := fmt.Sprintf(`https://store.steampowered.com/api/appdetails?appids=%d&l=%s`, Appid, "english")
 	resp, err := http.Get(getURL)
@@ -295,7 +224,7 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed float32) error {
 	}
 
 	if SteamGameMetadataStruct.Success {
-		err = InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags, 0)
+		err = InsertSteamGameMetaData(Appid, timePlayed, SteamGameMetadataStruct, tags, isWishlist)
 		if err != nil {
 			return fmt.Errorf("failed to insert Steam game metadata into DB: %w", err)
 		}
