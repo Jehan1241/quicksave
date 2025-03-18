@@ -42,7 +42,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                 onClick={() => handleViewClick("")}
                 className={`group h-auto hover:bg-transparent ${
                   page === "/"
-                    ? "rounded-none border-r border-leftbarIcons"
+                    ? "rounded-r-none border-r border-leftbarIcons"
                     : ""
                 }`}
               >
@@ -58,7 +58,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                 onClick={() => handleViewClick("wishlist")}
                 className={`group h-auto hover:bg-transparent text-leftbarIcons ${
                   page === "/wishlist"
-                    ? "rounded-none border-r border-leftbarIcons"
+                    ? "rounded-r-none border-r border-leftbarIcons"
                     : ""
                 }`}
               >
@@ -76,7 +76,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
                 onClick={() => handleViewClick("installed")}
                 className={`group h-auto hover:bg-transparent text-leftbarIcons ${
                   page === "/installed"
-                    ? "rounded-none border-r border-leftbarIcons"
+                    ? "rounded-r-none border-r border-leftbarIcons"
                     : ""
                 }`}
               >

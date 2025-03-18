@@ -20,7 +20,7 @@ export default function WindowButtons() {
       <button
         title="Minimize"
         type="button"
-        className="p-2 hover:bg-accent"
+        className="p-2 hover:bg-accent outline-ring focus-visible:outline"
         onClick={minimizeWindow}
       >
         <svg
@@ -36,7 +36,7 @@ export default function WindowButtons() {
       <button
         title="Maximize"
         type="button"
-        className="p-2 hover:bg-accent"
+        className="p-2 hover:bg-accent outline-ring focus-visible:outline"
         onClick={maximizeWindow}
       >
         <svg
@@ -59,7 +59,7 @@ export default function WindowButtons() {
       <button
         type="button"
         title="Close"
-        className="p-2 hover:bg-destructive/70"
+        className="p-2 hover:bg-destructive/70 outline-destructive/70 focus-visible:outline"
         onClick={closeWindow}
       >
         <svg

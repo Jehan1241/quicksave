@@ -116,11 +116,13 @@ export default function GameView() {
 
   return (
     <>
-      <img
-        className="absolute z-0 h-full w-full rounded-2xl object-cover opacity-20 blur-md"
-        src={"http://localhost:8080/screenshots/" + screenshots[0]}
-      />
-
+      {/* Avoid undefined URL error */}
+      {screenshotsArray.length > 0 && (
+        <img
+          className="absolute z-0 h-full w-full rounded-2xl object-cover opacity-20 blur-md"
+          src={screenshotsArray[0]}
+        />
+      )}
       <div className="absolute z-10 flex h-full w-full flex-col overflow-y-hidden px-6 py-8 text-center select-none">
         <header className="mx-8 mb-2 text-left text-3xl font-semibold">
           {metadata?.Name}

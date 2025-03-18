@@ -29,7 +29,7 @@ export default function QuicksaveMenu({ handleViewClick }: any) {
     <div className="flex w-16 items-center justify-center">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant={"ghost"} className="group hover:bg-transparent">
+          <Button variant={"ghost"} className="group hover:bg-transparent px-2">
             <BsFloppyFill
               size={25}
               className="group-hover:scale-110 text-leftbarIcons"

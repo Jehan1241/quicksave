@@ -18,7 +18,7 @@ export function SettingsDropdown({
 }: any) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
         <Button className="h-10 bg-editButton hover:bg-editButtonHover text-editButtonText">
           <Settings2 />
         </Button>
