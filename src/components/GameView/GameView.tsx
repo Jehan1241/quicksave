@@ -12,10 +12,12 @@ import { SettingsDropdown } from "./SettingsDropdown";
 import { useSortContext } from "@/hooks/useSortContex";
 
 export default function GameView() {
+  const navigate = useNavigate();
   const location = useLocation();
   const uid = location.state.data;
   const hidden = location.state.hidden;
   const preloadData = location.state.preloadData;
+
   const [companies, setCompanies] = useState("");
   const [tags, setTags] = useState("");
   const [screenshots, setScreenshots] = useState("");
@@ -26,7 +28,6 @@ export default function GameView() {
   >("metadata");
   const [hideDialogOpen, setHideDialogOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-  const navigate = useNavigate();
 
   const playGame = async () => {
     console.log("Play Game Clicked");
@@ -51,11 +52,19 @@ export default function GameView() {
   // Its on UID change to accomodate randomGamesClicked
   useEffect(() => {
     console.log("Preload Data", preloadData);
-    if (preloadData != undefined) {
-      setCompanies(preloadData.companies);
-      setTags(preloadData.tags);
-      setMetadata(preloadData.metadata);
-      setScreenshots(preloadData.screenshots);
+    if (preloadData !== undefined) {
+      setCompanies(preloadData.companies ?? { 0: "unknown" });
+      setTags(preloadData.tags ?? { 0: "unknown" });
+      setScreenshots(preloadData.screenshots ?? {});
+
+      setMetadata({
+        AggregatedRating: preloadData.metadata?.AggregatedRating ?? 0,
+        Description:
+          preloadData.metadata?.Description ?? "No description available.",
+        Name: preloadData.metadata?.Name ?? "Unknown",
+        OwnedPlatform: preloadData.metadata?.OwnedPlatform ?? "Unknown",
+        ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
+      });
     } else {
       fetchData();
     }
