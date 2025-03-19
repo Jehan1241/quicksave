@@ -10,8 +10,8 @@ import { CircleHelp, Loader2 } from "lucide-react";
 import {
   importPlaystationLibrary,
   importSteamLibrary,
-} from "@/lib/libraryImports";
-import { getSteamCreds, getNpsso } from "@/lib/getCreds";
+} from "@/lib/api/libraryImports";
+import { getSteamCreds, getNpsso } from "@/lib/api/getCreds";
 
 export default function Integrations() {
   const {

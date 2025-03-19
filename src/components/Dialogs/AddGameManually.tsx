@@ -982,7 +982,7 @@ function FoundGames({
       }
 
       const data = await response.json();
-      console.log(data);
+      console.log("ABNC", data);
 
       // Overrides prev set tags and devs
       const newTags = data.metadata.tags;

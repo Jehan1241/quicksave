@@ -203,7 +203,7 @@ func getMetaData(gameID int, igdbSearchResult igdbSearchResult, accessToken stri
 		}
 		metadataMap["cover"] = coverStruct[0].URL
 
-		err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/screenshots", gameID, &coverStruct)
+		err = getMetaData_Images(accessToken, "https://api.igdb.com/v4/screenshots", gameID, &screenshotStruct)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get screenshots: %w", err)
 		}

@@ -232,8 +232,6 @@ const { spawn } = require("child_process");
 
 const isDev = !app.isPackaged;
 const fs = require("fs");
-const logPath = path.join(process.cwd(), "server.log");
-const logStream = fs.createWriteStream(logPath, { flags: "a" });
 
 app.on("ready", () => {
   let serverPath;
@@ -257,25 +255,21 @@ app.on("ready", () => {
   goServer.stdout.on("data", (data: any) => {
     const msg = `[STDOUT] ${data.toString()}`;
     console.log(msg);
-    logStream.write(msg);
   });
 
   goServer.stderr.on("data", (data: any) => {
     const msg = `[STDERR] ${data.toString()}`;
     console.error(msg);
-    logStream.write(msg);
   });
 
   goServer.on("error", (err: any) => {
     const msg = `[ERROR] Failed to start Go server: ${err.message}`;
     console.error(msg);
-    logStream.write(msg);
   });
 
   goServer.on("exit", (code: any) => {
     const msg = `[EXIT] Go server exited with code ${code}`;
     console.log(msg);
-    logStream.write(msg);
   });
 });
 

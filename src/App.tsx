@@ -12,6 +12,9 @@ import WishlistDialog from "./components/Dialogs/WishListDialog";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
 import { attachSSEListener } from "./lib/attachSSEListener";
+import { fetchData } from "./lib/api/fetchBasicInfo";
+import { initTileSize } from "./lib/initTileSize";
+import { pickRandomGame } from "./lib/pickRandomGame";
 
 function App() {
   const {
@@ -47,71 +50,26 @@ function App() {
     useState<boolean>(false);
   const navigate = useNavigate();
 
-  const fetchData = async () => {
-    console.log("Sending Get Basic Info");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}&size=${tileSize}`
-      );
-      const json = await response.json();
-
-      // Extract the Hidden UIDs
-      const hiddenUIDs = json.HiddenUIDs || [];
-
-      // Filter out games with Hidden UIDs and separate them into hiddenArray
-      const filteredLibraryGames = Object.values(json.MetaData).filter(
-        (item: any) => {
-          return item.isDLC === 0 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
-        }
-      );
-
-      const filteredWishlistGames = Object.values(json.MetaData).filter(
-        (item: any) => {
-          return item.isDLC === 1 && !hiddenUIDs.includes(item.UID); // Exclude games with hidden UIDs
-        }
-      );
-
-      const hiddenGames = Object.values(json.MetaData).filter((item: any) =>
-        hiddenUIDs.includes(item.UID)
-      ); // Include games with hidden UIDs
-
-      const installedGames = Object.values(json.MetaData).filter(
-        (item: any) => item.InstallPath != ""
-      );
-
-      console.log(installedGames);
-
-      // Update state with filtered data
-      setDataArray(filteredLibraryGames);
-      setMetaData(json.MetaData);
-      setSortOrder(json.SortOrder);
-      setSortType(json.SortType);
-      setWishlistArray(filteredWishlistGames);
-      setHiddenArray(hiddenGames); // Store games with hidden UIDs
-      setInstalledArray(installedGames);
-
-      //await writeJSON("mainCache", JSON.stringify(json));
-      console.log(json);
-    } catch (error) {
-      console.error(error);
-    }
+  const updateData = () => {
+    fetchData(
+      sortType,
+      sortOrder,
+      tileSize,
+      setDataArray,
+      setMetaData,
+      setSortOrder,
+      setSortType,
+      setWishlistArray,
+      setHiddenArray,
+      setInstalledArray
+    );
   };
 
-  function initTileSize() {
-    const tileSize = Number(localStorage.getItem("tileSize"));
-    if (tileSize !== 0) {
-      setTileSize(tileSize);
-    } else {
-      setTileSize(35);
-      localStorage.setItem("tileSize", "35");
-    }
-  }
-
   useEffect(() => {
-    initTileSize();
+    initTileSize(setTileSize);
     setTheme();
     const initFunc = async () => {
-      await fetchData();
+      await updateData();
       // const steamCreds = await getSteamCreds();
       // const npsso = await getNpsso();
       // importSteamLibrary(
@@ -129,31 +87,18 @@ function App() {
     };
     initFunc();
 
-    attachSSEListener(fetchData, setCacheBuster);
+    attachSSEListener(() => {
+      updateData();
+    }, setCacheBuster);
   }, []);
 
   useEffect(() => {
     if (!randomGameClicked) return;
-
     setRandomGameClicked(false);
-
-    let targetArray = [];
-    if (location.pathname === "/") {
-      targetArray = dataArray;
-    } else if (location.pathname === "/wishlist") {
-      targetArray = wishlistArray;
-    } else if (location.pathname === "/gameview") {
-      // Determine the source array from where the game was previously picked
-      targetArray = dataArray.some((game) => game.UID === location.state?.data)
-        ? dataArray
-        : wishlistArray;
-    }
-
-    if (targetArray.length > 0) {
-      const randomIndex = Math.floor(Math.random() * targetArray.length);
-      const uid = targetArray[randomIndex].UID;
+    const targetArray = pickRandomGame(location, dataArray, wishlistArray);
+    if (targetArray) {
       navigate(`/gameview`, {
-        state: { data: uid, hidden: false },
+        state: { data: targetArray, hidden: false },
       });
     }
   }, [randomGameClicked]);
@@ -161,7 +106,7 @@ function App() {
   useEffect(() => {
     if (sortStateUpdate === true) {
       console.log("Sort State Update");
-      fetchData();
+      updateData();
       setSortStateUpdate(false);
     }
   }, [sortStateUpdate]);
