@@ -57,18 +57,22 @@ export default function WishlistDialog() {
   const [description, setDescription] = useState<any>("");
 
   return (
-    <Dialog
-      open={isWishlistAddDialogOpen}
-      onOpenChange={setIsWishlistAddDialogOpen}
-    >
-      <DialogContent className="block h-[75vh] max-h-[75vh] max-w-[75vw]">
-        <DialogHeader className="h-full max-h-full">
-          <DialogTitle>Add to Wishlist</DialogTitle>
-          <MetaDataView />
-        </DialogHeader>
-        <DialogFooter></DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      {isWishlistAddDialogOpen && (
+        <Dialog
+          open={isWishlistAddDialogOpen}
+          onOpenChange={setIsWishlistAddDialogOpen}
+        >
+          <DialogContent className="block h-[75vh] max-h-[75vh] max-w-[75vw]">
+            <DialogHeader className="h-full max-h-full">
+              <DialogTitle>Add to Wishlist</DialogTitle>
+              <MetaDataView />
+            </DialogHeader>
+            <DialogFooter></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -937,13 +941,15 @@ function FoundGames({
                 }`}
                 onClick={() => IgdbGameClicked(game.appid)}
               >
-                <div className="flex flex-col gap-1 w-full overflow-hidden">
+                <div className="flex w-full flex-col gap-1 overflow-hidden">
                   <div className="mr-auto">{game.name}</div>
-                  {loadingAppId === game.appid && (
-                    <Loader2 className="animate-spin" />
-                  )}
-                  <div className="mt-auto ml-auto">
-                    {new Date(game.date).getFullYear()}
+                  <div className="flex">
+                    {loadingAppId === game.appid && (
+                      <Loader2 className="animate-spin" />
+                    )}
+                    <div className="mt-auto ml-auto">
+                      {new Date(game.date).getFullYear()}
+                    </div>
                   </div>
                 </div>
               </Button>

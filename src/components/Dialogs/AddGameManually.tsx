@@ -44,88 +44,36 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
+import {
+  fetchTagsDevsPlatforms,
+  searchGame,
+  sendGameToDB,
+} from "@/lib/api/addGameManuallyAPI";
 
 export default function AddGameManuallyDialog() {
   const { isAddGameDialogOpen, setIsAddGameDialogOpen } = useSortContext();
-
-  // State variables
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [title, setTitle] = useState<string>("");
-  const [releaseDate, setReleaseDate] = useState<any>("");
-  const [rating, setRating] = useState<any>("");
-  const [developers, setDevelopers] = useState<any>("");
-  const [timePlayed, setTimePlayed] = useState<any>("");
-  const [description, setDescription] = useState<any>("");
-
   return (
-    <Dialog open={isAddGameDialogOpen} onOpenChange={setIsAddGameDialogOpen}>
-      <DialogContent className="block h-[75vh] max-h-[75vh] max-w-[75vw]">
-        <DialogHeader className="h-full max-h-full">
-          <DialogTitle>Add a Game</DialogTitle>
-          <MetaDataView
-            data={data}
-            setData={setData}
-            loading={loading}
-            setLoading={setLoading}
-            title={title}
-            setTitle={setTitle}
-            releaseDate={releaseDate}
-            setReleaseDate={setReleaseDate}
-            rating={rating}
-            setRating={setRating}
-            developers={developers}
-            setDevelopers={setDevelopers}
-            timePlayed={timePlayed}
-            setTimePlayed={setTimePlayed}
-            description={description}
-            setDescription={setDescription}
-          />
-        </DialogHeader>
-        <DialogFooter></DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      {isAddGameDialogOpen && (
+        <Dialog
+          open={isAddGameDialogOpen}
+          onOpenChange={setIsAddGameDialogOpen}
+        >
+          <DialogContent className="block h-[75vh] max-h-[75vh] max-w-[75vw]">
+            <DialogHeader className="h-full max-h-full">
+              <DialogTitle>Add a Game</DialogTitle>
+              <MetaDataView />
+            </DialogHeader>
+            <DialogFooter></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
-function MetaDataView({
-  data,
-  setData,
-  loading,
-  setLoading,
-  title,
-  setTitle,
-  releaseDate,
-  setReleaseDate,
-  rating,
-  setRating,
-  developers,
-  setDevelopers,
-  timePlayed,
-  setTimePlayed,
-  description,
-  setDescription,
-}: {
-  data: any;
-  setData: React.Dispatch<React.SetStateAction<any>>;
-  loading: boolean;
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  title: string;
-  setTitle: React.Dispatch<React.SetStateAction<string>>;
-  releaseDate: any;
-  setReleaseDate: React.Dispatch<React.SetStateAction<any>>;
-  rating: any;
-  setRating: React.Dispatch<React.SetStateAction<any>>;
-  developers: any;
-  setDevelopers: React.Dispatch<React.SetStateAction<any>>;
-  timePlayed: any;
-  setTimePlayed: React.Dispatch<React.SetStateAction<any>>;
-  description: any;
-  setDescription: React.Dispatch<React.SetStateAction<any>>;
-}) {
+function MetaDataView() {
   const [tagOptions, setTagOptions] = useState([]);
   const [devOptions, setDevOptions] = useState([]);
   const [platformOptions, setPlatformOptions] = useState([]);
@@ -138,104 +86,28 @@ function MetaDataView({
   const [gameInsertError, setGameInsertError] = useState<any>(null);
   const [addGameLoading, setAddGameLoading] = useState(false);
 
-  const fetchData = async (title: string) => {
-    try {
-      const response = await fetch(`http://localhost:8080/IGDBsearch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ NameToSearch: title }),
-      });
-
-      if (!response.ok) {
-        const errorResp = await response.json();
-        const errorMessage = errorResp.error || "An unknown error occurred.";
-        const errorDetails = errorResp.details || "";
-        throw errorMessage + " -- " + errorDetails;
-      }
-
-      const resp = await response.json();
-      setData(resp.foundGames);
-      setLoading(false);
-    } catch (error: any) {
-      setLoading(false);
-      console.error("Fetch Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Search Failed!",
-        description: error || "An unknown error occurred",
-      });
-    }
-  };
-
-  const fetchTagsDevsPlatforms = async () => {
-    try {
-      const response = await fetch("http://localhost:8080/getAllTags");
-      const resp = await response.json();
-
-      // Transform the tags into key-value pairs
-      const tagsAsKeyValuePairs = resp.tags.map((tag: any) => ({
-        value: tag,
-        label: tag,
-      }));
-
-      setTagOptions(tagsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching tags:", error);
-    }
-    try {
-      const response = await fetch("http://localhost:8080/getAllDevelopers");
-      const resp = await response.json();
-      console.log(resp);
-
-      // Transform the tags into key-value pairs
-      const devsAsKeyValuePairs = resp.devs.map((dev: any) => ({
-        value: dev,
-        label: dev,
-      }));
-
-      setDevOptions(devsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching developers:", error);
-    }
-    try {
-      const response = await fetch("http://localhost:8080/getAllPlatforms");
-      const resp = await response.json();
-      console.log(resp);
-
-      // Transform the tags into key-value pairs
-      const platsAsKeyValuePairs = resp.platforms.map((plat: any) => ({
-        value: plat,
-        label: plat,
-      }));
-
-      setPlatformOptions(platsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching developers:", error);
-    }
-  };
+  // State variables
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [title, setTitle] = useState<string>("");
+  const [releaseDate, setReleaseDate] = useState<any>("");
+  const [rating, setRating] = useState<any>("");
+  const [timePlayed, setTimePlayed] = useState<any>("");
+  const [description, setDescription] = useState<any>("");
 
   useEffect(() => {
-    console.log("Fetching tags, dev, platforms...");
-    fetchTagsDevsPlatforms();
+    fetchTagsDevsPlatforms(setTagOptions, setDevOptions, setPlatformOptions);
   }, []);
 
-  const downloadIgdbMetadata = () => {
-    const titleElement = document.getElementById(
-      "title"
-    ) as HTMLInputElement | null;
-    if (titleElement) {
-      const title = titleElement.value;
-      console.log(title);
-      setLoading(true);
-      fetchData(title);
-    }
+  const SearchGameClicked = () => {
+    searchGame(title, setTitleEmpty, setLoading, setData, toast);
   };
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [ssImage, setSsImage] = useState<(string | null)[]>([null]); // Three empty image slots
+  const [ssImage, setSsImage] = useState<(string | null)[]>([null]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null); // To track selected carousel item
   const [coverArtLinkClicked, setCoverArtLinkClicked] =
-    useState<boolean>(false); // To track selected carousel item
+    useState<boolean>(false);
   const [ssLinkClicked, setSSLinkClicked] = useState<number | null>(null);
 
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,10 +123,6 @@ function MetaDataView({
       // If no file is selected (user cancels), clear the image
       setCoverImage(null);
     }
-  };
-
-  const handleDeleteCoverArt = () => {
-    setCoverImage(null);
   };
 
   const handleScreenshotImageChange = (
@@ -311,123 +179,59 @@ function MetaDataView({
   };
   const [api, setApi] = React.useState<CarouselApi>();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!api) {
       return;
     }
-
     api.on("select", (e) => {
       setSelectedIndex(e.selectedScrollSnap());
     });
   }, [api]);
 
   const addGameClickHandler = () => {
-    if (title == "") {
+    if (title == "" || !releaseDate || selectedPlatforms.length === 0) {
       setTitleEmpty(true);
-      console.log("empty");
-    }
-    if (!releaseDate) {
       setReleaseDateEmpty(true);
-      console.log("empty");
-    }
-    if (selectedPlatforms.length === 0) {
       setPlatformEmpty(true);
-      console.log("empty");
+      return;
     }
-    if (title != "" && releaseDate && selectedPlatforms.length != 0) {
-      let ratingNormal = rating;
 
-      // Check if the rating is a valid number, and convert it to a string if necessary
-      if (ratingNormal === "" || isNaN(ratingNormal)) {
-        ratingNormal = "0";
-      } else {
-        ratingNormal = String(ratingNormal);
-      }
+    let ratingNormal = rating;
 
-      let timePlayedNormal = timePlayed;
-
-      if (timePlayedNormal == "") {
-        timePlayedNormal = "0";
-      }
-      console.log(ratingNormal);
-
-      setTitleEmpty(false);
-      setReleaseDateEmpty(false);
-      setPlatformEmpty(false);
-      sendGameToDB(
-        title,
-        releaseDate,
-        selectedPlatforms,
-        timePlayedNormal,
-        ratingNormal,
-        selectedDevs,
-        selectedTags,
-        description,
-        coverImage,
-        ssImage
-      );
+    // Check if the rating is a valid number, and convert it to a string if necessary
+    if (ratingNormal === "" || isNaN(ratingNormal)) {
+      ratingNormal = "0";
+    } else {
+      ratingNormal = String(ratingNormal);
     }
+
+    let timePlayedNormal = timePlayed;
+
+    if (timePlayedNormal == "") {
+      timePlayedNormal = "0";
+    }
+
+    setTitleEmpty(false);
+    setReleaseDateEmpty(false);
+    setPlatformEmpty(false);
+
+    sendGameToDB(
+      title,
+      releaseDate,
+      selectedPlatforms,
+      timePlayedNormal,
+      ratingNormal,
+      selectedDevs,
+      selectedTags,
+      description,
+      coverImage,
+      ssImage,
+      setAddGameLoading,
+      setGameInsertError,
+      toast
+    );
   };
 
-  const sendGameToDB = async (
-    title: string,
-    releaseDate: any,
-    selectedPlatforms: any,
-    timePlayed: any,
-    rating: any,
-    selectedDevs: any,
-    selectedTags: any,
-    description: string,
-    coverImage: any,
-    ssImage: any
-  ) => {
-    try {
-      setAddGameLoading(true);
-      const response = await fetch(`http://localhost:8080/addGameToDB`, {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          title: title,
-          releaseDate: releaseDate,
-          selectedPlatforms: selectedPlatforms,
-          timePlayed: timePlayed,
-          rating: rating,
-          selectedDevs: selectedDevs,
-          selectedTags: selectedTags,
-          description: description,
-          coverImage: coverImage,
-          ssImage: ssImage,
-          isWishlist: 0,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorResp = await response.json();
-        const errorMessage = errorResp.error || "An unknown error occurred.";
-        const errorDetails = errorResp.details || "";
-        throw errorMessage + " -- " + errorDetails;
-      }
-
-      const resp = await response.json();
-      if (resp.insertionStatus === false) {
-        console.log(resp.insertionStatus);
-        setGameInsertError(true);
-      }
-      if (resp.insertionStatus === true) {
-        console.log(resp.insertionStatus);
-        setGameInsertError(false);
-      }
-    } catch (error: any) {
-      setAddGameLoading(false);
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Game Insert Failed!",
-        description: error || "An unknown error occurred",
-      });
-    }
-    setAddGameLoading(false);
-  };
   const { toast } = useToast();
 
   useEffect(() => {
@@ -482,7 +286,7 @@ function MetaDataView({
               spellCheck={false}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  downloadIgdbMetadata();
+                  SearchGameClicked();
                 }
               }}
             />
@@ -490,11 +294,11 @@ function MetaDataView({
               disabled={loading}
               type="submit"
               variant={"dialogSaveButton"}
-              onClick={downloadIgdbMetadata}
+              onClick={SearchGameClicked}
               className="h-10"
             >
               {loading && <Loader2 className="animate-spin" />}
-              Download Metadata
+              Search Game
             </Button>
           </div>
 
@@ -690,7 +494,7 @@ function MetaDataView({
                 <Button
                   variant={"outline"}
                   className="w-8 h-8 rounded-full"
-                  onClick={handleDeleteCoverArt}
+                  onClick={() => setCoverImage(null)}
                 >
                   <Trash2 size={18} />
                 </Button>
@@ -882,23 +686,13 @@ function MetaDataView({
         <FoundGames
           data={data}
           setData={setData}
-          title={title}
-          releaseDate={releaseDate}
-          rating={rating}
-          developers={developers}
-          timePlayed={timePlayed}
-          description={description}
           setTitle={setTitle}
           setReleaseDate={setReleaseDate}
           setRating={setRating}
-          setDevelopers={setDevelopers}
           setTimePlayed={setTimePlayed}
           setDescription={setDescription}
-          tagOptions={tagOptions}
           setTagOptions={setTagOptions}
-          selectedTags={selectedTags}
           setSelectedTags={setSelectedTags}
-          selectedDevs={selectedDevs}
           setSelectedDevs={setSelectedDevs}
           setCoverImage={setCoverImage}
           setSsImage={setSsImage}
@@ -911,58 +705,36 @@ function MetaDataView({
 function FoundGames({
   data,
   setData,
-  title,
   setTitle,
-  releaseDate,
   setReleaseDate,
-  rating,
   setRating,
-  developers,
-  setDevelopers,
-  timePlayed,
   setTimePlayed,
-  description,
   setDescription,
-  tagOptions,
   setTagOptions,
-  selectedTags,
   setSelectedTags,
-  selectedDevs,
   setSelectedDevs,
   setCoverImage,
   setSsImage,
 }: {
   data: any;
   setData: React.Dispatch<React.SetStateAction<string | null>>;
-  title: string;
   setTitle: React.Dispatch<React.SetStateAction<string>>;
-  releaseDate: any;
   setReleaseDate: React.Dispatch<React.SetStateAction<any>>;
-  rating: any;
   setRating: React.Dispatch<React.SetStateAction<any>>;
-  developers: any;
-  setDevelopers: React.Dispatch<React.SetStateAction<any>>;
-  timePlayed: any;
   setTimePlayed: React.Dispatch<React.SetStateAction<any>>;
-  description: any;
   setDescription: React.Dispatch<React.SetStateAction<any>>;
-  tagOptions: { value: string; label: string }[];
   setTagOptions: React.Dispatch<React.SetStateAction<any>>;
-  selectedTags: { value: string; label: string }[];
   setSelectedTags: React.Dispatch<React.SetStateAction<any>>;
-  selectedDevs: { value: string; label: string }[];
   setSelectedDevs: React.Dispatch<React.SetStateAction<any>>;
   setCoverImage: React.Dispatch<React.SetStateAction<any>>;
   setSsImage: React.Dispatch<React.SetStateAction<any>>;
 }) {
-  const [gameInfoLoading, setGameInfoLoading] = useState(false);
   const [loadingAppId, setLoadingAppId] = useState<string | null>(null);
 
   const { toast } = useToast();
 
   const IgdbGameClicked = async (appid: any) => {
     try {
-      setGameInfoLoading(true);
       setLoadingAppId(appid);
       const response = await fetch("http://localhost:8080/GetIgdbInfo", {
         method: "POST",
@@ -1010,10 +782,8 @@ function FoundGames({
       setCoverImage(data.metadata.cover);
       setSsImage(data.metadata.screenshots);
       setData(null);
-      setGameInfoLoading(false);
       setLoadingAppId(null);
     } catch (error: any) {
-      setGameInfoLoading(false);
       setLoadingAppId(null);
       console.error("Fetch Error:", error);
       toast({
@@ -1055,11 +825,13 @@ function FoundGames({
               >
                 <div className="flex w-full flex-col gap-1 overflow-hidden">
                   <div className="mr-auto">{game.name}</div>
-                  {loadingAppId === game.appid && (
-                    <Loader2 className="animate-spin" />
-                  )}
-                  <div className="mt-auto ml-auto">
-                    {new Date(game.date).getFullYear()}
+                  <div className="flex">
+                    {loadingAppId === game.appid && (
+                      <Loader2 className="animate-spin" />
+                    )}
+                    <div className="mt-auto ml-auto">
+                      {new Date(game.date).getFullYear()}
+                    </div>
                   </div>
                 </div>
               </Button>

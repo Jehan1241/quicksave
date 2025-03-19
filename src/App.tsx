@@ -29,9 +29,6 @@ function App() {
     setSortStateUpdate,
     randomGameClicked,
     setRandomGameClicked,
-    isAddGameDialogOpen,
-    isIntegrationsDialogOpen,
-    isWishlistAddDialogOpen,
     setIntegrationLoadCount,
     setCacheBuster,
   } = useSortContext();
@@ -40,14 +37,7 @@ function App() {
   const [wishlistArray, setWishlistArray] = useState<any[]>([]);
   const [hiddenArray, setHiddenArray] = useState<any[]>([]);
   const [installedArray, setInstalledArray] = useState<any[]>([]);
-  const [integrationsPreviouslyOpened, setIntegrationsPreviouslyOpened] =
-    useState<boolean>(false);
-  const [
-    wishListAddDialogPreviouslyOpened,
-    setWishlistAddDialogPreviouslyOpened,
-  ] = useState<boolean>(false);
-  const [addGameDialogHasBeenOpened, setAddGameDialogHasBeenOpened] =
-    useState<boolean>(false);
+
   const navigate = useNavigate();
 
   const updateData = () => {
@@ -95,10 +85,10 @@ function App() {
   useEffect(() => {
     if (!randomGameClicked) return;
     setRandomGameClicked(false);
-    const targetArray = pickRandomGame(location, dataArray, wishlistArray);
-    if (targetArray) {
+    const randomUID = pickRandomGame(location, dataArray, wishlistArray);
+    if (randomUID) {
       navigate(`/gameview`, {
-        state: { data: targetArray, hidden: false },
+        state: { data: randomUID, hidden: false },
       });
     }
   }, [randomGameClicked]);
@@ -111,31 +101,13 @@ function App() {
     }
   }, [sortStateUpdate]);
 
-  // These 2 are used to check if dialogs have been opened atleast once
-  // This is necessary as if you leave the dialog in load state it wont save otherwise
-  useEffect(() => {
-    if (isAddGameDialogOpen) {
-      setAddGameDialogHasBeenOpened(true);
-    }
-  }, [isAddGameDialogOpen]);
-  useEffect(() => {
-    if (isIntegrationsDialogOpen) {
-      setIntegrationsPreviouslyOpened(true);
-    }
-  }, [isIntegrationsDialogOpen]);
-  useEffect(() => {
-    if (isWishlistAddDialogOpen) {
-      setWishlistAddDialogPreviouslyOpened(true);
-    }
-  }, [isWishlistAddDialogOpen]);
-
   return (
     <>
       <CustomTitleBar>
         <BackButtonListener />
-        {addGameDialogHasBeenOpened && <AddGameManuallyDialog />}
-        {integrationsPreviouslyOpened && <Integrations />}
-        {wishListAddDialogPreviouslyOpened && <WishlistDialog />}
+        <AddGameManuallyDialog />
+        <Integrations />
+        <WishlistDialog />
         <Routes>
           <Route
             element={
