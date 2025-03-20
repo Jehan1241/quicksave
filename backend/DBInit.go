@@ -3,27 +3,67 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+
+	"github.com/joho/godotenv"
 )
+
+func SQLiteWriteConfig(dbFile string) (*sql.DB, error) {
+	// Connection string with _txlock=immediate for write
+	connStr := fmt.Sprintf("file:%s?_txlock=immediate", dbFile)
+	db, err := sql.Open("sqlite", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open write database: %v", err)
+	}
+
+	// Set the max open connections for the write database (only 1 connection for write)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	// PRAGMA settings for write connection
+	pragmas := `
+        PRAGMA journal_mode = WAL;
+        PRAGMA busy_timeout = 5000;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA cache_size = 1000000000;
+        PRAGMA foreign_keys = TRUE;
+        PRAGMA temp_store = MEMORY;
+		PRAGMA locking_mode=IMMEDIATE;
+		pragma mmap_size = 30000000000;
+		pragma page_size = 32768;
+    `
+	// Execute all PRAGMA statements at once
+	_, err = db.Exec(pragmas)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("error executing PRAGMA settings on write DB: %v", err)
+	}
+
+	// Return the configured write database connection
+	return db, nil
+}
 
 func checkAndCreateDB() {
 	if _, err := os.Stat("IGDB_Database.db"); os.IsNotExist(err) {
-		fmt.Println("Database not found. Creating the database...")
+		log.Println("Database not found. Creating the database...")
 		// Creates DB if not found
 		db, err := SQLiteWriteConfig("IGDB_Database.db")
-		bail(err)
+		if err != nil {
+			log.Printf("create DB write Error %v", err)
+		}
 		defer db.Close()
 
 		createTables(db)
 		initializeDefaultDBValues(db)
-
-	} else {
-		fmt.Println("DB Found")
 	}
 }
 func createTables(db *sql.DB) {
 	tx, err := db.Begin()
-	bail(err)
+	if err != nil {
+		log.Printf("create Table Tx Error %v", err)
+	}
 
 	defer func() {
 		if err != nil {
@@ -132,23 +172,23 @@ func createTables(db *sql.DB) {
 
 	for _, query := range queries {
 		_, err := tx.Exec(query)
-		bail(err)
+		if err != nil {
+			log.Printf("create tables Tx exec error %v", err)
+		}
 	}
 
 	err = tx.Commit()
-	bail(err)
+	if err != nil {
+		log.Printf("create tables Tx commit error %v", err)
+	}
 }
 func initializeDefaultDBValues(db *sql.DB) {
 	tx, err := db.Begin()
-	bail(err)
+	if err != nil {
+		log.Printf("init default values Tx error %v", err)
+	}
 
-	defer func() {
-		if err != nil {
-			tx.Rollback() // Rollback in case of error
-		} else {
-			err = tx.Commit() // Commit the transaction if no error
-		}
-	}()
+	defer tx.Rollback()
 
 	platforms := []string{
 		"Sony Playstation 1",
@@ -164,14 +204,61 @@ func initializeDefaultDBValues(db *sql.DB) {
 	}
 	for _, platform := range platforms {
 		_, err := tx.Exec(`INSERT OR IGNORE INTO Platforms (Name) VALUES (?)`, platform)
-		bail(err)
+		if err != nil {
+			log.Printf("init default Tx exec error %v", err)
+		}
 	}
 
 	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Type', 'TimePlayed')`)
-	bail(err)
+	if err != nil {
+		log.Printf("init default Tx exec error %v", err)
+	}
 
 	_, err = tx.Exec(`INSERT OR REPLACE INTO SortState (Type, Value) VALUES ('Sort Order', 'DESC')`)
-	bail(err)
+	if err != nil {
+		log.Printf("init default Tx exec error %v", err)
+	}
 
-	fmt.Println("DB Default Values Initialized.")
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("init default Tx commit error %v", err)
+	}
+}
+
+func checkAndCreateFolders() {
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Printf("failed to get executable path: %v", err)
+	}
+	exeDir := filepath.Dir(exePath)
+
+	// Define folder paths
+	coverArtPath := filepath.Join(exeDir, "coverArt")
+	screenshotsPath := filepath.Join(exeDir, "screenshots")
+
+	// Check and create "coverArt" if it doesn't exist
+	if _, err := os.Stat(coverArtPath); os.IsNotExist(err) {
+		if err := os.Mkdir(coverArtPath, os.ModePerm); err != nil {
+			log.Printf("failed to create coverArt folder: %v", err)
+		}
+	}
+
+	// Check and create "screenshots" if it doesn't exist
+	if _, err := os.Stat(screenshotsPath); os.IsNotExist(err) {
+		if err := os.Mkdir(screenshotsPath, os.ModePerm); err != nil {
+			log.Printf("failed to create screenshots folder: %v", err)
+		}
+	}
+}
+
+func initAPIKeys() {
+	if clientID == "" || clientSecret == "" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Println("no .env file found")
+		}
+		clientID = os.Getenv("IGDB_API_KEY")
+		clientSecret = os.Getenv("IGDB_SECRET_KEY")
+		return
+	}
 }

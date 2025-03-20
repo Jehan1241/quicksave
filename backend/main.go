@@ -31,7 +31,6 @@ import (
 	"github.com/HugoSmits86/nativewebp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -46,22 +45,42 @@ func bail(err error) {
 	}
 }
 
+func initLogFile() {
+	logFile, err := os.OpenFile("server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+
+	// Set log output to file
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
+
+	// Include timestamps in logs
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+}
+
 func main() {
+	initLogFile()
 	checkAndCreateDB()
 	checkAndCreateFolders()
 	initAPIKeys()
 
 	err := connectToDB()
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatalf("could not connect to DB %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go handleShutdown(cancel)
 
-	checkSteamInstalledValidity()
-	_ = checkManualInstalledValidity()
+	err = checkSteamInstalledValidity()
+	if err != nil {
+		log.Printf("error checking steam installed validity %v", err)
+	}
+	err = checkManualInstalledValidity()
+	if err != nil {
+		log.Printf("error checking manual installed validity %v", err)
+	}
 	startSSEListener()
 	routing()
 
@@ -69,118 +88,7 @@ func main() {
 	closeDB()
 }
 
-func initAPIKeys() {
-	if clientID == "" || clientSecret == "" {
-		fmt.Println("Attempting .env Load")
-		err := godotenv.Load()
-		if err != nil {
-			log.Println("no .env file found")
-		}
-		clientID = os.Getenv("IGDB_API_KEY")
-		clientSecret = os.Getenv("IGDB_SECRET_KEY")
-		return
-	}
-	fmt.Println("No .env load")
-	fmt.Println(clientSecret, clientID)
-}
-
-func checkAndCreateFolders() {
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Println("failed to get executable path: %w", err)
-	}
-	exeDir := filepath.Dir(exePath)
-
-	// Define folder paths
-	coverArtPath := filepath.Join(exeDir, "coverArt")
-	screenshotsPath := filepath.Join(exeDir, "screenshots")
-
-	// Check and create "coverArt" if it doesn't exist
-	if _, err := os.Stat(coverArtPath); os.IsNotExist(err) {
-		if err := os.Mkdir(coverArtPath, os.ModePerm); err != nil {
-			fmt.Println("failed to create coverArt folder: %w", err)
-		}
-	}
-
-	// Check and create "screenshots" if it doesn't exist
-	if _, err := os.Stat(screenshotsPath); os.IsNotExist(err) {
-		if err := os.Mkdir(screenshotsPath, os.ModePerm); err != nil {
-			fmt.Println("failed to create screenshots folder: %w", err)
-		}
-	}
-}
-
-func SQLiteReadConfig(dbFile string) (*sql.DB, error) {
-	// Connection string with _txlock=immediate for read
-	connStr := fmt.Sprintf("file:%s?mode=ro&_txlock=immediate&cache=shared", dbFile)
-	db, err := sql.Open("sqlite", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open read-only database: %v", err)
-	}
-
-	// Set the max open connections for the read database (max(4, NumCPU()))
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-
-	// PRAGMA settings for read connection
-	pragmas := `
-        PRAGMA journal_mode = WAL;
-        PRAGMA busy_timeout = 5000;
-        PRAGMA synchronous = NORMAL;
-        PRAGMA cache_size = 1000000;
-        PRAGMA foreign_keys = TRUE;
-        PRAGMA temp_store = MEMORY;
-		PRAGMA locking_mode=NORMAL;
-		pragma mmap_size = 500000000;
-		pragma page_size = 32768;
-    `
-	// Execute all PRAGMA statements at once
-	_, err = db.Exec(pragmas)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("error executing PRAGMA settings on read DB: %v", err)
-	}
-
-	// Return the configured read-only database connection
-	return db, nil
-}
-func SQLiteWriteConfig(dbFile string) (*sql.DB, error) {
-	// Connection string with _txlock=immediate for write
-	connStr := fmt.Sprintf("file:%s?_txlock=immediate", dbFile)
-	db, err := sql.Open("sqlite", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open write database: %v", err)
-	}
-
-	// Set the max open connections for the write database (only 1 connection for write)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	// PRAGMA settings for write connection
-	pragmas := `
-        PRAGMA journal_mode = WAL;
-        PRAGMA busy_timeout = 5000;
-        PRAGMA synchronous = NORMAL;
-        PRAGMA cache_size = 1000000000;
-        PRAGMA foreign_keys = TRUE;
-        PRAGMA temp_store = MEMORY;
-		PRAGMA locking_mode=IMMEDIATE;
-		pragma mmap_size = 30000000000;
-		pragma page_size = 32768;
-    `
-	// Execute all PRAGMA statements at once
-	_, err = db.Exec(pragmas)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("error executing PRAGMA settings on write DB: %v", err)
-	}
-
-	// Return the configured write database connection
-	return db, nil
-}
-
 func getAllTags() []string {
-
 	QueryString := "SELECT DISTINCT Tags FROM Tags"
 	rows, err := readDB.Query(QueryString)
 	bail(err)
@@ -1547,21 +1455,22 @@ func setupRouter() *gin.Engine {
 			APIkey  string `json:"APIkey"`
 		}
 		if err := c.BindJSON(&data); err != nil {
+			log.Printf("[SteamImport] ERROR invalid req payload: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		SteamID := data.SteamID
 		APIkey := data.APIkey
-		fmt.Println("Received Steam Import", SteamID, APIkey)
+
 		err := updateSteamCreds(SteamID, APIkey)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[SteamImport] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update steam credentials", "details": err.Error()})
 			return
 		}
 		err = steamImportUserGames(SteamID, APIkey)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[SteamImport] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Steam Import Failed", "details": err.Error()})
 			return
 		}
@@ -1573,20 +1482,20 @@ func setupRouter() *gin.Engine {
 			Npsso string `json:"npsso"`
 		}
 		if err := c.BindJSON(&data); err != nil {
+			log.Printf("[PlayStation Import] ERROR invalid req payload: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		npsso := data.Npsso
-		fmt.Println("Received PlayStation Import Games npsso : ", npsso, clientID, clientSecret)
 		err := updateNpsso(npsso)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[PlayStationImport] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update NPSSO", "details": err.Error()})
 			return
 		}
 		gamesNotMatched, err := playstationImportUserGames(npsso, clientID, clientSecret)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[PlayStationImport] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "PSN Import Failed", "details": err.Error()})
 			return
 		}

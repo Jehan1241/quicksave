@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -89,13 +90,13 @@ func closeDB() error {
 	if readDB != nil {
 		err := readDB.Close()
 		if err != nil {
-			fmt.Println("error closing readDB:", err)
+			log.Printf("error closing readDB: %v", err)
 		}
 	}
 	if writeDB != nil {
 		err := writeDB.Close()
 		if err != nil {
-			fmt.Println("error closing writeDB:", err)
+			log.Printf("error closing writeDB: %v", err)
 		}
 	}
 	return nil

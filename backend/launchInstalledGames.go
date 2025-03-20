@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -143,40 +144,61 @@ func launchSteamGame(appid int) {
 	fmt.Println(string(stdout))
 }
 
-func checkSteamInstalledValidity() {
-	steamPath := getSteamPath()
-	installedAppIDs := getInstalledAppIDs(steamPath)
-	installedUIDs := getInstalledUIDs(installedAppIDs)
-	fmt.Println(installedUIDs)
-	err := setSteamGamesToInstalled(installedUIDs)
+func checkSteamInstalledValidity() error {
+	steamPath, err := getSteamPath()
 	if err != nil {
-		bail(err)
+		log.Printf("error getting path %v", err)
 	}
+	if steamPath == "no steam" {
+		return nil
+	}
+	installedAppIDs, err := getInstalledAppIDs(steamPath)
+	if err != nil {
+		log.Printf("error getting installed appIDs %v", err)
+	}
+	installedUIDs, err := getInstalledUIDs(installedAppIDs)
+	if err != nil {
+		log.Printf("error getting installed UIDs %v", err)
+	}
+	fmt.Println(installedUIDs)
+	err = setSteamGamesToInstalled(installedUIDs)
+	if err != nil {
+		log.Printf("error setting installed UIDs %v", err)
+	}
+	return nil
 }
 
-func getSteamPath() string {
+func getSteamPath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
 		keyPath, err := syscall.UTF16PtrFromString(`SOFTWARE\WOW6432Node\Valve\Steam`)
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("windows reg error %w", err)
+		}
 
 		var hKey syscall.Handle
 		err = syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, keyPath, 0, syscall.KEY_READ, &hKey)
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("windows reg open key error %w", err)
+		}
 		defer syscall.RegCloseKey(hKey)
 
 		var buf [256]uint16
 		var bufSize uint32 = uint32(len(buf) * 2)
 
 		valueName, err := syscall.UTF16PtrFromString("InstallPath")
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("windows install path error %w", err)
+		}
 
 		err = syscall.RegQueryValueEx(hKey, valueName, nil, nil, (*byte)(unsafe.Pointer(&buf[0])), &bufSize)
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("windows query error %w", err)
+		}
 
 		steamPath := syscall.UTF16ToString(buf[:])
 
-		return steamPath
+		return steamPath, nil
 	case "linux":
 		// Check common Steam installation paths
 		paths := []string{
@@ -187,20 +209,22 @@ func getSteamPath() string {
 		for _, path := range paths {
 			_, err := os.Stat(path)
 			bail(err)
-			return path
+			return path, nil
 		}
 
 	}
-	return "no steam"
+	return "no steam", nil
 }
 
-func getInstalledAppIDs(steamPath string) []string {
+func getInstalledAppIDs(steamPath string) ([]string, error) {
 	if steamPath == "no steam" {
-		return nil
+		return nil, nil
 	}
 	vdfPath := filepath.Join(steamPath, "steamapps", "libraryfolders.vdf")
 	file, err := os.Open(vdfPath)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("error opening steam vdf %w", err)
+	}
 	defer file.Close()
 
 	var installedAppIDs []string
@@ -214,10 +238,10 @@ func getInstalledAppIDs(steamPath string) []string {
 			installedAppIDs = append(installedAppIDs, matches[1])
 		}
 	}
-	return installedAppIDs
+	return installedAppIDs, nil
 }
 
-func getInstalledUIDs(appIDs []string) []string {
+func getInstalledUIDs(appIDs []string) ([]string, error) {
 	var UIDs []string
 
 	for _, appID := range appIDs {
@@ -227,12 +251,14 @@ func getInstalledUIDs(appIDs []string) []string {
 			if err == sql.ErrNoRows {
 				continue
 			}
-			bail(err)
+			if err != nil {
+				return nil, fmt.Errorf("dbRead error %w", err)
+			}
 		}
 		UIDs = append(UIDs, path)
 
 	}
-	return UIDs
+	return UIDs, nil
 }
 
 func setSteamGamesToInstalled(UIDs []string) error {
@@ -255,7 +281,7 @@ func setSteamGamesToInstalled(UIDs []string) error {
 			}
 		}
 
-		return nil // ✅ Success, commit transaction
+		return nil
 	})
 	return err
 }
