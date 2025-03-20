@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
-
+import {
+  fetchTagsDevsPlatforms,
+  sendGameToDB,
+} from "@/lib/api/addGameManuallyAPI";
 import {
   CalendarIcon,
   Globe,
@@ -44,17 +47,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { searchGame } from "@/lib/api/addGameManuallyAPI";
 
 export default function WishlistDialog() {
   const { isWishlistAddDialogOpen, setIsWishlistAddDialogOpen } =
     useSortContext();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [title, setTitle] = useState<string>("");
-  const [releaseDate, setReleaseDate] = useState<any>("");
-  const [rating, setRating] = useState<any>("");
-  const [developers, setDevelopers] = useState<any>("");
-  const [description, setDescription] = useState<any>("");
 
   return (
     <>
@@ -93,94 +90,14 @@ function MetaDataView() {
   const [titleEmpty, setTitleEmpty] = useState(false);
   const [releaseDateEmpty, setReleaseDateEmpty] = useState(false);
   const [platformEmpty, setPlatformEmpty] = useState(false);
-  const [gameInsertError, setGameInsertError] = useState<any>(null);
   const [addGameLoading, setAddGameLoading] = useState(false);
 
-  const fetchData = async (title: string) => {
-    try {
-      const response = await fetch(`http://localhost:8080/IGDBsearch`, {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          NameToSearch: title,
-        }),
-      });
-      const resp = await response.json();
-      setData(resp.foundGames);
-      setLoading(false);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const fetchTagsDevsPlatforms = async () => {
-    try {
-      const response = await fetch("http://localhost:8080/getAllTags");
-      const resp = await response.json();
-
-      // Transform the tags into key-value pairs
-      const tagsAsKeyValuePairs = resp.tags.map((tag: any) => ({
-        value: tag,
-        label: tag,
-      }));
-
-      setTagOptions(tagsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching tags:", error);
-    }
-    try {
-      const response = await fetch("http://localhost:8080/getAllDevelopers");
-      const resp = await response.json();
-      console.log(resp);
-
-      // Transform the tags into key-value pairs
-      const devsAsKeyValuePairs = resp.devs.map((dev: any) => ({
-        value: dev,
-        label: dev,
-      }));
-
-      setDevOptions(devsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching developers:", error);
-    }
-    try {
-      const response = await fetch("http://localhost:8080/getAllPlatforms");
-      const resp = await response.json();
-      console.log(resp);
-
-      // Transform the tags into key-value pairs
-      const platsAsKeyValuePairs = resp.platforms.map((plat: any) => ({
-        value: plat,
-        label: plat,
-      }));
-
-      setPlatformOptions(platsAsKeyValuePairs);
-    } catch (error) {
-      console.error("Error fetching developers:", error);
-    }
-  };
-
   useEffect(() => {
-    console.log("Fetching tags, dev, platforms...");
-    fetchTagsDevsPlatforms();
+    fetchTagsDevsPlatforms(setTagOptions, setDevOptions, setPlatformOptions);
   }, []);
 
-  useEffect(() => {
-    if (data) {
-      console.log("Found games:", data);
-    }
-  }, [data]); // Runs every time data is updated
-
-  const downloadIgdbMetadata = () => {
-    const titleElement = document.getElementById(
-      "title"
-    ) as HTMLInputElement | null;
-    if (titleElement) {
-      const title = titleElement.value;
-      console.log(title);
-      setLoading(true);
-      fetchData(title);
-    }
+  const SearchGameClicked = () => {
+    searchGame(title, setTitleEmpty, setLoading, setData, toast);
   };
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
@@ -203,10 +120,6 @@ function MetaDataView() {
       // If no file is selected (user cancels), clear the image
       setCoverImage(null);
     }
-  };
-
-  const handleDeleteCoverArt = () => {
-    setCoverImage(null);
   };
 
   const handleScreenshotImageChange = (
@@ -263,7 +176,7 @@ function MetaDataView() {
   };
   const [api, setApi] = React.useState<CarouselApi>();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!api) {
       return;
     }
@@ -274,110 +187,38 @@ function MetaDataView() {
   }, [api]);
 
   const addGameClickHandler = () => {
-    if (title == "") {
-      setTitleEmpty(true);
-      console.log("empty");
-    }
-    if (!releaseDate) {
-      setReleaseDateEmpty(true);
-      console.log("empty");
-    }
-    if (selectedPlatforms.length === 0) {
-      setPlatformEmpty(true);
-      console.log("empty");
-    }
-    if (title != "" && releaseDate && selectedPlatforms.length != 0) {
-      let ratingNormal = rating;
+    const isTitleEmpty = title.trim() === "";
+    const isReleaseDateEmpty = !releaseDate;
+    const isPlatformEmpty = selectedPlatforms.length === 0;
+    setTitleEmpty(isTitleEmpty);
+    setReleaseDateEmpty(isReleaseDateEmpty);
+    setPlatformEmpty(isPlatformEmpty);
 
-      // Check if the rating is a valid number, and convert it to a string if necessary
-      if (ratingNormal === "" || isNaN(ratingNormal)) {
-        ratingNormal = "0";
-      } else {
-        ratingNormal = String(ratingNormal);
-      }
-
-      console.log(ratingNormal);
-
-      setTitleEmpty(false);
-      setReleaseDateEmpty(false);
-      setPlatformEmpty(false);
-      sendGameToDB(
-        title,
-        releaseDate,
-        selectedPlatforms,
-        ratingNormal,
-        selectedDevs,
-        selectedTags,
-        description,
-        coverImage,
-        ssImage
-      );
+    if (isTitleEmpty || isReleaseDateEmpty || isPlatformEmpty) {
+      return;
     }
+
+    const ratingNormal =
+      rating === "" || isNaN(Number(rating)) ? "0" : String(rating);
+
+    sendGameToDB(
+      title,
+      releaseDate,
+      selectedPlatforms,
+      "0", // For 0 timePlayed
+      ratingNormal,
+      selectedDevs,
+      selectedTags,
+      description,
+      coverImage,
+      ssImage,
+      1, // For wishlist
+      setAddGameLoading,
+      toast
+    );
   };
 
-  const sendGameToDB = async (
-    title: string,
-    releaseDate: any,
-    selectedPlatforms: any,
-    rating: any,
-    selectedDevs: any,
-    selectedTags: any,
-    description: string,
-    coverImage: any,
-    ssImage: any
-  ) => {
-    try {
-      setAddGameLoading(true);
-      const response = await fetch(`http://localhost:8080/addGameToDB`, {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          title: title,
-          releaseDate: releaseDate,
-          selectedPlatforms: selectedPlatforms,
-          rating: rating,
-          selectedDevs: selectedDevs,
-          selectedTags: selectedTags,
-          description: description,
-          coverImage: coverImage,
-          ssImage: ssImage,
-          isWishlist: 1,
-        }),
-      });
-      const resp = await response.json();
-      if (resp.insertionStatus === false) {
-        console.log(resp.insertionStatus);
-        setGameInsertError(true);
-      }
-      if (resp.insertionStatus === true) {
-        console.log(resp.insertionStatus);
-        setGameInsertError(false);
-      }
-    } catch (error) {
-      console.error(error);
-      setAddGameLoading(false);
-    }
-    setAddGameLoading(false);
-  };
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (gameInsertError === true) {
-      toast({
-        variant: "destructive",
-        title: "Game Insertion Error!",
-        description: "This game has already been inserted.",
-      });
-      setGameInsertError(null);
-    } else if (gameInsertError === false) {
-      toast({
-        variant: "default",
-        title: "Game Added!",
-        description: "The game has been added to the database.",
-      });
-      setGameInsertError(null);
-    }
-  }, [gameInsertError]);
 
   return (
     <div className="flex overflow-hidden gap-4 w-full h-full max-h-full">
@@ -413,7 +254,7 @@ function MetaDataView() {
               spellCheck={false}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  downloadIgdbMetadata();
+                  SearchGameClicked();
                 }
               }}
             />
@@ -421,7 +262,7 @@ function MetaDataView() {
               disabled={loading}
               type="submit"
               variant={"dialogSaveButton"}
-              onClick={downloadIgdbMetadata}
+              onClick={SearchGameClicked}
               className="h-10"
             >
               {loading && <Loader2 className="animate-spin" />}
@@ -601,7 +442,9 @@ function MetaDataView() {
                 <Button
                   variant={"outline"}
                   className="w-8 h-8 rounded-full"
-                  onClick={handleDeleteCoverArt}
+                  onClick={() => {
+                    setCoverImage(null);
+                  }}
                 >
                   <Trash2 size={18} />
                 </Button>

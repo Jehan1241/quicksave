@@ -420,6 +420,8 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 			if err != nil {
 				return fmt.Errorf("DB write error - inserting companies: %v", err)
 			}
+		} else {
+			_, err = tx.Exec("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?,?)", UID, "Unknown")
 		}
 		if len(tags) > 0 {
 			var values [][]any
@@ -430,6 +432,8 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 			if err != nil {
 				return fmt.Errorf("DB write error - inserting tags: %v", err)
 			}
+		} else {
+			_, err = tx.Exec("INSERT INTO Tags (UID, Tags) VALUES (?,?)", UID, "Unknown")
 		}
 		return nil
 	})

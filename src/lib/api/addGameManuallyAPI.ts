@@ -11,8 +11,8 @@ export const sendGameToDB = async (
   description: string,
   coverImage: any,
   ssImage: any,
+  isWishlist: number,
   setAddGameLoading: React.Dispatch<React.SetStateAction<boolean>>,
-  setGameInsertError: React.Dispatch<React.SetStateAction<boolean>>,
   toast: any
 ) => {
   try {
@@ -31,7 +31,7 @@ export const sendGameToDB = async (
         description: description,
         coverImage: coverImage,
         ssImage: ssImage,
-        isWishlist: 0,
+        isWishlist: isWishlist,
       }),
     });
 
@@ -39,28 +39,36 @@ export const sendGameToDB = async (
       const errorResp = await response.json();
       const errorMessage = errorResp.error || "An unknown error occurred.";
       const errorDetails = errorResp.details || "";
-      throw errorMessage + " -- " + errorDetails;
+      throw new Error(`${errorMessage} + " -- " + ${errorDetails}`);
     }
 
     const resp = await response.json();
     if (resp.insertionStatus === false) {
       console.log(resp.insertionStatus);
-      setGameInsertError(true);
+      toast({
+        variant: "destructive",
+        title: "Game Insertion Error!",
+        description: "This game has already been inserted.",
+      });
     }
     if (resp.insertionStatus === true) {
       console.log(resp.insertionStatus);
-      setGameInsertError(false);
+      toast({
+        variant: "default",
+        title: "Game Added!",
+        description: "The game has been added to the database.",
+      });
     }
   } catch (error: any) {
-    setAddGameLoading(false);
     console.error(error);
     toast({
       variant: "destructive",
       title: "Game Insert Failed!",
-      description: error || "An unknown error occurred",
+      description: error.message || "An unknown error occurred.",
     });
+  } finally {
+    setAddGameLoading(false);
   }
-  setAddGameLoading(false);
 };
 
 export const searchGame = async (
@@ -87,7 +95,7 @@ export const searchGame = async (
       const errorResp = await response.json();
       const errorMessage = errorResp.error || "An unknown error occurred.";
       const errorDetails = errorResp.details || "";
-      throw errorMessage + " -- " + errorDetails;
+      throw new Error(`${errorMessage} + " -- " + ${errorDetails}`);
     }
 
     const resp = await response.json();

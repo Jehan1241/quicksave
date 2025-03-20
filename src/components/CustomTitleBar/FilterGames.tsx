@@ -253,9 +253,7 @@ export default function FilterGames({
               hidePlaceholderWhenSelected={true}
               placeholder="Select Name"
               emptyIndicator={
-                <p className="text-center text-lg leading-10">
-                  no results found.
-                </p>
+                <p className="text-center text-sm">no results found.</p>
               }
             />
           </div>
@@ -271,9 +269,7 @@ export default function FilterGames({
               hidePlaceholderWhenSelected={true}
               placeholder="Select Tags"
               emptyIndicator={
-                <p className="text-center text-lg leading-10">
-                  no results found.
-                </p>
+                <p className="text-center text-sm">no results found.</p>
               }
             />
           </div>
@@ -289,9 +285,7 @@ export default function FilterGames({
               hidePlaceholderWhenSelected={true}
               placeholder="Select Platforms"
               emptyIndicator={
-                <p className="text-center text-lg leading-10">
-                  no results found.
-                </p>
+                <p className="text-center text-sm">no results found.</p>
               }
             />
           </div>

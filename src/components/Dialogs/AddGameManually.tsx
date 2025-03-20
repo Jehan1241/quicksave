@@ -83,10 +83,7 @@ function MetaDataView() {
   const [titleEmpty, setTitleEmpty] = useState(false);
   const [releaseDateEmpty, setReleaseDateEmpty] = useState(false);
   const [platformEmpty, setPlatformEmpty] = useState(false);
-  const [gameInsertError, setGameInsertError] = useState<any>(null);
   const [addGameLoading, setAddGameLoading] = useState(false);
-
-  // State variables
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [title, setTitle] = useState<string>("");
@@ -189,31 +186,20 @@ function MetaDataView() {
   }, [api]);
 
   const addGameClickHandler = () => {
-    if (title == "" || !releaseDate || selectedPlatforms.length === 0) {
-      setTitleEmpty(true);
-      setReleaseDateEmpty(true);
-      setPlatformEmpty(true);
+    const isTitleEmpty = title.trim() === "";
+    const isReleaseDateEmpty = !releaseDate;
+    const isPlatformEmpty = selectedPlatforms.length === 0;
+    setTitleEmpty(isTitleEmpty);
+    setReleaseDateEmpty(isReleaseDateEmpty);
+    setPlatformEmpty(isPlatformEmpty);
+
+    if (isTitleEmpty || isReleaseDateEmpty || isPlatformEmpty) {
       return;
     }
 
-    let ratingNormal = rating;
-
-    // Check if the rating is a valid number, and convert it to a string if necessary
-    if (ratingNormal === "" || isNaN(ratingNormal)) {
-      ratingNormal = "0";
-    } else {
-      ratingNormal = String(ratingNormal);
-    }
-
-    let timePlayedNormal = timePlayed;
-
-    if (timePlayedNormal == "") {
-      timePlayedNormal = "0";
-    }
-
-    setTitleEmpty(false);
-    setReleaseDateEmpty(false);
-    setPlatformEmpty(false);
+    const ratingNormal =
+      rating === "" || isNaN(Number(rating)) ? "0" : String(rating);
+    const timePlayedNormal = timePlayed === "" ? "0" : timePlayed;
 
     sendGameToDB(
       title,
@@ -226,31 +212,13 @@ function MetaDataView() {
       description,
       coverImage,
       ssImage,
+      0, // For wishlist
       setAddGameLoading,
-      setGameInsertError,
       toast
     );
   };
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (gameInsertError === true) {
-      toast({
-        variant: "destructive",
-        title: "Game Insertion Error!",
-        description: "This game has already been inserted.",
-      });
-      setGameInsertError(null);
-    } else if (gameInsertError === false) {
-      toast({
-        variant: "default",
-        title: "Game Added!",
-        description: "The game has been added to the database.",
-      });
-      setGameInsertError(null);
-    }
-  }, [gameInsertError]);
 
   return (
     <div className="flex overflow-hidden gap-4 w-full h-full max-h-full">
