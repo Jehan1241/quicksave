@@ -1,21 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import React, { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { PiBookLight, PiListHeartLight } from "react-icons/pi";
-
-import { Filter, HardDriveDownload } from "lucide-react";
-import { Dices } from "lucide-react";
-import { useSortContext } from "@/hooks/useSortContex";
-import { Slider } from "@/components/ui/slider";
-import { useNavigate, useLocation } from "react-router-dom";
+import { HardDriveDownload } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import QuicksaveMenu from "./QuicksaveMenu";
-import SortGames from "./SortGames";
-import FilterGames from "./FilterGames";
-import WindowButtons from "./WindowsButtons";
-import Integrations from "../Dialogs/Integrations";
-import IntegrationsLoading from "./IntegrationsLoading";
 import TopBar from "./TopBar";
-import { cn } from "@/lib/utils";
 import { QuickSaveButton } from "./QuickSaveButton";
 
 export default function CustomTitleBar({ children }: { children: ReactNode }) {

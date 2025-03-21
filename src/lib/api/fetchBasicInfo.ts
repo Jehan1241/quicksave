@@ -1,7 +1,9 @@
+import { showErrorToast } from "../toastService";
+import { handleApiError } from "./apiErrors";
+
 export const fetchData = async (
   sortType: string,
   sortOrder: string,
-  tileSize: number,
   setDataArray: (data: any[]) => void,
   setMetaData: (meta: any) => void,
   setSortOrder: (order: "ASC" | "DESC" | "default") => void,
@@ -13,8 +15,9 @@ export const fetchData = async (
   console.log("Sending Get Basic Info");
   try {
     const response = await fetch(
-      `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}&size=${tileSize}`
+      `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}`
     );
+    if (!response.ok) await handleApiError(response);
     const json = await response.json();
 
     const hiddenUIDs = json.HiddenUIDs || [];
@@ -45,5 +48,6 @@ export const fetchData = async (
     console.log(json);
   } catch (error) {
     console.error(error);
+    showErrorToast("Failed to load filters!", String(error));
   }
 };

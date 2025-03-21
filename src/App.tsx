@@ -44,7 +44,6 @@ function App() {
     fetchData(
       sortType,
       sortOrder,
-      tileSize,
       setDataArray,
       setMetaData,
       setSortOrder,

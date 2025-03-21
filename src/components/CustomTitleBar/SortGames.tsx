@@ -19,7 +19,7 @@ import {
 
 export default function SortGames() {
   const { sortOrder, setSortOrder, sortType, setSortType, setSortStateUpdate } =
-    useSortContext(); // Access context
+    useSortContext();
 
   const sortTypeClicked = (type: string) => {
     console.log("Sort Order Type To", type);

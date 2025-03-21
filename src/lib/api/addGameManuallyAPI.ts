@@ -1,4 +1,6 @@
 import { Toast } from "@/components/ui/toast";
+import { handleApiError } from "./apiErrors";
+import { showErrorToast } from "../toastService";
 
 export const sendGameToDB = async (
   title: string,
@@ -34,14 +36,7 @@ export const sendGameToDB = async (
         isWishlist: isWishlist,
       }),
     });
-
-    if (!response.ok) {
-      const errorResp = await response.json();
-      const errorMessage = errorResp.error || "An unknown error occurred.";
-      const errorDetails = errorResp.details || "";
-      throw new Error(`${errorMessage} + " -- " + ${errorDetails}`);
-    }
-
+    if (!response.ok) await handleApiError(response);
     const resp = await response.json();
     if (resp.insertionStatus === false) {
       console.log(resp.insertionStatus);
@@ -61,11 +56,7 @@ export const sendGameToDB = async (
     }
   } catch (error: any) {
     console.error(error);
-    toast({
-      variant: "destructive",
-      title: "Game Insert Failed!",
-      description: error.message || "An unknown error occurred.",
-    });
+    showErrorToast("An error occured!", String(error));
   } finally {
     setAddGameLoading(false);
   }
@@ -91,22 +82,13 @@ export const searchGame = async (
       body: JSON.stringify({ NameToSearch: title }),
     });
 
-    if (!response.ok) {
-      const errorResp = await response.json();
-      const errorMessage = errorResp.error || "An unknown error occurred.";
-      const errorDetails = errorResp.details || "";
-      throw new Error(`${errorMessage} + " -- " + ${errorDetails}`);
-    }
+    if (!response.ok) await handleApiError(response);
 
     const resp = await response.json();
     setData(resp.foundGames);
   } catch (error: any) {
     console.error("Fetch Error:", error);
-    toast({
-      variant: "destructive",
-      title: "Search Failed!",
-      description: error.message || "An unknown error occurred",
-    });
+    showErrorToast("Failed to search IGDB!", String(error));
   } finally {
     setLoading(false);
   }
@@ -119,6 +101,7 @@ export const fetchTagsDevsPlatforms = async (
 ) => {
   try {
     const response = await fetch("http://localhost:8080/getAllTags");
+    if (!response.ok) await handleApiError(response);
     const resp = await response.json();
 
     // Transform the tags into key-value pairs
@@ -130,9 +113,11 @@ export const fetchTagsDevsPlatforms = async (
     setTagOptions(tagsAsKeyValuePairs);
   } catch (error) {
     console.error("Error fetching tags:", error);
+    showErrorToast("Failed to get tags!", String(error));
   }
   try {
     const response = await fetch("http://localhost:8080/getAllDevelopers");
+    if (!response.ok) await handleApiError(response);
     const resp = await response.json();
     console.log(resp);
 
@@ -145,9 +130,11 @@ export const fetchTagsDevsPlatforms = async (
     setDevOptions(devsAsKeyValuePairs);
   } catch (error) {
     console.error("Error fetching developers:", error);
+    showErrorToast("Failed to get developers!", String(error));
   }
   try {
     const response = await fetch("http://localhost:8080/getAllPlatforms");
+    if (!response.ok) await handleApiError(response);
     const resp = await response.json();
     console.log(resp);
 
@@ -159,6 +146,7 @@ export const fetchTagsDevsPlatforms = async (
 
     setPlatformOptions(platsAsKeyValuePairs);
   } catch (error) {
-    console.error("Error fetching developers:", error);
+    console.error("Error fetching platforms:", error);
+    showErrorToast("Failed to get platforms!", String(error));
   }
 };

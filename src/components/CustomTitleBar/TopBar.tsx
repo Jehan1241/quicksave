@@ -11,13 +11,8 @@ import IntegrationsLoading from "./IntegrationsLoading";
 import WindowButtons from "./WindowsButtons";
 
 export default function TopBar() {
-  const {
-    tileSize,
-    setTileSize,
-    setSortStateUpdate,
-    setSearchText,
-    setRandomGameClicked,
-  } = useSortContext();
+  const { tileSize, setTileSize, setSearchText, setRandomGameClicked } =
+    useSortContext();
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
 
   const navigate = useNavigate();

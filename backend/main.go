@@ -88,28 +88,34 @@ func main() {
 	closeDB()
 }
 
-func getAllTags() []string {
+func getAllTags() ([]string, error) {
 	QueryString := "SELECT DISTINCT Tags FROM Tags"
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error Tags: %w", err)
+	}
 	defer rows.Close()
 
 	var tags []string
 
 	for rows.Next() {
 		var tag string
-		rows.Scan(&tag)
+		err = rows.Scan(&tag)
+		if err != nil {
+			return nil, fmt.Errorf("scan err Tags: %w", err)
+		}
 		tags = append(tags, tag)
 	}
 
-	return (tags)
+	return tags, nil
 }
 
-func getAllDevelopers() []string {
-
+func getAllDevelopers() ([]string, error) {
 	QueryString := "SELECT DISTINCT Name FROM InvolvedCompanies"
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error Tags: %w", err)
+	}
 	defer rows.Close()
 
 	var devs []string
@@ -118,12 +124,11 @@ func getAllDevelopers() []string {
 		var dev string
 		err = rows.Scan(&dev)
 		if err != nil {
-			bail(err)
+			return nil, fmt.Errorf("scan err Tags: %w", err)
 		}
 		devs = append(devs, dev)
 	}
-
-	return (devs)
+	return devs, nil
 }
 
 func getGameDetails(UID string) map[string]interface{} {
@@ -286,24 +291,24 @@ func getGameDetails(UID string) map[string]interface{} {
 	return (MetaData)
 }
 
-func setTagsFilter(FilterStruct FilterStruct) {
+func setFilter(FilterStruct FilterStruct) error {
 
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM FilterTags")
 		if err != nil {
-			return err
+			return fmt.Errorf("tx error deleting from tags: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM FilterPlatform")
 		if err != nil {
-			return err
+			return fmt.Errorf("tx error deleting from plats: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM FilterDevs")
 		if err != nil {
-			return err
+			return fmt.Errorf("tx error deleting from devs: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM FilterName")
 		if err != nil {
-			return err
+			return fmt.Errorf("tx error deleting from name: %w", err)
 		}
 
 		var tagValues, nameValues, platformValues, devValues [][]any
@@ -323,111 +328,128 @@ func setTagsFilter(FilterStruct FilterStruct) {
 		if len(tagValues) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO FilterTags (Tag) VALUES (?)", tagValues)
 			if err != nil {
-				return err
+				return fmt.Errorf("tx error inserting to tags: %w", err)
 			}
 		}
 		if len(nameValues) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO FilterName (Name) VALUES (?)", nameValues)
 			if err != nil {
-				return err
+				return fmt.Errorf("tx error inserting to name: %w", err)
 			}
 		}
 		if len(platformValues) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO FilterPlatform (Platform) VALUES (?)", platformValues)
 			if err != nil {
-				return err
+				return fmt.Errorf("tx error inserting to plats: %w", err)
 			}
 		}
 		if len(devValues) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO FilterDevs (Dev) VALUES (?)", devValues)
 			if err != nil {
-				return err
+				return fmt.Errorf("tx error inserting to devs: %w", err)
 			}
 		}
 		return nil
 	})
-	bail(err)
+	return err
 }
 
-func clearFilter() {
+func clearFilter() error {
 	err := txWrite(func(tx *sql.Tx) error {
 		QueryString := "DELETE FROM FilterDevs"
 		_, err := tx.Exec(QueryString)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx delete error filterDevs: %w", err)
 		}
 		QueryString = "DELETE FROM FilterName"
 		_, err = tx.Exec(QueryString)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx delete error filterName: %w", err)
 		}
 		QueryString = "DELETE FROM FilterPlatform"
 		_, err = tx.Exec(QueryString)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx delete error filterPlatform: %w", err)
 		}
 		QueryString = "DELETE FROM FilterTags"
 		_, err = tx.Exec(QueryString)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx delete error filterTags: %w", err)
 		}
 		return nil
 	})
-	bail(err)
+	return err
 }
 
-func getFilterState() map[string][]string {
+func getFilterState() (map[string][]string, error) {
 
 	var filterDevs, filterName, filterPlatform, filterTags []string
 	returnMap := make(map[string][]string)
 	QueryString := "SELECT * FROM FilterDevs"
 	rows, err := readDB.Query(QueryString)
+	if err != nil {
+		return nil, fmt.Errorf("db query err filterDevs %w", err)
+	}
+
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("row scan err %w", err)
+		}
 		filterDevs = append(filterDevs, temp)
 	}
-	bail(err)
 
 	QueryString = "SELECT * FROM FilterName"
 	rows, err = readDB.Query(QueryString)
+	if err != nil {
+		return nil, fmt.Errorf("db query err filterName %w", err)
+	}
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("row scan err %w", err)
+		}
 		filterName = append(filterName, temp)
 	}
-	bail(err)
 
 	QueryString = "SELECT * FROM FilterPlatform"
 	rows, err = readDB.Query(QueryString)
+	if err != nil {
+		return nil, fmt.Errorf("db query err filterPlatform %w", err)
+	}
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("row scan err %w", err)
+		}
 		filterPlatform = append(filterPlatform, temp)
 
 	}
-	bail(err)
 
 	QueryString = "SELECT * FROM FilterTags"
 	rows, err = readDB.Query(QueryString)
+	if err != nil {
+		return nil, fmt.Errorf("db query err filterTags %w", err)
+	}
 	for rows.Next() {
 		var temp string
 		err := rows.Scan(&temp)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("row scan err %w", err)
+		}
 		filterTags = append(filterTags, temp)
 
 	}
-	bail(err)
 	returnMap["Devs"] = filterDevs
 	returnMap["Name"] = filterName
 	returnMap["Platform"] = filterPlatform
 	returnMap["Tags"] = filterTags
 	fmt.Println("This", returnMap["Devs"])
 
-	return (returnMap)
+	return returnMap, nil
 }
 
 // Repeated Call Funcs
@@ -582,13 +604,15 @@ func unhideGame(uid string) {
 	bail(err)
 }
 
-func sortDB(sortType string, order string) map[string]interface{} {
+func sortDB(sortType string, order string) (map[string]interface{}, error) {
 
 	// Retrieve sort state from DB if type is default
 	if sortType == "default" {
 		QueryString := "SELECT * FROM SortState"
 		rows, err := readDB.Query(QueryString)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("db query err SortState %w", err)
+		}
 		defer rows.Close()
 
 		for rows.Next() {
@@ -596,7 +620,7 @@ func sortDB(sortType string, order string) map[string]interface{} {
 
 			err = rows.Scan(&Type, &Value)
 			if err != nil {
-				panic(err)
+				return nil, fmt.Errorf("row scan err %w", err)
 			}
 
 			if Type == "Sort Type" {
@@ -612,7 +636,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		err := txBatchUpdate(tx, "UPDATE SortState SET Value=? WHERE Type=?", [][]any{{sortType, "Sort Type"}, {order, "Sort Order"}})
 		return err
 	})
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("tx error SortState %w", err)
+	}
 
 	// Check FilterTags
 	Query := `
@@ -626,7 +652,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 
 	var tagsFilterSetInt, devsFilterSetInt, platsFilterSetInt, nameFilterSetInt int
 	err = row.Scan(&tagsFilterSetInt, &devsFilterSetInt, &platsFilterSetInt, &nameFilterSetInt)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("row scan err %w", err)
+	}
 
 	// Convert to bool
 	tagsFilterSet := tagsFilterSetInt > 0
@@ -731,7 +759,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	BaseQuery += fmt.Sprintf(`ORDER BY %s %s;`, sortType, order)
 
 	rows, err := readDB.Query(BaseQuery)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("db query err main query %w", err)
+	}
 	defer rows.Close()
 
 	// map for results
@@ -748,7 +778,9 @@ func sortDB(sortType string, order string) map[string]interface{} {
 		var AggregatedRating, CustomRating float32
 
 		err = rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &InstallPath, &CustomTitle, &CustomRating, &CustomTimePlayed, &CustomReleaseDate)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("row scan error %w", err)
+		}
 		metadata[i] = make(map[string]interface{})
 		metadata[i]["Name"] = CustomTitle
 		metadata[i]["UID"] = UID
@@ -775,8 +807,10 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	for rows.Next() {
 		var UID string
 		err = rows.Scan(&UID)
+		if err != nil {
+			return nil, fmt.Errorf("row scan error %w", err)
+		}
 		hiddenUidArr = append(hiddenUidArr, UID)
-		bail(err)
 	}
 
 	// results to response map
@@ -785,76 +819,65 @@ func sortDB(sortType string, order string) map[string]interface{} {
 	metaDataAndSortInfo["SortType"] = sortType
 	metaDataAndSortInfo["HiddenUIDs"] = hiddenUidArr
 
-	return (metaDataAndSortInfo)
+	return metaDataAndSortInfo, nil
 }
 
-func getSortOrder() map[string]string {
-	QueryString := "SELECT * FROM SortState"
-	rows, err := readDB.Query(QueryString)
-	bail(err)
-	defer rows.Close()
-
-	SortMap := make(map[string]string)
-	for rows.Next() {
-		var Value, Type string
-
-		err = rows.Scan(&Type, &Value)
-		bail(err)
-
-		if Type == "Sort Type" {
-			SortMap["Type"] = Value
-		}
-		if Type == "Sort Order" {
-			SortMap["Order"] = Value
-		}
-	}
-	return (SortMap)
-}
-
-func getPlatforms() []string {
+func getPlatforms() ([]string, error) {
 	QueryString := "SELECT * FROM Platforms ORDER BY Name"
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error Platforms: %w", err)
+	}
 	defer rows.Close()
 
 	platforms := []string{}
 	for rows.Next() {
 		var UID, Name string
 		err = rows.Scan(&UID, &Name)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan err Platforms: %w", err)
+		}
 		platforms = append(platforms, Name)
 	}
-	return (platforms)
+	return platforms, nil
 }
 
-func getNpsso() string {
+func getNpsso() (string, error) {
 	QueryString := "SELECT * FROM PlayStationNpsso"
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return "", fmt.Errorf("npsso query error: %w", err)
+	}
 	defer rows.Close()
 
 	var Npsso string
 	for rows.Next() {
 		err = rows.Scan(&Npsso)
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("npsso query error: %w", err)
+		}
 	}
-	return (Npsso)
+	return Npsso, nil
 }
 
-func getSteamCreds() []string {
+func getSteamCreds() ([]string, error) {
 	rows, err := readDB.Query("SELECT * FROM SteamCreds")
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("steamcreds query error: %w", err)
+	}
 	defer rows.Close()
 
 	creds := []string{}
 	for rows.Next() {
 		var steamID, steamAPIKey string
 		err = rows.Scan(&steamID, &steamAPIKey)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("steamcreds scan err: %w", err)
+		}
 		creds = append(creds, steamID)
 		creds = append(creds, steamAPIKey)
 	}
-	return (creds)
+	return creds, nil
 }
 
 func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
@@ -1140,10 +1163,10 @@ func addSSEClient(c *gin.Context) {
 	}
 }
 func sendSSEMessage(msg string) {
-	log.Println("Sending SSE:", msg)
+	fmt.Println("Sending SSE:", msg)
 	select {
 	case sseBroadcast <- msg:
-		log.Println("SSE message sent successfully")
+		fmt.Println("SSE message sent successfully")
 	default:
 		log.Println("SSE channel blocked, dropping message")
 	}
@@ -1170,7 +1193,12 @@ func setupRouter() *gin.Engine {
 		c.Header("Cache-Control", "no-store")
 		sortType := c.Query("type")
 		order := c.Query("order")
-		metaData := sortDB(sortType, order)
+		metaData, err := sortDB(sortType, order)
+		if err != nil {
+			log.Printf("[GetBasicInfo] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get basic info", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"MetaData": metaData["MetaData"], "SortOrder": metaData["SortOrder"], "SortType": metaData["SortType"], "HiddenUIDs": metaData["HiddenUIDs"]})
 	}
 
@@ -1180,29 +1208,38 @@ func setupRouter() *gin.Engine {
 		})
 	})
 
-	r.GET("/getSortOrder", func(c *gin.Context) {
-		fmt.Println("Recieved Sort Order Req")
-		sortMap := getSortOrder()
-		c.JSON(http.StatusOK, gin.H{"Type": sortMap["Type"], "Order": sortMap["Order"]})
-	})
-
 	r.GET("/getBasicInfo", basicInfoHandler)
 
 	r.GET("/getAllTags", func(c *gin.Context) {
 		fmt.Println("Recieved Get All Tags")
-		tags := getAllTags()
+		tags, err := getAllTags()
+		if err != nil {
+			log.Printf("[GetAllTags] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get tags", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"tags": tags})
 	})
 
 	r.GET("/getAllDevelopers", func(c *gin.Context) {
 		fmt.Println("Recieved Get All Devs")
-		devs := getAllDevelopers()
+		devs, err := getAllDevelopers()
+		if err != nil {
+			log.Printf("[GetAllDevelopers] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get devs", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"devs": devs})
 	})
 
 	r.GET("/getAllPlatforms", func(c *gin.Context) {
 		fmt.Println("Recieved Platforms")
-		PlatformList := getPlatforms()
+		PlatformList, err := getPlatforms()
+		if err != nil {
+			log.Printf("[GetAllPlatforms] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get platforms", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"platforms": PlatformList})
 	})
 
@@ -1215,28 +1252,41 @@ func setupRouter() *gin.Engine {
 		// Bind JSON from the request body
 		err := c.ShouldBindJSON(&FilterStruct)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filter JSON"})
+			log.Printf("[SetFilter] ERROR invalid req payload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		setTagsFilter(FilterStruct)
-
-		// Respond back to the client
+		err = setFilter(FilterStruct)
+		if err != nil {
+			log.Printf("[SetFilter] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update filter", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 		sendSSEMessage("Set Filter")
 	})
 
 	r.GET("/clearAllFilters", func(c *gin.Context) {
 		fmt.Println("Recieved Clear Filter")
-		clearFilter()
+		err := clearFilter()
+		if err != nil {
+			log.Printf("[ClearAllFilters] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear filter", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 		sendSSEMessage("Clear Filter")
 	})
 
 	r.GET("/LoadFilters", func(c *gin.Context) {
 		fmt.Println("Recieved Load Filters")
-		filterState := getFilterState()
-		fmt.Println("aaa", filterState["Name"])
+		filterState, err := getFilterState()
+		if err != nil {
+			log.Printf("[LoadFilters] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load filter", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"name": filterState["Name"], "platform": filterState["Platform"], "developers": filterState["Devs"], "tags": filterState["Tags"]})
 	})
 
@@ -1273,15 +1323,23 @@ func setupRouter() *gin.Engine {
 
 	r.GET("/Npsso", func(c *gin.Context) {
 		fmt.Println("Recieved Npsso")
-		Npsso := getNpsso()
-		fmt.Println(Npsso)
+		Npsso, err := getNpsso()
+		if err != nil {
+			log.Printf("[NPSSO] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get npsso", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"Npsso": Npsso})
 	})
 
 	r.GET("/SteamCreds", func(c *gin.Context) {
 		fmt.Println("Recieved SteamCreds")
-		SteamCreds := getSteamCreds()
-		fmt.Println(SteamCreds)
+		SteamCreds, err := getSteamCreds()
+		if err != nil {
+			log.Printf("[NPSSO] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get steam credentials", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"SteamCreds": SteamCreds})
 	})
 
