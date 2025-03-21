@@ -15,81 +15,30 @@ import WindowButtons from "./WindowsButtons";
 import Integrations from "../Dialogs/Integrations";
 import IntegrationsLoading from "./IntegrationsLoading";
 import TopBar from "./TopBar";
+import { cn } from "@/lib/utils";
+import { QuickSaveButton } from "./QuickSaveButton";
 
 export default function CustomTitleBar({ children }: { children: ReactNode }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const page = location.pathname;
-  console.log("path", page);
-
-  console.log(location.pathname);
-  const handleViewClick = (view: "" | "wishlist" | "hidden" | "installed") => {
-    navigate(`/${view}`, { replace: true });
-    console.log(`${view} View Clicked`);
-  };
+  const page = useLocation().pathname;
 
   return (
     <>
       <div className="flex h-screen w-screen flex-row">
         <div className="flex h-full w-14 flex-col bg-Sidebar">
           <div className="m-auto flex h-12 w-14">
-            <QuicksaveMenu handleViewClick={handleViewClick} />
+            <QuicksaveMenu />
           </div>
           <div className="h-full w-14">
             <div className="my-4 flex flex-col items-center justify-start gap-4 align-middle">
-              <Button
-                variant={"ghost"}
-                onClick={() => handleViewClick("")}
-                className={`group h-auto hover:bg-transparent ${
-                  page === "/"
-                    ? "rounded-r-none border-r border-leftbarIcons"
-                    : ""
-                }`}
-              >
-                <PiBookLight
-                  className={`group-hover:scale-125 text-leftbarIcons ${
-                    page === "/" ? "scale-150 group-hover:scale-150" : ""
-                  }`}
-                  size={22}
-                />
-              </Button>
-              <Button
-                variant={"ghost"}
-                onClick={() => handleViewClick("wishlist")}
-                className={`group h-auto hover:bg-transparent text-leftbarIcons ${
-                  page === "/wishlist"
-                    ? "rounded-r-none border-r border-leftbarIcons"
-                    : ""
-                }`}
-              >
-                <PiListHeartLight
-                  className={`group-hover:scale-125 ${
-                    page === "/wishlist"
-                      ? "scale-150 group-hover:scale-150"
-                      : ""
-                  }`}
-                  size={22}
-                />
-              </Button>
-              <Button
-                variant={"ghost"}
-                onClick={() => handleViewClick("installed")}
-                className={`group h-auto hover:bg-transparent text-leftbarIcons ${
-                  page === "/installed"
-                    ? "rounded-r-none border-r border-leftbarIcons"
-                    : ""
-                }`}
-              >
-                <HardDriveDownload
-                  className={`group-hover:scale-125 ${
-                    page === "/installed"
-                      ? "scale-150 group-hover:scale-150"
-                      : ""
-                  }`}
-                  size={22}
-                  strokeWidth={1.2}
-                />
-              </Button>
+              <QuickSaveButton view="" active={page === "/"}>
+                <PiBookLight />
+              </QuickSaveButton>
+              <QuickSaveButton view="wishlist" active={page === "/wishlist"}>
+                <PiListHeartLight />
+              </QuickSaveButton>
+              <QuickSaveButton view="installed" active={page === "/installed"}>
+                <HardDriveDownload strokeWidth={1.2} />
+              </QuickSaveButton>
             </div>
           </div>
         </div>

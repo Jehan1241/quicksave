@@ -17,13 +17,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { darkMode, darkPurpleMode, lightMode, redMode } from "@/ToggleTheme";
 import { useSortContext } from "@/hooks/useSortContex";
+import { useNavigate } from "react-router-dom";
 
-export default function QuicksaveMenu({ handleViewClick }: any) {
+export default function QuicksaveMenu() {
   const {
     setIsAddGameDialogOpen,
     setIsIntegrationsDialogOpen,
     setIsWishlistAddDialogOpen,
   } = useSortContext();
+
+  const navigate = useNavigate();
+  const handleViewClick = (view: "" | "wishlist" | "hidden" | "installed") => {
+    navigate(`/${view}`, { replace: true });
+  };
 
   return (
     <div className="flex w-16 items-center justify-center">
@@ -72,8 +78,13 @@ export default function QuicksaveMenu({ handleViewClick }: any) {
                   <DropdownMenuItem onClick={() => handleViewClick("wishlist")}>
                     Wishlist
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleViewClick("installed")}
+                  >
+                    Installed
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleViewClick("hidden")}>
-                    Hidden Games
+                    Hidden
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
