@@ -21,7 +21,7 @@ export function EditDialog({
   setEditDialogSelectedTab,
   editDialogOpen,
   setEditDialogOpen,
-  fetchData,
+  getGameDetails,
   coverArtPath,
   screenshotsArray,
   platform,
@@ -54,14 +54,14 @@ export function EditDialog({
             <MetadataTab
               tags={tags}
               uid={uid}
-              fetchData={fetchData}
+              fetchData={getGameDetails}
               companies={companies}
             />
             <ImagesTab
               coverArtPath={coverArtPath}
               screenshotsArray={screenshotsArray}
               uid={uid}
-              fetchData={fetchData}
+              fetchData={getGameDetails}
             />
             <PathTab uid={uid} setEditDialogOpen={setEditDialogOpen} />
           </Tabs>

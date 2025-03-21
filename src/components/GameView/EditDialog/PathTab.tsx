@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
+import { gamePathSaveHandler, getGamePath } from "@/lib/api/GameViewAPI";
 import { useEffect, useRef, useState } from "react";
 
 export function PathTab({ uid, setEditDialogOpen }: any) {
@@ -9,21 +10,8 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
   const [pathIsValid, setPathIsValid] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const loadPath = async () => {
-    console.log("Loading Game Path");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/getGamePath?uid=${uid}`
-      );
-      const json = await response.json();
-      setGamePath(json.path);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   useEffect(() => {
-    loadPath();
+    getGamePath(uid, setGamePath);
   }, []);
 
   const gamePathCheckHandler = async () => {
@@ -39,19 +27,6 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
       setPathIsValid(true);
     } else {
       setPathIsValid(false);
-    }
-  };
-
-  const gamePathSaveHandler = async () => {
-    console.log("Saving Game Path", gamePath);
-    try {
-      const response = await fetch(
-        `http://localhost:8080/setGamePath?uid=${uid}&path=${gamePath}`
-      );
-      const json = await response.json();
-      console.log(json);
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -116,7 +91,7 @@ export function PathTab({ uid, setEditDialogOpen }: any) {
           {pathIsValid === true && (
             <Button
               onClick={() => {
-                gamePathSaveHandler();
+                gamePathSaveHandler(uid, gamePath);
                 setEditDialogOpen(false);
               }}
               variant={"dialogSaveButton"}

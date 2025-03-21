@@ -1,6 +1,7 @@
 import { useSortContext } from "@/hooks/useSortContex";
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { doDataPreload } from "@/lib/api/GameViewAPI";
 
 interface GridMakerProps {
   cleanedName: string;
@@ -44,23 +45,9 @@ export default function GridMaker({
     });
   };
 
-  const doPreload = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `http://localhost:8080/GameDetails?uid=${uid}`
-      );
-      const json = await response.json();
-      const { companies, tags, screenshots, m: metadata } = json.metadata;
-      setPreloadData({
-        companies: companies[uid],
-        tags: tags[uid],
-        metadata: metadata[uid],
-        screenshots: screenshots[uid] || [],
-      });
-    } catch (error) {
-      console.error("Failed to preload game data:", error);
-    }
-  }, [uid]);
+  const doPreload = () => {
+    doDataPreload(uid, setPreloadData);
+  };
 
   const { cacheBuster } = useSortContext();
   const imageUrl = `http://localhost:8080/cover-art/${cover}`;

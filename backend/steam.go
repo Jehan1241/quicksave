@@ -346,15 +346,19 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	return nil
 }
 
-func getSteamAppID(uid string) int {
+func getSteamAppID(uid string) (int, error) {
 	QueryString := fmt.Sprintf(`SELECT AppID FROM SteamAppIds WHERE UID="%s"`, uid)
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return 0, fmt.Errorf("SteamAppID query error: %w", err)
+	}
 	defer rows.Close()
 	var appid int
 	for rows.Next() {
 		err = rows.Scan(&appid)
-		bail(err)
+		if err != nil {
+			return 0, fmt.Errorf("SteamAppID scan error: %w", err)
+		}
 	}
-	return (appid)
+	return appid, nil
 }

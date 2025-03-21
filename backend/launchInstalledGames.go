@@ -15,42 +15,44 @@ import (
 	"unsafe"
 )
 
-func getGamePath(uid string) string {
+func getGamePath(uid string) (string, error) {
 
 	var path sql.NullString
 	err := readDB.QueryRow("SELECT InstallPath FROM GameMetaData WHERE UID = ?", uid).Scan(&path)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ""
+			return "", nil
 		}
-		bail(err)
+		if err != nil {
+			return "", fmt.Errorf("error querying install path: %w", err)
+		}
 	}
 	// If its a string returns it if null returns empty
 	if path.Valid {
-		return path.String
+		return path.String, nil
 	}
-	return ""
+	return "", nil
 }
 
-func setInstallPath(uid string, path string) {
+func setInstallPath(uid string, path string) error {
 	err := txWrite(func(tx *sql.Tx) error {
 		if path != "" {
 			_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", path, uid)
 			if err != nil {
-				return err
+				return fmt.Errorf("error updating InstallPath: %w", err)
 			}
 		} else {
 			_, err := tx.Exec("UPDATE GameMetaData SET InstallPath = ? WHERE UID = ?", nil, uid)
 			if err != nil {
-				return err
+				return fmt.Errorf("error updating InstallPath: %w", err)
 			}
 		}
 		return nil
 	})
-	bail(err)
+	return err
 }
 
-func launchGameFromPath(path string, uid string) {
+func launchGameFromPath(path string, uid string) error {
 	switch runtime.GOOS {
 	case "windows":
 		gameDir := filepath.Dir(path)
@@ -68,8 +70,7 @@ func launchGameFromPath(path string, uid string) {
 			cmd.Dir = gameDir // Set correct working directory
 			err := cmd.Run()
 			if err != nil {
-				fmt.Printf("Error launching game: %s\n", err)
-				return
+				return fmt.Errorf("Error launching game: %w", err)
 			}
 		}
 
@@ -85,7 +86,9 @@ func launchGameFromPath(path string, uid string) {
 				playTime.Hours(), uid)
 			return err
 		})
-		bail(err)
+		if err != nil {
+			return fmt.Errorf("Error updating playtime: %w", err)
+		}
 
 	case "linux":
 		// On Linux, we assume it might be a shell script or other executable
@@ -111,9 +114,10 @@ func launchGameFromPath(path string, uid string) {
 	default:
 		fmt.Println("Unsupported platform:", runtime.GOOS)
 	}
+	return nil
 }
 
-func launchSteamGame(appid int) {
+func launchSteamGame(appid int) error {
 	// Get the current OS
 	currentOS := runtime.GOOS
 	fmt.Println("Launching Steam Game", appid)
@@ -129,19 +133,15 @@ func launchSteamGame(appid int) {
 		command = fmt.Sprintf(`start steam://rungameid/%d`, appid)
 		cmd = exec.Command("cmd", "/C", command)
 	} else {
-		fmt.Println("Unsupported OS")
-		return
+		return fmt.Errorf("error launching game: unsupported OS")
 	}
 
 	// Execute the command
-	stdout, err := cmd.Output()
+	_, err := cmd.Output()
 	if err != nil {
-		fmt.Println("Error:", err.Error())
-		return
+		return fmt.Errorf("error launching game: %w", err)
 	}
-
-	// Print the output of the command (if any)
-	fmt.Println(string(stdout))
+	return nil
 }
 
 func checkSteamInstalledValidity() error {

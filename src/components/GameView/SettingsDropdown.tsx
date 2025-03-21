@@ -8,14 +8,17 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Button } from "../ui/button";
+import { useNavigate } from "react-router-dom";
+import { unhideGame } from "@/lib/api/GameViewAPI";
 
 export function SettingsDropdown({
+  uid,
   setEditDialogOpen,
   hidden,
   setHideDialogOpen,
   setDeleteDialogOpen,
-  unhideGame,
 }: any) {
+  const navigate = useNavigate();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,7 +33,9 @@ export function SettingsDropdown({
           Edit Metadata
         </DropdownMenuItem>
         {hidden ? (
-          <DropdownMenuItem onClick={unhideGame}>Unhide Game</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => unhideGame(uid, navigate)}>
+            Unhide Game
+          </DropdownMenuItem>
         ) : (
           <DropdownMenuItem onClick={() => setHideDialogOpen(true)}>
             Hide Game

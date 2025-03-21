@@ -10,6 +10,8 @@ import { CarouselSection } from "./CarouselSection";
 import { DateTimeRatingSection } from "./DateTimeRatingSection";
 import { SettingsDropdown } from "./SettingsDropdown";
 import { useSortContext } from "@/hooks/useSortContex";
+import { fetchData } from "@/lib/api/fetchBasicInfo";
+import { getGameDetails, launchGame } from "@/lib/api/GameViewAPI";
 
 export default function GameView() {
   const navigate = useNavigate();
@@ -29,30 +31,26 @@ export default function GameView() {
   const [hideDialogOpen, setHideDialogOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
 
-  const playGame = async () => {
-    console.log("Play Game Clicked");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/LaunchGame?uid=${uid}`
-      );
-      const json = await response.json();
-      const launchStatus = json.LaunchStatus;
-      if (launchStatus === "ToAddPath") {
-        setEditDialogSelectedTab("path");
-        setEditDialogOpen(true);
-      }
-      if (launchStatus === "Launched") {
-        fetchData();
-      }
-    } catch (error) {
-      console.log(error);
-    }
+  const updateDetails = () => {
+    getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
+  };
+
+  const playGame = () => {
+    launchGame(
+      uid,
+      setEditDialogOpen,
+      setEditDialogSelectedTab,
+      setCompanies,
+      setTags,
+      setMetadata,
+      setScreenshots
+    );
   };
 
   // Its on UID change to accomodate randomGamesClicked
   useEffect(() => {
     console.log("Preload Data", preloadData);
-    if (preloadData !== undefined) {
+    if (preloadData === undefined) {
       setCompanies(preloadData.companies ?? { 0: "unknown" });
       setTags(preloadData.tags ?? { 0: "unknown" });
       setScreenshots(preloadData.screenshots ?? {});
@@ -66,27 +64,9 @@ export default function GameView() {
         ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
       });
     } else {
-      fetchData();
+      getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
     }
   }, [uid]);
-
-  const fetchData = async () => {
-    console.log("Sending Get Game Details");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/GameDetails?uid=${uid}`
-      );
-      const json = await response.json();
-      console.log(json);
-      const { companies, tags, screenshots, m: metadata } = json.metadata;
-      setCompanies(companies[uid]);
-      setTags(tags[uid]);
-      setMetadata(metadata[uid]);
-      setScreenshots(screenshots[uid] || []); // Make sure it's an array
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(companies);
@@ -108,20 +88,6 @@ export default function GameView() {
     const [year, month, day] = releaseDate.split("-");
     releaseDate = `${day}-${month}-${year}`;
   }
-
-  const unhideGame = async () => {
-    try {
-      console.log("Sending Get Game Details");
-      const response = await fetch(
-        `http://localhost:8080/unhideGame?uid=${uid}`
-      );
-      const json = await response.json();
-      console.log(json);
-    } catch (error) {
-      console.error(error);
-    }
-    navigate("/hidden", { replace: true });
-  };
 
   return (
     <>
@@ -149,8 +115,8 @@ export default function GameView() {
                 </Button>
 
                 <SettingsDropdown
+                  uid={uid}
                   hidden={hidden}
-                  unhideGame={unhideGame}
                   setEditDialogOpen={setEditDialogOpen}
                   setHideDialogOpen={setHideDialogOpen}
                   setDeleteDialogOpen={setDeleteDialogOpen}
@@ -162,7 +128,7 @@ export default function GameView() {
                   setEditDialogSelectedTab={setEditDialogSelectedTab}
                   editDialogOpen={editDialogOpen}
                   setEditDialogOpen={setEditDialogOpen}
-                  fetchData={fetchData}
+                  getGameDetails={updateDetails}
                   coverArtPath={metadata?.CoverArtPath}
                   screenshotsArray={screenshotsArray}
                   platform={metadata?.OwnedPlatform}

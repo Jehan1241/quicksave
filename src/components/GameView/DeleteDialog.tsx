@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
+import { hardDelete } from "@/lib/api/GameViewAPI";
 
 export function DeleteDialog({
   uid,
@@ -15,19 +16,6 @@ export function DeleteDialog({
   setDeleteDialogOpen,
 }: any) {
   const navigate = useNavigate();
-
-  const hardDelete = async () => {
-    console.log("Sending Delete Game");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/DeleteGame?uid=${uid}`
-      );
-      const json = await response.json();
-    } catch (error) {
-      console.error(error);
-    }
-    navigate(-1);
-  };
 
   return (
     <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -43,7 +31,7 @@ export function DeleteDialog({
         <DialogFooter className="flex items-end">
           <Button
             variant={"destructive"}
-            onClick={hardDelete}
+            onClick={() => hardDelete(uid, navigate)}
             className="h-12 w-32"
           >
             Delete Game

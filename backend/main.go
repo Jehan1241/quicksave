@@ -131,7 +131,7 @@ func getAllDevelopers() ([]string, error) {
 	return devs, nil
 }
 
-func getGameDetails(UID string) map[string]interface{} {
+func getGameDetails(UID string) (map[string]interface{}, error) {
 
 	// Map to store game data
 	m := make(map[string]map[string]interface{})
@@ -139,7 +139,9 @@ func getGameDetails(UID string) map[string]interface{} {
 	// Query 1 GameMetaData
 	QueryString := fmt.Sprintf(`SELECT UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating FROM GameMetaData Where UID = "%s"`, UID)
 	rows, err := readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error GameMetaData: %w", err)
+	}
 	defer rows.Close()
 
 	for rows.Next() {
@@ -149,7 +151,9 @@ func getGameDetails(UID string) map[string]interface{} {
 		var AggregatedRating float32
 
 		err := rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan error GameMetaData: %w", err)
+		}
 
 		m[UID] = make(map[string]interface{})
 		m[UID]["Name"] = Name
@@ -166,7 +170,9 @@ func getGameDetails(UID string) map[string]interface{} {
 	// Query 2 GamePreferences : Override meta-data with user prefs
 	QueryString = fmt.Sprintf(`SELECT * FROM GamePreferences Where GamePreferences.UID = "%s"`, UID)
 	rows, err = readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error GamePreferences: %w", err)
+	}
 	defer rows.Close()
 
 	var storedUID, customTitle, customReleaseDate string
@@ -176,7 +182,9 @@ func getGameDetails(UID string) map[string]interface{} {
 
 	for rows.Next() {
 		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset, &customReleaseDate, &useCustomReleaseDate, &customRating, &useCustomRating)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan error GameMetaData: %w", err)
+		}
 		if useCustomTitle == 1 {
 			m[UID]["Name"] = customTitle
 		}
@@ -198,7 +206,9 @@ func getGameDetails(UID string) map[string]interface{} {
 	// Query 3: Tags
 	QueryString = fmt.Sprintf(`SELECT * FROM Tags Where Tags.UID = "%s"`, UID)
 	rows, err = readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error Tags: %w", err)
+	}
 	defer rows.Close()
 
 	tags := make(map[string]map[int]string)
@@ -210,7 +220,9 @@ func getGameDetails(UID string) map[string]interface{} {
 		var UID, Tags string
 
 		err := rows.Scan(&UUID, &UID, &Tags)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan error Tags: %w", err)
+		}
 
 		if prevUID != UID {
 			prevUID = UID
@@ -224,7 +236,9 @@ func getGameDetails(UID string) map[string]interface{} {
 	// Query 4: InvolvedCompanies
 	QueryString = fmt.Sprintf(`SELECT * FROM InvolvedCompanies Where InvolvedCompanies.UID = "%s"`, UID)
 	rows, err = readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error InvolvedCompanies: %w", err)
+	}
 	defer rows.Close()
 
 	companies := make(map[string]map[int]string)
@@ -236,7 +250,9 @@ func getGameDetails(UID string) map[string]interface{} {
 		var Names string
 
 		err := rows.Scan(&UUID, &UID, &Names)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan error InvolvedCompanies: %w", err)
+		}
 
 		if prevUID != UID {
 			prevUID = UID
@@ -250,7 +266,9 @@ func getGameDetails(UID string) map[string]interface{} {
 	// Query 5: ScreenShots
 	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
 	rows, err = readDB.Query(QueryString)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("query error Screenshots: %w", err)
+	}
 	defer rows.Close()
 
 	screenshots := make(map[string]map[int]string)
@@ -262,7 +280,9 @@ func getGameDetails(UID string) map[string]interface{} {
 		var UID, ScreenshotPath string
 
 		err := rows.Scan(&UUID, &UID, &ScreenshotPath)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("scan error Screenshots: %w", err)
+		}
 
 		if prevUID != UID {
 			prevUID = UID
@@ -273,22 +293,12 @@ func getGameDetails(UID string) map[string]interface{} {
 		varr++
 	}
 
-	for i := range m {
-		println("Name : ", m[i]["Name"].(string))
-		println("UID : ", m[i]["UID"].(string))
-	}
-
-	for i := range tags {
-		for j := range tags[i] {
-			println("Tags :", i, tags[i][j], j)
-		}
-	}
 	MetaData := make(map[string]interface{})
 	MetaData["m"] = m
 	MetaData["tags"] = tags
 	MetaData["companies"] = companies
 	MetaData["screenshots"] = screenshots
-	return (MetaData)
+	return MetaData, nil
 }
 
 func setFilter(FilterStruct FilterStruct) error {
@@ -553,55 +563,61 @@ func GetMD5Hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func deleteGameFromDB(uid string) {
+func deleteGameFromDB(uid string) error {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM GameMetaData WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting GameMetaData: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM GamePreferences WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting GamePreferences: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM HiddenGames WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting HiddenGames: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM InvolvedCompanies WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting InvolvedCompanies: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM ScreenShots WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting ScreenShots: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM SteamAppIds WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting SteamAppIds: %w", err)
 		}
 		_, err = tx.Exec("DELETE FROM Tags WHERE UID=?", uid)
 		if err != nil {
-			return err
+			return fmt.Errorf("error deleting Tags: %w", err)
 		}
 		return nil
 	})
-	bail(err)
+	return err
 }
 
-func hideGame(uid string) {
+func hideGame(uid string) error {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("INSERT INTO HiddenGames (UID) VALUES (?)", uid)
-		return err
+		if err != nil {
+			return fmt.Errorf("error inserting to HiddenGames %w", err)
+		}
+		return nil
 	})
-	bail(err)
+	return err
 }
 
-func unhideGame(uid string) {
+func unhideGame(uid string) error {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM HiddenGames WHERE UID = ?", uid)
-		return err
+		if err != nil {
+			return fmt.Errorf("error deleting from HiddenGames %w", err)
+		}
+		return nil
 	})
-	bail(err)
+	return err
 }
 
 func sortDB(sortType string, order string) (map[string]interface{}, error) {
@@ -880,11 +896,7 @@ func getSteamCreds() ([]string, error) {
 	return creds, nil
 }
 
-func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) {
-	fmt.Println(uid)
-	fmt.Println(checkedParams["titleChecked"])
-	fmt.Println(params["time"])
-
+func updatePreferences(uid string, checkedParams map[string]bool, params map[string]string) error {
 	title := params["title"]
 	time := params["time"]
 	timeOffset := params["timeOffset"]
@@ -926,49 +938,65 @@ func updatePreferences(uid string, checkedParams map[string]bool, params map[str
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 		`
 		_, err := tx.Exec(query, uid, title, titleCheckedNumeric, time, timeCheckedNumeric, timeOffset, timeOffsetCheckedNumeric, releaseDate, releaseDateCheckedNumeric, rating, ratingCheckedNumeric)
-		return err
+		if err != nil {
+			return fmt.Errorf("error updating GamePreferences: %w", err)
+		}
+		return nil
 	})
-	bail(err)
+	return err
 }
 
-func updateTagsandDevs(uid string, tags []string, devs []string) {
+func updateTagsandDevs(uid string, tags []string, devs []string) error {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM Tags WHERE UID = ?", uid)
-		bail(err)
+		if err != nil {
+			return fmt.Errorf("tx error deleting tags: %w", err)
+		}
 		var values [][]any
 		for _, tag := range tags {
 			values = append(values, []any{uid, tag})
 		}
 		if len(tags) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO Tags (UID, Tags) VALUES (?, ?)", values)
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("tx error inserting tags: %w", err)
+			}
 		} else {
 			_, err = tx.Exec("INSERT INTO Tags (UID, Tags) VALUES (?, ?)", uid, "unknown")
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("tx error inserting tags: %w", err)
+			}
 		}
 
 		_, err = tx.Exec("DELETE FROM InvolvedCompanies WHERE UID = ?", uid)
-		bail(err)
+		if err != nil {
+			return fmt.Errorf("tx error deleting companies: %w", err)
+		}
 		values = [][]any{}
 		for _, dev := range devs {
 			values = append(values, []any{uid, dev})
 		}
 		if len(devs) > 0 {
 			err = txBatchUpdate(tx, "INSERT INTO InvolvedCompanies (UID, Name) VALUES (?, ?)", values)
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("tx error inserting companies: %w", err)
+			}
 		} else {
 			_, err = tx.Exec("INSERT INTO InvolvedCompanies (UID, Name) VALUES (?, ?)", uid, "unknown")
-			bail(err)
+			if err != nil {
+				return fmt.Errorf("tx error inserting companies: %w", err)
+			}
 		}
-
-		return err
+		return nil
 	})
-	bail(err)
+	return err
 }
 
-func getPreferences(uid string) map[string]interface{} {
+func getPreferences(uid string) (map[string]interface{}, error) {
 	rows, err := readDB.Query("SELECT * FROM GamePreferences WHERE UID=?", uid)
-	bail(err)
+	if err != nil {
+		return nil, fmt.Errorf("game preferences query error")
+	}
 	defer rows.Close()
 
 	var storedUID, customTitle, customTime, customTimeOffset, customReleaseDate, customRating string
@@ -976,7 +1004,9 @@ func getPreferences(uid string) map[string]interface{} {
 
 	for rows.Next() {
 		err := rows.Scan(&storedUID, &customTitle, &useCustomTitle, &customTime, &useCustomTime, &customTimeOffset, &useCustomTimeOffset, &customReleaseDate, &useCustomReleaseDate, &customRating, &useCustomRating)
-		bail(err)
+		if err != nil {
+			return nil, fmt.Errorf("game preferences scan error")
+		}
 	}
 
 	params := make(map[string]string)
@@ -997,10 +1027,10 @@ func getPreferences(uid string) map[string]interface{} {
 	preferences["params"] = params
 	preferences["paramsChecked"] = paramsChecked
 
-	return (preferences)
+	return preferences, nil
 }
 
-func setCustomImage(UID string, coverImage string, ssImage []string) {
+func setCustomImage(UID string, coverImage string, ssImage []string) error {
 	var validNames []string
 
 	if coverImage != "" {
@@ -1013,20 +1043,22 @@ func setCustomImage(UID string, coverImage string, ssImage []string) {
 	err := txWrite(func(tx *sql.Tx) error {
 		_, err := tx.Exec("DELETE FROM ScreenShots WHERE UID=?", UID)
 		if err != nil {
-			return err
+			return fmt.Errorf("tx error deleting from screenshots")
 		}
 
 		for i := range ssImage {
 			pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
 			_, err = tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", UID, pathString)
 			if err != nil {
-				return err
+				return fmt.Errorf("tx error inserting to screenshots")
 			}
 			validNames = append(validNames, filepath.Join("screenshots", UID, fmt.Sprintf("%s-%d.webp", UID, i)))
 		}
 		return nil
 	})
-	bail(err)
+	if err != nil {
+		return err
+	}
 
 	// Save screenshots outside of transaction for a faster commit
 	for i, image := range ssImage {
@@ -1069,7 +1101,10 @@ func setCustomImage(UID string, coverImage string, ssImage []string) {
 		}
 		return nil
 	})
-	bail(err)
+	if err != nil {
+		return fmt.Errorf("filewalk error: %w", err)
+	}
+	return nil
 }
 
 func normalizeReleaseDate(input string) string {
@@ -1293,32 +1328,52 @@ func setupRouter() *gin.Engine {
 	r.GET("/GameDetails", func(c *gin.Context) {
 		fmt.Println("Recieved Game Details")
 		UID := c.Query("uid")
-		metaData := getGameDetails(UID)
+		metaData, err := getGameDetails(UID)
+		if err != nil {
+			log.Printf("[GameDetails] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get game details", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"metadata": metaData})
 	})
 
 	r.GET("/DeleteGame", func(c *gin.Context) {
 		fmt.Println("Recieved Delete Game")
 		UID := c.Query("uid")
-		deleteGameFromDB(UID)
+		err := deleteGameFromDB(UID)
+		if err != nil {
+			log.Printf("[DeleteGame] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete game", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Deleted Game")
-		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 	})
 
 	r.GET("/HideGame", func(c *gin.Context) {
 		fmt.Println("Recieved Hide Game")
 		UID := c.Query("uid")
-		hideGame(UID)
+		err := hideGame(UID)
+		if err != nil {
+			log.Printf("[HideGame] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hide game", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Hidden Game")
-		c.JSON(http.StatusOK, gin.H{"Deleted": "Success Var?"})
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 	})
 
 	r.GET("/unhideGame", func(c *gin.Context) {
 		fmt.Println("Recieved UnHide Game")
 		UID := c.Query("uid")
-		unhideGame(UID)
+		err := unhideGame(UID)
+		if err != nil {
+			log.Printf("[UnHideGame] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hide game", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Un-Hidden Game")
-		c.JSON(http.StatusOK, gin.H{"Hidden": "Success Var?"})
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 	})
 
 	r.GET("/Npsso", func(c *gin.Context) {
@@ -1336,7 +1391,7 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Recieved SteamCreds")
 		SteamCreds, err := getSteamCreds()
 		if err != nil {
-			log.Printf("[NPSSO] ERROR : %v", err)
+			log.Printf("[SteamCreds] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get steam credentials", "details": err.Error()})
 			return
 		}
@@ -1346,17 +1401,36 @@ func setupRouter() *gin.Engine {
 	r.GET("/LaunchGame", func(c *gin.Context) {
 		fmt.Println("Received Launch Game")
 		uid := c.Query("uid")
-		appid := getSteamAppID(uid)
+		appid, err := getSteamAppID(uid)
+		if err != nil {
+			log.Printf("[LaunchGame] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch game", "details": err.Error()})
+			return
+		}
 		if appid != 0 {
-			launchSteamGame(appid)
+			err := launchSteamGame(appid)
+			if err != nil {
+				log.Printf("[LaunchGame] ERROR : %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch steam game", "details": err.Error()})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 		} else {
-			path := getGamePath(uid)
-			fmt.Println(path)
+			path, err := getGamePath(uid)
+			if err != nil {
+				log.Printf("[LaunchGame] ERROR : %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch game", "details": err.Error()})
+				return
+			}
 			if path == "" {
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "ToAddPath"})
 			} else {
-				launchGameFromPath(path, uid)
+				err := launchGameFromPath(path, uid)
+				if err != nil {
+					log.Printf("[LaunchGame] ERROR : %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch game", "details": err.Error()})
+					return
+				}
 				sendSSEMessage("Game quit, updated playtime")
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 			}
@@ -1367,7 +1441,12 @@ func setupRouter() *gin.Engine {
 		uid := c.Query("uid")
 		path := c.Query("path")
 		fmt.Println("Received Set Game Path", uid, path)
-		setInstallPath(uid, path)
+		err := setInstallPath(uid, path)
+		if err != nil {
+			log.Printf("[SetGamePath] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set game path", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Set Game Path")
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -1375,10 +1454,16 @@ func setupRouter() *gin.Engine {
 	r.GET("/getGamePath", func(c *gin.Context) {
 		uid := c.Query("uid")
 		fmt.Println("Received Set Game Path", uid)
-		path := getGamePath(uid)
+		path, err := getGamePath(uid)
+		if err != nil {
+			log.Printf("[GetGamePath] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get game path", "details": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"path": path})
 	})
 
+	//Not USED YET
 	r.GET("/AddScreenshot", func(c *gin.Context) {
 		fmt.Println("Received AddScreenshot")
 		screenshotString := c.Query("string")
@@ -1394,46 +1479,25 @@ func setupRouter() *gin.Engine {
 		gameToFind := data.NameToSearch
 		accessToken, err := getAccessToken(clientID, clientSecret)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[IGDBSearch] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to obtain IGDB access token", "details": err.Error()})
 			return
 		}
 		gameStruct, err = searchGame(accessToken, gameToFind)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[IGDBSearch] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search on IGDB", "details": err.Error()})
 			return
 		}
 		foundGames = returnFoundGames(gameStruct)
 		foundGamesJSON, err := json.Marshal(foundGames)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[IGDBSearch] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process IGDB data", "details": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"foundGames": string(foundGamesJSON)})
 	})
-
-	// r.POST("/InsertGameInDB", func(c *gin.Context) {
-	// 	var data struct {
-	// 		Key              int    `json:"key"`
-	// 		SelectedPlatform string `json:"platform"`
-	// 		Time             string `json:"time"`
-	// 	}
-	// 	if err := c.BindJSON(&data); err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-	// 	fmt.Println("Received", data.Key)
-	// 	fmt.Println("Recieved", data.SelectedPlatform)
-	// 	fmt.Println("Recieved", data.Time)
-	// 	appID = data.Key
-	// 	fmt.Println(appID)
-	// 	getMetaData(appID, gameStruct, accessToken, data.SelectedPlatform)
-	// 	insertMetaDataInDB("", data.SelectedPlatform, data.Time) // Here "", to let the title come from IGDB
-	// 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
-	// 	sendSSEMessage("Inserted Game")
-	// })
 
 	r.POST("/GetIgdbInfo", func(c *gin.Context) {
 		var data struct {
@@ -1448,14 +1512,14 @@ func setupRouter() *gin.Engine {
 
 		accessToken, err := getAccessToken(clientID, clientSecret)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[GetIGDBInfo] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to obtain IGDB access token", "details": err.Error()})
 			return
 		}
 
 		metaData, err := getMetaData(appID, gameStruct, accessToken, "PlayStation 4")
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[GetIGDBInfo] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get game metadata", "details": err.Error()})
 			return
 		}
@@ -1499,7 +1563,7 @@ func setupRouter() *gin.Engine {
 
 		insertionStatus, err := addGameToDB(title, releaseDate, platform, timePlayed, rating, devs, tags, descripton, coverImage, screenshots, isWishlist)
 		if err != nil {
-			log.Printf("ERROR : %v", err)
+			log.Printf("[AddGameToDB] ERROR : %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert game", "details": err.Error()})
 			return
 		}
@@ -1563,7 +1627,12 @@ func setupRouter() *gin.Engine {
 	r.GET("/LoadPreferences", func(c *gin.Context) {
 		fmt.Println("Received Load Preferences")
 		uid := c.Query("uid")
-		preferences := getPreferences(uid)
+		preferences, err := getPreferences(uid)
+		if err != nil {
+			log.Printf("[LoadPreferences] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get preferences", "details": err.Error()})
+			return
+		}
 		params := preferences["params"].(map[string]string)
 		paramsChecked := preferences["paramsChecked"].(map[string]int)
 
@@ -1598,9 +1667,11 @@ func setupRouter() *gin.Engine {
 		}
 
 		if err := c.BindJSON(&data); err != nil {
+			log.Printf("[SavePreferences] ERROR invalid req payload: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
 		checkedParams := make(map[string]bool)
 		params := make(map[string]string)
 		fmt.Println("AAAA", data.CustomRating, "AAAA", data.CustomReleaseDate)
@@ -1620,8 +1691,18 @@ func setupRouter() *gin.Engine {
 
 		uid := data.UID
 		fmt.Println("Received Save Preferences : ", data.CustomRating, data.CustomReleaseDate)
-		updatePreferences(uid, checkedParams, params)
-		updateTagsandDevs(uid, data.SelectedTags, data.SelectedDevs)
+		err := updatePreferences(uid, checkedParams, params)
+		if err != nil {
+			log.Printf("[SavePreferences] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save preferences", "details": err.Error()})
+			return
+		}
+		err = updateTagsandDevs(uid, data.SelectedTags, data.SelectedDevs)
+		if err != nil {
+			log.Printf("[SavePreferences] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save preferences", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
@@ -1633,11 +1714,17 @@ func setupRouter() *gin.Engine {
 			SsImage    []string `json:"ssImage"`
 		}
 		if err := c.BindJSON(&data); err != nil {
+			log.Printf("[SetCustomImage] ERROR invalid req payload: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		fmt.Println("Recieved Set Custom Image", data.UID)
-		setCustomImage(data.UID, data.CoverImage, data.SsImage)
+		err := setCustomImage(data.UID, data.CoverImage, data.SsImage)
+		if err != nil {
+			log.Printf("[SetCustomImage] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not set custom image", "details": err.Error()})
+			return
+		}
 		sendSSEMessage("Game added: Saved Preferences")
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})

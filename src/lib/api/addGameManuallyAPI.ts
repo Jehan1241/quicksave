@@ -105,12 +105,13 @@ export const fetchTagsDevsPlatforms = async (
     const resp = await response.json();
 
     // Transform the tags into key-value pairs
-    const tagsAsKeyValuePairs = resp.tags.map((tag: any) => ({
-      value: tag,
-      label: tag,
-    }));
-
-    setTagOptions(tagsAsKeyValuePairs);
+    if (resp.tags && resp.tags.length > 0) {
+      const tagsAsKeyValuePairs = resp.tags.map((tag: any) => ({
+        value: tag,
+        label: tag,
+      }));
+      setTagOptions(tagsAsKeyValuePairs);
+    }
   } catch (error) {
     console.error("Error fetching tags:", error);
     showErrorToast("Failed to get tags!", String(error));
@@ -121,13 +122,13 @@ export const fetchTagsDevsPlatforms = async (
     const resp = await response.json();
     console.log(resp);
 
-    // Transform the tags into key-value pairs
-    const devsAsKeyValuePairs = resp.devs.map((dev: any) => ({
-      value: dev,
-      label: dev,
-    }));
-
-    setDevOptions(devsAsKeyValuePairs);
+    if (resp.devs && resp.devs.length > 0) {
+      const devsAsKeyValuePairs = resp.devs.map((dev: any) => ({
+        value: dev,
+        label: dev,
+      }));
+      setDevOptions(devsAsKeyValuePairs);
+    }
   } catch (error) {
     console.error("Error fetching developers:", error);
     showErrorToast("Failed to get developers!", String(error));
@@ -139,12 +140,13 @@ export const fetchTagsDevsPlatforms = async (
     console.log(resp);
 
     // Transform the tags into key-value pairs
-    const platsAsKeyValuePairs = resp.platforms.map((plat: any) => ({
-      value: plat,
-      label: plat,
-    }));
-
-    setPlatformOptions(platsAsKeyValuePairs);
+    if (resp.platforms && resp.platforms.length > 0) {
+      const platsAsKeyValuePairs = resp.platforms.map((plat: any) => ({
+        value: plat,
+        label: plat,
+      }));
+      setPlatformOptions(platsAsKeyValuePairs);
+    }
   } catch (error) {
     console.error("Error fetching platforms:", error);
     showErrorToast("Failed to get platforms!", String(error));

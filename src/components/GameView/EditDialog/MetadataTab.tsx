@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import MultipleSelector from "@/components/ui/multiple-selector";
+import { loadPreferences } from "@/lib/api/GameViewAPI";
 
 export function MetadataTab({ uid, fetchData, tags, companies }: any) {
   let selectedTags = Array.isArray(tags)
@@ -54,74 +55,6 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
     { label: string; value: string }[]
   >([]);
 
-  const loadPreferences = async () => {
-    try {
-      const response = await fetch(
-        `http://localhost:8080/LoadPreferences?uid=${uid}`
-      );
-      const json = await response.json();
-      console.log(json);
-      setCustomTime("0");
-      setCustomTimeOffset("0");
-      setCustomRating("0");
-      setCustomTitle(json.preferences.title.value);
-      if (json.preferences.time.value) {
-        setCustomTime(json.preferences.time.value);
-      }
-      if (json.preferences.timeOffset.value) {
-        setCustomTimeOffset(json.preferences.timeOffset.value);
-      }
-      if (json.preferences.rating.value) {
-        console.log("A");
-        setCustomRating(json.preferences.rating.value);
-      }
-      setCustomReleaseDate(json.preferences.releaseDate.value);
-
-      if (json.preferences.title.checked == "1") {
-        setCustomTitleChecked(true);
-      }
-      if (json.preferences.time.checked == "1") {
-        setCustomTimeChecked(true);
-      }
-      if (json.preferences.timeOffset.checked == "1") {
-        setCustomTimeOffsetChecked(true);
-      }
-      if (json.preferences.releaseDate.checked == "1") {
-        setCustomReleaseDateChecked(true);
-      }
-      if (json.preferences.rating.checked == "1") {
-        setCustomRatingChecked(true);
-      }
-
-      const tagsResponse = await fetch("http://localhost:8080/getAllTags");
-      const tagsData = await tagsResponse.json();
-
-      // Transform the tags into key-value pairs
-      const tagsAsKeyValuePairs = tagsData.tags.map((tag: any) => ({
-        value: tag,
-        label: tag,
-      }));
-      setTagOptions(tagsAsKeyValuePairs);
-
-      const devsResponse = await fetch(
-        "http://localhost:8080/getAllDevelopers"
-      );
-      const devsData = await devsResponse.json();
-      console.log(devsData);
-
-      // Transform the developers into key-value pairs
-      const devsAsKeyValuePairs = devsData.devs.map((dev: any) => ({
-        value: dev,
-        label: dev,
-      }));
-      setDevOptions(devsAsKeyValuePairs);
-
-      console.log("TTTATT", devOptions);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const saveClickHandler = () => {
     const selectedTagValues = selectedTags.map(
       (tag: { value: string }) => tag.value
@@ -153,7 +86,21 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
   };
 
   useEffect(() => {
-    loadPreferences();
+    loadPreferences(
+      uid,
+      setCustomTime,
+      setCustomTimeOffset,
+      setCustomRating,
+      setCustomTitle,
+      setCustomReleaseDate,
+      setCustomTitleChecked,
+      setCustomTimeChecked,
+      setCustomTimeOffsetChecked,
+      setCustomReleaseDateChecked,
+      setCustomRatingChecked,
+      setTagOptions,
+      setDevOptions
+    );
   }, []);
 
   const handleCheckboxChange = (

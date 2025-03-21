@@ -8,33 +8,10 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
+import { hideGame } from "@/lib/api/GameViewAPI";
 
 export function HideDialog({ uid, hideDialogOpen, setHideDialogOpen }: any) {
   const navigate = useNavigate();
-
-  const hide = async () => {
-    console.log("Sending Hide Game");
-    try {
-      const response = await fetch(`http://localhost:8080/HideGame?uid=${uid}`);
-      const json = await response.json();
-    } catch (error) {
-      console.error(error);
-    }
-    navigate("/", { replace: true });
-  };
-
-  const hardDelete = async () => {
-    console.log("Sending Delete Game");
-    try {
-      const response = await fetch(
-        `http://localhost:8080/DeleteGame?uid=${uid}`
-      );
-      const json = await response.json();
-    } catch (error) {
-      console.error(error);
-    }
-    navigate("/", { replace: true });
-  };
 
   return (
     <Dialog open={hideDialogOpen} onOpenChange={setHideDialogOpen}>
@@ -50,7 +27,7 @@ export function HideDialog({ uid, hideDialogOpen, setHideDialogOpen }: any) {
         <DialogFooter className="flex items-end">
           <Button
             variant={"dialogSaveButton"}
-            onClick={hide}
+            onClick={() => hideGame(uid, navigate)}
             className="h-12 w-32"
           >
             Hide Game

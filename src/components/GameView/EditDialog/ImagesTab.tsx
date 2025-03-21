@@ -23,6 +23,7 @@ import {
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { CgSpinner } from "react-icons/cg";
 import { useSortContext } from "@/hooks/useSortContex";
+import { saveCustomImage } from "@/lib/api/GameViewAPI";
 
 export function ImagesTab({
   coverArtPath,
@@ -57,32 +58,16 @@ export function ImagesTab({
     setCurrentCover(null);
   };
 
-  const saveClickHandler = async () => {
-    console.log("Saved");
-    setLoading(true);
-    try {
-      const response = await fetch(`http://localhost:8080/setCustomImage`, {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify({
-          uid: uid,
-          coverImage: currentCover,
-          ssImage: ssImage,
-        }),
-      });
-      const resp = await response.json();
-      if (resp.status === "OK") {
-        fetchData();
-        setLoading(false);
-        navigate("/", { replace: true });
-        setCacheBuster(Date.now());
-        //window.windowFunctions.nukeCache();
-      }
-      console.log(resp);
-    } catch (error) {
-      console.error(error);
-      setLoading(false);
-    }
+  const saveClickHandler = () => {
+    saveCustomImage(
+      uid,
+      setLoading,
+      currentCover,
+      ssImage,
+      navigate,
+      setCacheBuster,
+      fetchData
+    );
   };
 
   const [ssImage, setSsImage] = useState<(string | null)[]>(screenshotsArray);
