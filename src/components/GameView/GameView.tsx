@@ -50,7 +50,7 @@ export default function GameView() {
   // Its on UID change to accomodate randomGamesClicked
   useEffect(() => {
     console.log("Preload Data", preloadData);
-    if (preloadData === undefined) {
+    if (preloadData !== undefined) {
       setCompanies(preloadData.companies ?? { 0: "unknown" });
       setTags(preloadData.tags ?? { 0: "unknown" });
       setScreenshots(preloadData.screenshots ?? {});
@@ -62,6 +62,7 @@ export default function GameView() {
         Name: preloadData.metadata?.Name ?? "Unknown",
         OwnedPlatform: preloadData.metadata?.OwnedPlatform ?? "Unknown",
         ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
+        CoverArtPath: preloadData.metadata?.CoverArtPath,
       });
     } else {
       getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
@@ -89,6 +90,7 @@ export default function GameView() {
     releaseDate = `${day}-${month}-${year}`;
   }
 
+  console.log(metadata);
   return (
     <>
       {/* Avoid undefined URL error */}
