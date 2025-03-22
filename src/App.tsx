@@ -11,7 +11,7 @@ import { LibraryView } from "./components/LibraryView/LibraryView";
 import WishlistDialog from "./components/Dialogs/WishListDialog";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
-import { useSSEListener } from "./hooks/useSSEListener";
+import { attachSSEListener } from "./lib/attachSSEListener";
 import { fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
@@ -24,13 +24,10 @@ function App() {
     setSortOrder,
     setMetaData,
     setTileSize,
-    tileSize,
     sortStateUpdate,
     setSortStateUpdate,
     randomGameClicked,
     setRandomGameClicked,
-    setIntegrationLoadCount,
-    setCacheBuster,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]);
@@ -39,6 +36,10 @@ function App() {
   const [installedArray, setInstalledArray] = useState<any[]>([]);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log("app rerender");
+  });
 
   const updateData = () => {
     fetchData(
@@ -75,8 +76,8 @@ function App() {
       // );
     };
     initFunc();
+    attachSSEListener(updateData);
   }, []);
-  useSSEListener(updateData);
 
   useEffect(() => {
     if (!randomGameClicked) return;

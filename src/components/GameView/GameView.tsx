@@ -9,11 +9,12 @@ import { EditDialog } from "./EditDialog/EditDialog";
 import { CarouselSection } from "./CarouselSection";
 import { DateTimeRatingSection } from "./DateTimeRatingSection";
 import { SettingsDropdown } from "./SettingsDropdown";
-import { useSortContext } from "@/hooks/useSortContex";
-import { fetchData } from "@/lib/api/fetchBasicInfo";
 import { getGameDetails, launchGame } from "@/lib/api/GameViewAPI";
+import { useSortContext } from "@/hooks/useSortContex";
 
-export default function GameView() {
+export default React.memo(GameView);
+
+function GameView() {
   const navigate = useNavigate();
   const location = useLocation();
   const uid = location.state.data;

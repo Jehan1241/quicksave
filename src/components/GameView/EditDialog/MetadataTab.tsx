@@ -19,12 +19,20 @@ import { loadPreferences } from "@/lib/api/GameViewAPI";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 export function MetadataTab({ uid, fetchData, tags, companies }: any) {
-  let selectedTags = Array.isArray(tags)
-    ? tags.map((tag: string) => ({ label: tag, value: tag }))
-    : [];
-  let selectedCompanies = Array.isArray(companies)
-    ? companies.map((company: string) => ({ label: company, value: company }))
-    : [];
+  const [selectedTags, setSelectedTags] = useState<
+    { label: string; value: string }[]
+  >(
+    Array.isArray(tags)
+      ? tags.map((tag: string) => ({ label: tag, value: tag }))
+      : []
+  );
+  const [selectedCompanies, setSelectedCompanies] = useState<
+    { label: string; value: string }[]
+  >(
+    Array.isArray(companies)
+      ? companies.map((company: string) => ({ label: company, value: company }))
+      : []
+  );
 
   console.log("abawd", companies, selectedCompanies);
 
@@ -269,7 +277,7 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
               value={selectedTags}
               creatable
               onChange={(selected: any) => {
-                selectedTags = selected;
+                setSelectedTags(selected);
               }}
               hidePlaceholderWhenSelected={true}
               placeholder="Select Tags"
@@ -285,7 +293,7 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
               value={selectedCompanies}
               creatable
               onChange={(selected: any) => {
-                selectedCompanies = selected;
+                setSelectedCompanies(selected);
               }}
               hidePlaceholderWhenSelected={true}
               placeholder="Select Developers"
