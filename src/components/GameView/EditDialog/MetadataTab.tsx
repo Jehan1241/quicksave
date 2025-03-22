@@ -16,6 +16,7 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import MultipleSelector from "@/components/ui/multiple-selector";
 import { loadPreferences } from "@/lib/api/GameViewAPI";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 export function MetadataTab({ uid, fetchData, tags, companies }: any) {
   let selectedTags = Array.isArray(tags)
@@ -189,34 +190,12 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
               }
               className="mr-10"
             />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  disabled={!customReleaseDateChecked}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !customReleaseDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon size={18} />
-                  {customReleaseDate ? (
-                    format(customReleaseDate, "yyyy-MM-dd")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  disabled={!customReleaseDateChecked}
-                  mode="single"
-                  selected={customReleaseDate}
-                  onSelect={setCustomReleaseDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <DateTimePicker
+              hideTime={true}
+              value={customReleaseDate}
+              onChange={setCustomReleaseDate}
+              disabled={!customReleaseDateChecked}
+            />
           </div>
           <div className="flex items-center">
             <Label className="w-60">Custom Time Played</Label>

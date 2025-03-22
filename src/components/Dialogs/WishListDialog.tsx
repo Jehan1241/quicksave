@@ -48,6 +48,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { searchGame } from "@/lib/api/addGameManuallyAPI";
+import { DateTimePicker } from "../ui/datetime-picker";
 
 export default function WishlistDialog() {
   const { isWishlistAddDialogOpen, setIsWishlistAddDialogOpen } =
@@ -279,35 +280,11 @@ function MetaDataView() {
               {titleEmpty && "*"}
               Release Date
             </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "col-span-3 w-full justify-start text-left font-normal",
-                    !releaseDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon size={20} strokeWidth={1} />
-                  {releaseDate ? (
-                    format(releaseDate, "yyyy-MM-dd")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="col-span-3 p-0 w-auto">
-                <Calendar
-                  mode="single"
-                  selected={releaseDate}
-                  onSelect={(e) => {
-                    setReleaseDate(e);
-                    setReleaseDateEmpty(false);
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <DateTimePicker
+              hideTime={true}
+              value={releaseDate}
+              onChange={setReleaseDate}
+            />
           </div>
           <div className="flex gap-4 items-center text-sm">
             <label
