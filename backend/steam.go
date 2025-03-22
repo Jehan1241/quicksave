@@ -71,9 +71,35 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 		AppIDsInDB = append(AppIDsInDB, AppID)
 	}
 
+	rows, err = readDB.Query("SELECT AppID FROM SteamAppIdsSkip")
+	if err != nil {
+		return fmt.Errorf("DB read Error - SteamAppIdsSkip: %w", err)
+	}
+	defer rows.Close()
+
+	var AppIDsSkip []int
+	for rows.Next() {
+		var AppID int
+		if err := rows.Scan(&AppID); err != nil {
+			return fmt.Errorf("DB scan error - SteamAppIds row: %w", err)
+		}
+		AppIDsSkip = append(AppIDsSkip, AppID)
+	}
+
 	for i, game := range allSteamGamesStruct.Response.Games {
 		insert := true
 		AppID := game.Appid
+
+		for _, skippedID := range AppIDsSkip {
+			if AppID == skippedID {
+				insert = false
+				break
+			}
+		}
+		if !insert {
+			continue
+		}
+		insert = true
 
 		for j := range AppIDsInDB {
 			AppIDinDB := AppIDsInDB[j]
@@ -145,6 +171,12 @@ func steamImportUserGames(SteamID string, APIkey string) error {
 		for j := range AppIDsInDB {
 			AppIDinDB := AppIDsInDB[j]
 			if AppIDinDB == AppID {
+				insert = false
+				break
+			}
+		}
+		for _, skippedID := range AppIDsSkip {
+			if AppID == skippedID {
 				insert = false
 				break
 			}
@@ -228,6 +260,15 @@ func getAndInsertSteamGameMetaData(Appid int, timePlayed float32, isWishlist int
 		if err != nil {
 			return fmt.Errorf("failed to insert Steam game metadata into DB: %w", err)
 		}
+	} else {
+		err := txWrite(func(tx *sql.Tx) error {
+			_, err := tx.Exec("INSERT INTO SteamAppIdsSkip (AppID) VALUES (?)", Appid)
+			if err != nil {
+				return fmt.Errorf("tx write error to steamSkipAppIDs: %w", err)
+			}
+			return nil
+		})
+		return err
 	}
 	return nil
 }
@@ -241,6 +282,23 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	platform := "Steam"
 	AggregatedRating := SteamGameMetadataStruct.Data.Metacritic.Score
 	UID := GetMD5Hash(name + strings.Split(releaseDate, "-")[0] + platform)
+
+	var exists bool
+	err := readDB.QueryRow("SELECT EXISTS(SELECT 1 FROM GameMetaData WHERE UID = ?)", UID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("db query error")
+	}
+
+	if exists {
+		err := txWrite(func(tx *sql.Tx) error {
+			_, err := tx.Exec("INSERT INTO SteamAppIDsSKip (appID) VALUES (?)", Appid)
+			if err != nil {
+				return fmt.Errorf("tx error insert to SteamAppIDsSkip: %w", err)
+			}
+			return nil
+		})
+		return err
+	}
 
 	fmt.Println(name)
 	// Download Cover Art outside transaction
@@ -268,7 +326,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 	}
 	wg.Wait()
 
-	err := txWrite(func(tx *sql.Tx) error {
+	err = txWrite(func(tx *sql.Tx) error {
 		//Insert to GameMetaData Table
 		_, err := tx.Exec(`INSERT INTO GameMetaData (UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating) 
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
