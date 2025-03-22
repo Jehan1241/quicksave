@@ -11,7 +11,7 @@ import { LibraryView } from "./components/LibraryView/LibraryView";
 import WishlistDialog from "./components/Dialogs/WishListDialog";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
-import { attachSSEListener } from "./lib/attachSSEListener";
+import { useSSEListener } from "./hooks/useSSEListener";
 import { fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
@@ -75,11 +75,8 @@ function App() {
       // );
     };
     initFunc();
-
-    attachSSEListener(() => {
-      updateData();
-    }, setCacheBuster);
   }, []);
+  useSSEListener(updateData);
 
   useEffect(() => {
     if (!randomGameClicked) return;
