@@ -122,6 +122,10 @@ func createTables(db *sql.DB) {
 	PRIMARY KEY("UID")
 	);`,
 
+		`CREATE TABLE "SteamAppIDsSkip" (
+		"appID"	INTEGER NOT NULL
+	);`,
+
 		`CREATE TABLE IF NOT EXISTS "Tags" (
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
