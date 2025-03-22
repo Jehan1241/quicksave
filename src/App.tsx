@@ -37,10 +37,6 @@ function App() {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log("app rerender");
-  });
-
   const updateData = () => {
     fetchData(
       sortType,

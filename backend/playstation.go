@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -87,14 +86,14 @@ func getAuthCode(npsso string) (string, error) {
 	resp, err := client.Do(req)
 	// The req is supposed to fail, we want it to go here
 	if err != nil {
-		log.Printf("Request failed(This means it passed): %v", err)
+		fmt.Printf("Request failed(This means it passed): %v", err)
 
 		// Use regex to extract the code from the error message
 		re := regexp.MustCompile(`code=(v3\.[^&]+)`)
 		matches := re.FindStringSubmatch(err.Error())
 		if len(matches) > 1 {
 			code := matches[1]
-			log.Printf("Extracted authorization code: %s", code)
+			fmt.Printf("Extracted authorization code: %s", code)
 			return code, nil
 		}
 		return "", fmt.Errorf("authorization code not found in error message")
