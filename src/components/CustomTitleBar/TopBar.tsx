@@ -46,8 +46,7 @@ export default function TopBar() {
             onChange={(e) => {
               setSearchText(e.target.value);
               if (location.pathname == "/gameview") {
-                console.log("in");
-                navigate(-1);
+                navigate("/", { replace: true });
               }
             }}
             className="my-auto h-8 bg-topBarButtons"
