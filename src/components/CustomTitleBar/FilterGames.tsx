@@ -142,6 +142,7 @@ export default function FilterGames({
 
             <MultipleSelector
               defaultOptions={OPTIONS}
+              maxSelected={1}
               value={selectedName}
               onChange={(e: any) => {
                 setSelectedName(e);
