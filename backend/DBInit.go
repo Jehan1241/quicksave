@@ -87,6 +87,10 @@ func createTables(db *sql.DB) {
 	PRIMARY KEY("UID")
 	);`,
 
+		`CREATE TABLE IF NOT EXISTS DBVersion (
+    version INTEGER PRIMARY KEY
+	);`,
+
 		`CREATE TABLE IF NOT EXISTS "HiddenGames" (
 	"UID"	TEXT NOT NULL UNIQUE
 	);`,
@@ -193,6 +197,11 @@ func initializeDefaultDBValues(db *sql.DB) {
 	}
 
 	defer tx.Rollback()
+
+	_, err = tx.Exec("INSERT INTO DBVersion (version) VALUES (?) ON CONFLICT DO NOTHING;", 1)
+	if err != nil {
+		log.Printf("init default Tx exec error %v", err)
+	}
 
 	platforms := []string{
 		"Sony Playstation 1",

@@ -11,6 +11,7 @@ import { DateTimeRatingSection } from "./DateTimeRatingSection";
 import { SettingsDropdown } from "./SettingsDropdown";
 import { getGameDetails, launchGame } from "@/lib/api/GameViewAPI";
 import { useSortContext } from "@/hooks/useSortContex";
+import { time } from "node:console";
 
 export default React.memo(GameView);
 
@@ -57,6 +58,8 @@ function GameView() {
       setScreenshots(preloadData.screenshots ?? {});
 
       setMetadata({
+        TimePlayed: preloadData.metadata?.TimePlayed,
+        isDLC: preloadData.metadata?.isDLC,
         AggregatedRating: preloadData.metadata?.AggregatedRating ?? 0,
         Description:
           preloadData.metadata?.Description ?? "No description available.",
@@ -91,7 +94,8 @@ function GameView() {
     releaseDate = `${day}-${month}-${year}`;
   }
 
-  console.log(metadata);
+  console.log("timePlayed", timePlayed);
+
   return (
     <>
       {/* Avoid undefined URL error */}
