@@ -124,7 +124,7 @@ function App() {
             element={
               <LibraryView
                 data={wishlistArray}
-                hidden={true}
+                hidden={false}
                 viewText="Wishlist"
               />
             }
