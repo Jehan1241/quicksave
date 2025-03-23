@@ -111,7 +111,7 @@ function GameView() {
               <div className="flex gap-2">
                 <Button
                   onClick={playGame}
-                  disabled={isWishlist === 0 ? false : true}
+                  disabled={hidden}
                   className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText"
                 >
                   <FaPlay /> Play
