@@ -5,20 +5,19 @@ interface Game {
 }
 
 export const pickRandomGame = (
-  location: Location,
+  lastLibraryPath: string,
   dataArray: Game[],
-  wishlistArray: Game[]
+  wishlistArray: Game[],
+  installedArray: Game[]
 ): string | null => {
   let targetArray: Game[] = [];
 
-  if (location.pathname === "/") {
+  if (lastLibraryPath === "/library") {
     targetArray = dataArray;
-  } else if (location.pathname === "/wishlist") {
+  } else if (lastLibraryPath === "/wishlist") {
     targetArray = wishlistArray;
-  } else if (location.pathname === "/gameview") {
-    targetArray = dataArray.some((game) => game.UID === location.state?.data)
-      ? dataArray
-      : wishlistArray;
+  } else if (lastLibraryPath === "/installed") {
+    targetArray = installedArray;
   }
 
   return targetArray.length > 0

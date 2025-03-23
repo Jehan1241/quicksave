@@ -18,7 +18,7 @@ export default function CustomTitleBar({ children }: { children: ReactNode }) {
           </div>
           <div className="h-full w-14">
             <div className="my-4 flex flex-col items-center justify-start gap-4 align-middle">
-              <QuickSaveButton view="" active={page === "/"}>
+              <QuickSaveButton view="library" active={page === "/library"}>
                 <PiBookLight />
               </QuickSaveButton>
               <QuickSaveButton view="wishlist" active={page === "/wishlist"}>

@@ -31,7 +31,10 @@ export function DeleteDialog({
         <DialogFooter className="flex items-end">
           <Button
             variant={"destructive"}
-            onClick={() => hardDelete(uid, navigate)}
+            onClick={() => {
+              setDeleteDialogOpen(false);
+              hardDelete(uid, navigate);
+            }}
             className="h-12 w-32"
           >
             Delete Game

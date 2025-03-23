@@ -183,7 +183,7 @@ export const saveCustomImage = async (
     const resp = await response.json();
     if (resp.status === "OK") {
       fetchData();
-      navigate("/", { replace: true });
+      navigate("/library", { replace: true });
       setCacheBuster(Date.now());
       //window.windowFunctions.nukeCache();
     }

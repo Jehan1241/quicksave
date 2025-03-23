@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setTheme } from "./ToggleTheme";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import CustomTitleBar from "./components/CustomTitleBar/CustomTitleBar";
 import AddGameManuallyDialog from "./components/Dialogs/AddGameManually";
@@ -15,6 +15,7 @@ import { attachSSEListener } from "./lib/attachSSEListener";
 import { fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
+import { useNavigationContext } from "./hooks/useNavigationContext";
 
 function App() {
   const {
@@ -75,10 +76,19 @@ function App() {
     attachSSEListener(updateData);
   }, []);
 
+  const { lastLibraryPath } = useNavigationContext();
+
   useEffect(() => {
+    console.log("Rand", randomGameClicked);
     if (!randomGameClicked) return;
     setRandomGameClicked(false);
-    const randomUID = pickRandomGame(location, dataArray, wishlistArray);
+    const randomUID = pickRandomGame(
+      lastLibraryPath,
+      dataArray,
+      wishlistArray,
+      installedArray
+    );
+    console.log(randomUID);
     if (randomUID) {
       navigate(`/gameview`, {
         state: { data: randomUID, hidden: false },
@@ -102,11 +112,12 @@ function App() {
         <Integrations />
         <WishlistDialog />
         <Routes>
+          <Route path="/" element={<Navigate to="/library" replace />} />
           <Route
             element={
               <LibraryView data={dataArray} hidden={false} viewText="Library" />
             }
-            path="/"
+            path="/library"
           />
 
           <Route

@@ -9,12 +9,14 @@ export function QuickSaveButton({
   active,
   children,
 }: {
-  view: "" | "wishlist" | "hidden" | "installed";
+  view: "library" | "wishlist" | "hidden" | "installed";
   active: boolean;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
-  const handleViewClick = (view: "" | "wishlist" | "hidden" | "installed") => {
+  const handleViewClick = (
+    view: "library" | "wishlist" | "hidden" | "installed"
+  ) => {
     navigate(`/${view}`, { replace: true });
   };
   return (

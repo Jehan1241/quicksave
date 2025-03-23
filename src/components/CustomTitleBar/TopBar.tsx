@@ -9,11 +9,19 @@ import { Dices, Filter } from "lucide-react";
 import { Slider } from "../ui/slider";
 import IntegrationsLoading from "./IntegrationsLoading";
 import WindowButtons from "./WindowsButtons";
+import { useNavigationContext } from "@/hooks/useNavigationContext";
 
 export default function TopBar() {
-  const { tileSize, setTileSize, setSearchText, setRandomGameClicked } =
-    useSortContext();
+  const {
+    tileSize,
+    setTileSize,
+    setSearchText,
+    setRandomGameClicked,
+    randomGameClicked,
+  } = useSortContext();
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+
+  const { lastLibraryPath } = useNavigationContext();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,7 +54,7 @@ export default function TopBar() {
             onChange={(e) => {
               setSearchText(e.target.value);
               if (location.pathname == "/gameview") {
-                navigate("/", { replace: true });
+                navigate(lastLibraryPath, { replace: true });
               }
             }}
             className="my-auto h-8 bg-topBarButtons"
@@ -69,7 +77,10 @@ export default function TopBar() {
             <Filter size={18} strokeWidth={1} />
           </Button>
           <Button
-            onClick={() => setRandomGameClicked(true)}
+            onClick={() => {
+              if (randomGameClicked) return; // Prevents spamming from breaking random games
+              setRandomGameClicked(true);
+            }}
             variant={"outline"}
             className="my-auto h-8 w-8 bg-topBarButtons hover:bg-topBarButtonsHover"
           >

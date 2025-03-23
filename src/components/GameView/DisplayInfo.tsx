@@ -4,12 +4,15 @@ import { Button } from "../ui/button";
 import { useNavigate } from "react-router-dom";
 import { useSortContext } from "@/hooks/useSortContex";
 import { RadioItem } from "@radix-ui/react-dropdown-menu";
+import { useNavigationContext } from "@/hooks/useNavigationContext";
 
 export function DisplayInfo({ data, tags, companies }: any) {
   const selectedDevs = useRef<string[]>([]);
   const selectedPlats = useRef<string[]>([]);
   const selectedTags = useRef<string[]>([]);
   const selectedName = useRef<string[]>([]);
+
+  const { lastLibraryPath } = useNavigationContext();
 
   const loadFilterState = async () => {
     try {
@@ -79,7 +82,7 @@ export function DisplayInfo({ data, tags, companies }: any) {
             onClick={(e) => {
               selectedPlats.current = [data?.OwnedPlatform];
               handleFilterChange();
-              navigate("/", { replace: true });
+              navigate(lastLibraryPath);
             }}
             className="h-6 rounded-full bg-platformBadge hover:bg-platformBadgeHover text-platformBadgeText"
           >
@@ -97,7 +100,7 @@ export function DisplayInfo({ data, tags, companies }: any) {
               onClick={(e) => {
                 selectedTags.current = [...selectedTags.current, item];
                 handleFilterChange();
-                navigate("/", { replace: true });
+                navigate(lastLibraryPath);
               }}
             >
               {item}
@@ -117,7 +120,7 @@ export function DisplayInfo({ data, tags, companies }: any) {
               onClick={(e) => {
                 selectedDevs.current = [...selectedDevs.current, item];
                 handleFilterChange();
-                navigate("/", { replace: true });
+                navigate(lastLibraryPath);
               }}
             >
               {item}
