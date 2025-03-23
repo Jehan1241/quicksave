@@ -64,10 +64,25 @@ export default function QuicksaveMenu() {
             <DropdownMenuItem onClick={() => setIsIntegrationsDialogOpen(true)}>
               Integrate Libraries
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              Settings
-              <DropdownMenuShortcut>F4</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => darkMode()}>
+                    Dark
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => lightMode()}>
+                    Light
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => redMode()}>
+                    Red
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => darkPurpleMode()}>
+                    Dark Purple
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
               <DropdownMenuPortal>
@@ -92,38 +107,9 @@ export default function QuicksaveMenu() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>Check For Updates</DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => darkMode()}>
-                    Dark
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => lightMode()}>
-                    Light
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => redMode()}>
-                    Red
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => darkPurpleMode()}>
-                    Dark Purple
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuItem>
-              New Team
-              <DropdownMenuShortcut>⌘+T</DropdownMenuShortcut>
-            </DropdownMenuItem>
+            <DropdownMenuItem disabled>Check For Updates</DropdownMenuItem>
           </DropdownMenuGroup>
-          <DropdownMenuItem>GitHub</DropdownMenuItem>
-          <DropdownMenuItem>Support</DropdownMenuItem>
-          <DropdownMenuItem disabled>API</DropdownMenuItem>
-          <DropdownMenuItem>
-            Quit
-            <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
-          </DropdownMenuItem>
+          <DropdownMenuItem disabled>Quit</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
