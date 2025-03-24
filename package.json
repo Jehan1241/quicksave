@@ -1,10 +1,10 @@
 {
-  "name": "electron-vite-react",
-  "version": "2.2.0",
+  "name": "quicksave",
+  "version": "0.5",
   "main": "dist-electron/main/index.js",
-  "description": "Electron Vite React boilerplate.",
-  "author": "草鞋没号 <308487730@qq.com>",
-  "license": "MIT",
+  "description": "Video game library manager.",
+  "author": "Jehan",
+  "license": "GNU",
   "private": true,
   "debug": {
     "env": {
