@@ -1,6 +1,6 @@
 {
   "name": "quicksave",
-  "version": "0.5",
+  "version": "0.5.0",
   "main": "dist-electron/main/index.js",
   "description": "Video game library manager.",
   "author": "Jehan",
