@@ -717,7 +717,7 @@ function FoundGames({
       // Set the other metadata states
       setTitle(data.metadata.name);
       setReleaseDate(data.metadata.releaseDate);
-      setRating(data.metadata.aggregatedRating);
+      setRating(Number(data.metadata.aggregatedRating || 0).toFixed(2));
       setDescription(data.metadata.description);
       setCoverImage(data.metadata.cover);
       setSsImage(data.metadata.screenshots);
