@@ -44,10 +44,19 @@ let win: BrowserWindow | null = null;
 const preload = path.join(__dirname, "../preload/index.mjs");
 const indexHtml = path.join(RENDERER_DIST, "index.html");
 
+const windowStateKeeper = require("electron-window-state");
+
 async function createWindow() {
+  let mainWindowState = windowStateKeeper({
+    defaultWidth: 1080,
+    defaultHeight: 550,
+  });
+
   const win = new BrowserWindow({
-    width: 1080,
-    height: 550,
+    x: mainWindowState.x,
+    y: mainWindowState.y,
+    width: mainWindowState.width,
+    height: mainWindowState.height,
     minWidth: 1080,
     minHeight: 550,
     webPreferences: {
@@ -61,6 +70,8 @@ async function createWindow() {
     titleBarStyle: "hidden",
     autoHideMenuBar: true,
   });
+
+  mainWindowState.manage(win);
 
   const { ipcMain, app } = require("electron");
   const fs = require("fs");
