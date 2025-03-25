@@ -36,6 +36,8 @@ interface SortContextType {
   setSearchText: React.Dispatch<React.SetStateAction<string>>;
   randomGameClicked: boolean;
   setRandomGameClicked: React.Dispatch<React.SetStateAction<boolean>>;
+  playingGame: boolean | null;
+  setPlayingGame: React.Dispatch<React.SetStateAction<boolean | null>>;
   cacheBuster: number;
   setCacheBuster: React.Dispatch<React.SetStateAction<number>>;
   integrationLoadCount: number;
@@ -61,6 +63,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [randomGameClicked, setRandomGameClicked] = useState<boolean>(false);
   const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
   const [integrationLoadCount, setIntegrationLoadCount] = useState<number>(0);
+  const [playingGame, setPlayingGame] = useState<boolean | null>(null);
 
   const fetchData = async (
     type: string,
@@ -111,6 +114,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setCacheBuster,
         integrationLoadCount,
         setIntegrationLoadCount,
+        playingGame,
+        setPlayingGame,
       }}
     >
       {children}

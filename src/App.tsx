@@ -16,6 +16,8 @@ import { fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
 import { useNavigationContext } from "./hooks/useNavigationContext";
+import { importSteamLibrary } from "./lib/api/libraryImports";
+import { getNpsso, getSteamCreds } from "./lib/api/getCreds";
 
 function App() {
   const {
@@ -29,6 +31,8 @@ function App() {
     setSortStateUpdate,
     randomGameClicked,
     setRandomGameClicked,
+    setIntegrationLoadCount,
+    playingGame,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]);
@@ -103,6 +107,24 @@ function App() {
       setSortStateUpdate(false);
     }
   }, [sortStateUpdate]);
+
+  useEffect(() => {
+    if (playingGame === false) {
+      const updateSteam = async () => {
+        const steamCreds = await getSteamCreds();
+
+        await importSteamLibrary(
+          steamCreds?.ID,
+          steamCreds?.APIKey,
+          () => {},
+          setIntegrationLoadCount,
+          () => {}
+        );
+      };
+
+      updateSteam();
+    }
+  }, [playingGame]);
 
   return (
     <>

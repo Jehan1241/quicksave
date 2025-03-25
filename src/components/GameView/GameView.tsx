@@ -12,6 +12,8 @@ import { SettingsDropdown } from "./SettingsDropdown";
 import { getGameDetails, launchGame } from "@/lib/api/GameViewAPI";
 import { useSortContext } from "@/hooks/useSortContex";
 import { time } from "node:console";
+import { Loader2 } from "lucide-react";
+import { importSteamLibrary } from "@/lib/api/libraryImports";
 
 export default React.memo(GameView);
 
@@ -36,8 +38,9 @@ function GameView() {
   const updateDetails = () => {
     getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
   };
+  const { playingGame, setPlayingGame } = useSortContext();
 
-  const playGame = () => {
+  const playGame = async () => {
     launchGame(
       uid,
       setEditDialogOpen,
@@ -45,7 +48,8 @@ function GameView() {
       setCompanies,
       setTags,
       setMetadata,
-      setScreenshots
+      setScreenshots,
+      setPlayingGame
     );
   };
 
@@ -115,10 +119,16 @@ function GameView() {
               <div className="flex gap-2">
                 <Button
                   onClick={playGame}
-                  disabled={hidden}
-                  className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText"
+                  disabled={hidden || playingGame}
+                  className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md"
                 >
-                  <FaPlay /> Play
+                  {playingGame ? (
+                    "Launched"
+                  ) : (
+                    <>
+                      <FaPlay /> Play
+                    </>
+                  )}
                 </Button>
 
                 <SettingsDropdown

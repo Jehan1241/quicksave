@@ -107,8 +107,10 @@ export const launchGame = async (
   setCompanies: React.Dispatch<React.SetStateAction<string>>,
   setTags: React.Dispatch<React.SetStateAction<string>>,
   setMetadata: React.Dispatch<React.SetStateAction<string>>,
-  setScreenshots: React.Dispatch<React.SetStateAction<string>>
+  setScreenshots: React.Dispatch<React.SetStateAction<string>>,
+  setPlayingGame: React.Dispatch<React.SetStateAction<boolean | null>>
 ) => {
+  setPlayingGame(true);
   console.log("Play Game Clicked");
   try {
     const response = await fetch(`http://localhost:8080/LaunchGame?uid=${uid}`);
@@ -125,6 +127,8 @@ export const launchGame = async (
   } catch (error) {
     console.log(error);
     showErrorToast("Failed to launch game!", String(error));
+  } finally {
+    setPlayingGame(false);
   }
 };
 

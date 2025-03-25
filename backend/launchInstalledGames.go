@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -70,7 +71,7 @@ func launchGameFromPath(path string, uid string) error {
 			cmd.Dir = gameDir // Set correct working directory
 			err := cmd.Run()
 			if err != nil {
-				return fmt.Errorf("Error launching game: %w", err)
+				return fmt.Errorf("error launching game: %w", err)
 			}
 		}
 
@@ -87,7 +88,7 @@ func launchGameFromPath(path string, uid string) error {
 			return err
 		})
 		if err != nil {
-			return fmt.Errorf("Error updating playtime: %w", err)
+			return fmt.Errorf("error updating playtime: %w", err)
 		}
 
 	case "linux":
@@ -130,40 +131,166 @@ func launchSteamGame(appid int) error {
 		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
 		cmd = exec.Command("bash", "-c", command)
 	} else if currentOS == "windows" {
-		command = fmt.Sprintf(`start steam://rungameid/%d`, appid)
-		cmd = exec.Command("cmd", "/C", command)
+		//return launchWindowsSteamGame(appid)
+		return launchAndMonitorSteamGame(appid)
 	} else {
 		return fmt.Errorf("error launching game: unsupported OS")
 	}
 
 	// Execute the command
-	_, err := cmd.Output()
+	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error launching game: %w", err)
 	}
 	return nil
 }
 
+func launchAndMonitorSteamGame(appid int) error {
+	// Launch game through Steam
+	cmd := exec.Command("cmd", "/C", "start", "", fmt.Sprintf("steam://rungameid/%d", appid))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to launch game: %w", err)
+	}
+
+	// Wait for Steam to initialize (critical delay)
+	time.Sleep(5 * time.Second)
+
+	// Get Steam PID with retries
+	steamPID, err := getSteamPIDWithRetry()
+	if err != nil {
+		return fmt.Errorf("steam process not found: %w", err)
+	}
+
+	// Monitor child processes
+	gamePID, err := waitForSteamChildProcess(steamPID, 60*time.Second) // Extended timeout
+	if err != nil {
+		return fmt.Errorf("couldn't detect game process: %w", err)
+	}
+
+	fmt.Printf("Successfully detected game PID: %d\n", gamePID)
+	return monitorProcess(gamePID)
+}
+
+func getSteamPIDWithRetry() (int, error) {
+	for i := 0; i < 3; i++ {
+		if pid, err := getProcessIDWMIC("steam.exe"); err == nil {
+			return pid, nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return 0, fmt.Errorf("after 3 attempts")
+}
+
+func getProcessIDWMIC(name string) (int, error) {
+	cmd := exec.Command("wmic", "process", "where", fmt.Sprintf("name='%s'", name), "get", "processid")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("wmic failed: %w", err)
+	}
+
+	lines := strings.Split(string(output), "\r\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "ProcessId" {
+			continue
+		}
+		if pid, err := strconv.Atoi(line); err == nil {
+			return pid, nil
+		}
+	}
+
+	return 0, fmt.Errorf("process not found")
+}
+
+func waitForSteamChildProcess(parentPID int, timeout time.Duration) (int, error) {
+	startTime := time.Now()
+	checkInterval := 2 * time.Second
+	initialDelay := 5 * time.Second
+
+	// Initial waiting period
+	if time.Since(startTime) < initialDelay {
+		time.Sleep(initialDelay - time.Since(startTime))
+	}
+
+	for time.Since(startTime) < timeout {
+		childPID, err := findValidChildProcess(parentPID)
+		if err == nil && childPID != 0 {
+			return childPID, nil
+		}
+
+		time.Sleep(checkInterval)
+	}
+	return 0, fmt.Errorf("timeout waiting for game process")
+}
+
+func findValidChildProcess(parentPID int) (int, error) {
+	// PowerShell command to:
+	// 1. Find child processes
+	// 2. Exclude known Steam processes
+	// 3. Return the newest valid game process
+	psCmd := fmt.Sprintf(`
+        $children = Get-CimInstance Win32_Process | 
+                    Where-Object { $_.ParentProcessId -eq %d } |
+                    Where-Object { 
+                        $_.Name -notin @('steamwebhelper.exe', 'gameoverlayui.exe') -and
+                        $_.ExecutablePath -like '*steamapps*common*'
+                    }
+        $game = $children | Sort-Object -Property CreationDate -Descending | Select-Object -First 1
+        if ($game) { $game.ProcessId } else { 0 }
+    `, parentPID)
+
+	output, err := exec.Command("powershell", "-Command", psCmd).Output()
+	if err != nil {
+		return 0, fmt.Errorf("powershell error: %w", err)
+	}
+
+	pidStr := strings.TrimSpace(string(output))
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil || pid == 0 {
+		return 0, fmt.Errorf("no valid game process found")
+	}
+
+	return pid, nil
+}
+
+func monitorProcess(pid int) error {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		if exists, _ := isProcessRunning(pid); !exists {
+			return nil
+		}
+		<-ticker.C
+	}
+}
+
+func isProcessRunning(pid int) (bool, error) {
+	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid))
+	output, err := cmd.Output()
+	return err == nil && strings.Contains(string(output), fmt.Sprintf("%d", pid)), nil
+}
+
 func checkSteamInstalledValidity() error {
 	steamPath, err := getSteamPath()
 	if err != nil {
-		log.Printf("error getting path %v", err)
+		return fmt.Errorf("error getting path %v", err)
 	}
 	if steamPath == "no steam" {
 		return nil
 	}
 	installedAppIDs, err := getInstalledAppIDs(steamPath)
 	if err != nil {
-		log.Printf("error getting installed appIDs %v", err)
+		return fmt.Errorf("error getting installed appIDs %v", err)
 	}
 	installedUIDs, err := getInstalledUIDs(installedAppIDs)
 	if err != nil {
-		log.Printf("error getting installed UIDs %v", err)
+		return fmt.Errorf("error getting installed UIDs %v", err)
 	}
 	fmt.Println(installedUIDs)
 	err = setSteamGamesToInstalled(installedUIDs)
 	if err != nil {
-		log.Printf("error setting installed UIDs %v", err)
+		return fmt.Errorf("error setting installed UIDs %v", err)
 	}
 	return nil
 }
