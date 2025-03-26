@@ -57,23 +57,41 @@ function GameView() {
   useEffect(() => {
     console.log("Preload Data", preloadData);
     if (preloadData !== undefined) {
-      setCompanies(preloadData.companies ?? { 0: "unknown" });
-      setTags(preloadData.tags ?? { 0: "unknown" });
+      setCompanies(preloadData.companies ?? { 0: "Unknown" });
+      setTags(preloadData.tags ?? { 0: "Unknown" });
       setScreenshots(preloadData.screenshots ?? {});
 
       setMetadata({
-        TimePlayed: preloadData.metadata?.TimePlayed,
-        isDLC: preloadData.metadata?.isDLC,
+        TimePlayed: preloadData.metadata?.TimePlayed ?? 0,
+        isDLC: preloadData.metadata?.isDLC ?? false,
         AggregatedRating: preloadData.metadata?.AggregatedRating ?? 0,
         Description:
           preloadData.metadata?.Description ?? "No description available.",
         Name: preloadData.metadata?.Name ?? "Unknown",
         OwnedPlatform: preloadData.metadata?.OwnedPlatform ?? "Unknown",
         ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
-        CoverArtPath: preloadData.metadata?.CoverArtPath,
+        CoverArtPath: preloadData.metadata?.CoverArtPath ?? "",
       });
     } else {
-      getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
+      getGameDetails(
+        uid,
+        (data) => setCompanies(data ?? { 0: "Unknown" }),
+        (data) => setTags(data ?? { 0: "Unknown" }),
+        (data) =>
+          setMetadata(
+            data ?? {
+              TimePlayed: 0,
+              isDLC: false,
+              AggregatedRating: 0,
+              Description: "No description available.",
+              Name: "Unknown",
+              OwnedPlatform: "Unknown",
+              ReleaseDate: "?-?-?",
+              CoverArtPath: "",
+            }
+          ),
+        (data) => setScreenshots(data ?? {})
+      );
     }
   }, [uid]);
 

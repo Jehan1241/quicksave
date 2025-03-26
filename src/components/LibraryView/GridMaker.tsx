@@ -50,7 +50,7 @@ export default function GridMaker({
   };
 
   const { cacheBuster } = useSortContext();
-  const imageUrl = `http://localhost:8080/cover-art/${cover}`;
+  const imageUrl = `http://localhost:8080/cover-art${cover}`;
 
   //Check if image exists & is loadable
   const checkImageLoadable = async (url: string) => {
