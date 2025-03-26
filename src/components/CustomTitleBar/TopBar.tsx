@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import SortGames from "./SortGames";
 import FilterGames from "./FilterGames";
 import { Button } from "../ui/button";
-import { Dices, Filter } from "lucide-react";
+import { Dices, Filter, X } from "lucide-react";
 import { Slider } from "../ui/slider";
 import IntegrationsLoading from "./IntegrationsLoading";
 import WindowButtons from "./WindowsButtons";
@@ -15,6 +15,7 @@ export default function TopBar() {
   const {
     tileSize,
     setTileSize,
+    searchText,
     setSearchText,
     setRandomGameClicked,
     randomGameClicked,
@@ -50,16 +51,27 @@ export default function TopBar() {
           className="relative flex h-full w-[50rem] max-w-[60vw] flex-row gap-3 bg-sidebar justify-center"
           style={{ WebkitAppRegion: "no-drag" } as any}
         >
-          <Input
-            onChange={(e) => {
-              setSearchText(e.target.value);
-              if (location.pathname == "/gameview") {
-                navigate(lastLibraryPath, { replace: true });
-              }
-            }}
-            className="my-auto h-8 bg-topBarButtons"
-            placeholder="Search"
-          />
+          <div className="relative w-full">
+            <Input
+              value={searchText}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                if (location.pathname == "/gameview") {
+                  navigate(lastLibraryPath, { replace: true });
+                }
+              }}
+              className="my-auto h-8 bg-topBarButtons"
+              placeholder="Search"
+            />
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-accent-foreground"
+              onClick={() => {
+                setSearchText("");
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
           <SortGames />
           {filterDialogOpen && (
             <FilterGames
