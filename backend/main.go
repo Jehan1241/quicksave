@@ -391,6 +391,30 @@ func clearFilter() error {
 	return err
 }
 
+func deleteCurrentlyFiltered(uids []string) error {
+
+	for _, uid := range uids {
+		err := deleteGameFromDB(uid)
+		if err != nil {
+			return fmt.Errorf("error deleting games: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func hideCurrentlyFiltered(uids []string) error {
+
+	for _, uid := range uids {
+		err := hideGame(uid)
+		if err != nil {
+			return fmt.Errorf("error deleting games: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func getFilterState() (map[string][]string, error) {
 
 	var filterDevs, filterName, filterPlatform, filterTags []string
@@ -1312,6 +1336,51 @@ func setupRouter() *gin.Engine {
 		}
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 		sendSSEMessage("Clear Filter")
+	})
+
+	r.POST("/deleteCurrentlyFiltered", func(c *gin.Context) {
+		fmt.Println("Recieved Delete Currently Filter")
+		var req struct {
+			UIDs []string `json:"uids"`
+		}
+
+		err := c.ShouldBindJSON(&req)
+		if err != nil {
+			log.Printf("[DeleteCurrentlyFiltered] ERROR invalid req payload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = deleteCurrentlyFiltered(req.UIDs)
+		if err != nil {
+			log.Printf("[DeleteCurrentlyFiltered] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete games", "details": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+		sendSSEMessage("deleted games")
+	})
+
+	r.POST("/hideCurrentlyFiltered", func(c *gin.Context) {
+		fmt.Println("Recieved Hide Currently Filter")
+		var req struct {
+			UIDs []string `json:"uids"`
+		}
+		err := c.ShouldBindJSON(&req)
+		if err != nil {
+			log.Printf("[HideCurrentlyFiltered] ERROR invalid req payload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = hideCurrentlyFiltered(req.UIDs)
+		if err != nil {
+			log.Printf("[HideCurrentlyFiltered] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hide games", "details": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+		sendSSEMessage("hidden games")
 	})
 
 	r.GET("/LoadFilters", func(c *gin.Context) {

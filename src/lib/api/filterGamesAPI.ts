@@ -119,3 +119,44 @@ export const clearAllFilters = async (
     showErrorToast("Failed to clear filters!", String(error));
   }
 };
+
+export const deleteCurrentlyFiltered = async (games: any[]) => {
+  const uids = games.map((game) => game.UID);
+  try {
+    const response = await fetch(
+      `http://localhost:8080/deleteCurrentlyFiltered`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uids }),
+      }
+    );
+
+    if (!response.ok) await handleApiError(response);
+  } catch (error: any) {
+    console.error("error deleting games:", error);
+    showErrorToast("Failed to delete games!", String(error));
+  }
+};
+
+export const hideCurrentlyFiltered = async (games: any[]) => {
+  const uids = games.map((game) => game.UID);
+  try {
+    const response = await fetch(
+      `http://localhost:8080/hideCurrentlyFiltered`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uids }), // Send UIDs as JSON
+      }
+    );
+    if (!response.ok) await handleApiError(response);
+  } catch (error: any) {
+    console.error("error hiding games:", error);
+    showErrorToast("Failed to hide games!", String(error));
+  }
+};

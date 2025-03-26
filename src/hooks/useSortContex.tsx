@@ -39,6 +39,10 @@ interface SortContextType {
   setIntegrationLoadCount: React.Dispatch<React.SetStateAction<number>>;
   filterActive: boolean;
   setFilterActive: React.Dispatch<React.SetStateAction<boolean>>;
+  deleteFilterGames: boolean;
+  setDeleteFilterGames: React.Dispatch<React.SetStateAction<boolean>>;
+  hideFilterGames: boolean;
+  setHideFilterGames: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const SortContext = createContext<SortContextType | undefined>(undefined);
@@ -62,6 +66,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [integrationLoadCount, setIntegrationLoadCount] = useState<number>(0);
   const [playingGame, setPlayingGame] = useState<boolean | null>(null);
   const [filterActive, setFilterActive] = useState<boolean>(false);
+  const [deleteFilterGames, setDeleteFilterGames] = useState<boolean>(false);
+  const [hideFilterGames, setHideFilterGames] = useState<boolean>(false);
 
   return (
     <SortContext.Provider
@@ -96,6 +102,10 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setPlayingGame,
         filterActive,
         setFilterActive,
+        deleteFilterGames,
+        setDeleteFilterGames,
+        hideFilterGames,
+        setHideFilterGames,
       }}
     >
       {children}

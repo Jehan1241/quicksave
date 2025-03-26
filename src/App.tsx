@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setTheme } from "./ToggleTheme";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { data, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import CustomTitleBar from "./components/CustomTitleBar/CustomTitleBar";
 import AddGameManuallyDialog from "./components/Dialogs/AddGameManually";
@@ -18,6 +18,10 @@ import { pickRandomGame } from "./lib/pickRandomGame";
 import { useNavigationContext } from "./hooks/useNavigationContext";
 import { importSteamLibrary } from "./lib/api/libraryImports";
 import { getNpsso, getSteamCreds } from "./lib/api/getCreds";
+import {
+  deleteCurrentlyFiltered,
+  hideCurrentlyFiltered,
+} from "./lib/api/filterGamesAPI";
 
 function App() {
   const {
@@ -33,6 +37,10 @@ function App() {
     setRandomGameClicked,
     setIntegrationLoadCount,
     playingGame,
+    deleteFilterGames,
+    setDeleteFilterGames,
+    hideFilterGames,
+    setHideFilterGames,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]);
@@ -41,6 +49,9 @@ function App() {
   const [installedArray, setInstalledArray] = useState<any[]>([]);
 
   const navigate = useNavigate();
+
+  const visibleUIDs = dataArray.map((game) => game.UID);
+  console.log(visibleUIDs);
 
   const updateData = () => {
     fetchData(
@@ -55,6 +66,50 @@ function App() {
       setInstalledArray
     );
   };
+
+  useEffect(() => {
+    if (!hideFilterGames) return;
+
+    switch (location.pathname) {
+      case "/library":
+        hideCurrentlyFiltered(dataArray);
+        break;
+      case "/wishlist":
+        hideCurrentlyFiltered(wishlistArray);
+        break;
+      case "/installed":
+        hideCurrentlyFiltered(installedArray);
+        break;
+      case "/hidden":
+        hideCurrentlyFiltered(hiddenArray);
+        break;
+      default:
+        break;
+    }
+    setHideFilterGames(false);
+  }, [hideFilterGames]);
+
+  useEffect(() => {
+    if (!deleteFilterGames) return;
+
+    switch (location.pathname) {
+      case "/library":
+        deleteCurrentlyFiltered(dataArray);
+        break;
+      case "/wishlist":
+        deleteCurrentlyFiltered(wishlistArray);
+        break;
+      case "/installed":
+        deleteCurrentlyFiltered(installedArray);
+        break;
+      case "/hidden":
+        deleteCurrentlyFiltered(hiddenArray);
+        break;
+      default:
+        console.warn("Unknown path for deletion:", location.pathname);
+    }
+    setDeleteFilterGames(false);
+  }, [deleteFilterGames]);
 
   useEffect(() => {
     initTileSize(setTileSize);

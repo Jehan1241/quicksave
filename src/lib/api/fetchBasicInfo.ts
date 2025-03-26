@@ -32,7 +32,7 @@ export const fetchData = async (
       hiddenUIDs.includes(item.UID)
     );
     const installedGames = Object.values(json.MetaData).filter(
-      (item: any) => item.InstallPath !== ""
+      (item: any) => item.InstallPath !== "" && !hiddenUIDs.includes(item.UID)
     );
 
     console.log(installedGames);

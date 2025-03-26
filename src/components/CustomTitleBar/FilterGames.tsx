@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -13,17 +14,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { fetchTagsDevsPlatforms } from "@/lib/api/addGameManuallyAPI";
 import {
   clearAllFilters,
+  deleteCurrentlyFiltered,
   handleFilterChange,
+  hideCurrentlyFiltered,
   loadFilterState,
 } from "@/lib/api/filterGamesAPI";
 import { useToast } from "@/hooks/use-toast";
 import { useSortContext } from "@/hooks/useSortContex";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { useLocation } from "react-router-dom";
 
 export default function FilterGames({
   filterDialogOpen,
   setFilterDialogOpen,
 }: any) {
-  const { setFilterActive } = useSortContext();
+  const { setFilterActive, setDeleteFilterGames, setHideFilterGames } =
+    useSortContext();
   const [tagOptions, setTagOptions] = useState([]);
   const [platformOptions, setPlatformOptions] = useState([]);
   const [devOptions, setDevOptions] = useState([]);
@@ -197,6 +211,59 @@ export default function FilterGames({
             />
           </div>
         </div>
+        <SheetFooter>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-full" variant={"destructive"}>
+                Delete Visible Games
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Delete Games</DialogTitle>
+                <DialogDescription>
+                  This will delete all currently visible games. Running a
+                  library import will re-import them, if you don't want this
+                  consider hiding them instead.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter>
+                <Button
+                  variant={"destructive"}
+                  onClick={() => setDeleteFilterGames(true)}
+                >
+                  Confirm Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-full" variant={"default"}>
+                Hide Visible Games
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Hide Games</DialogTitle>
+                <DialogDescription>
+                  This will hide all currently visible games. Running a library
+                  import will not unhide them.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter>
+                <Button
+                  variant={"destructive"}
+                  onClick={() => setHideFilterGames(true)}
+                >
+                  Confirm Hide
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
