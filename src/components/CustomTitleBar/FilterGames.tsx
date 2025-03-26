@@ -107,8 +107,9 @@ export default function FilterGames({
   };
 
   useEffect(() => {
+    if (!filterDialogOpen) return;
     loadFilterOptionsAndState();
-  }, []);
+  }, [filterDialogOpen]); //so that filters have latest state always
 
   useEffect(() => {
     if (isLoaded) {
