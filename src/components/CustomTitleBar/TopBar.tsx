@@ -10,6 +10,7 @@ import { Slider } from "../ui/slider";
 import IntegrationsLoading from "./IntegrationsLoading";
 import WindowButtons from "./WindowsButtons";
 import { useNavigationContext } from "@/hooks/useNavigationContext";
+import { Badge } from "../ui/badge";
 
 export default function TopBar() {
   const {
@@ -19,6 +20,7 @@ export default function TopBar() {
     setSearchText,
     setRandomGameClicked,
     randomGameClicked,
+    filterActive,
   } = useSortContext();
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
 
@@ -73,18 +75,16 @@ export default function TopBar() {
             </button>
           </div>
           <SortGames />
-          {filterDialogOpen && (
-            <FilterGames
-              filterDialogOpen={filterDialogOpen}
-              setFilterDialogOpen={setFilterDialogOpen}
-            />
-          )}
+          <FilterGames
+            filterDialogOpen={filterDialogOpen}
+            setFilterDialogOpen={setFilterDialogOpen}
+          />
           <Button
             variant={"outline"}
             onClick={() => {
               setFilterDialogOpen(!filterDialogOpen);
             }}
-            className="my-auto h-8 w-8 bg-topBarButtons hover:bg-topBarButtonsHover"
+            className={`my-auto h-8 w-8 bg-topBarButtons hover:bg-topBarButtonsHover ${filterActive ? "bg-playButton hover:bg-playButton hover:text-primary-foreground text-primary-foreground" : null}`}
           >
             <Filter size={18} strokeWidth={1} />
           </Button>
@@ -107,6 +107,11 @@ export default function TopBar() {
             min={15}
             max={100}
           />
+          {/* {filterActive && (
+            <Badge className="text-xs h-4 text-nowrap select-none flex items-center">
+              filters active
+            </Badge>
+          )} */}
         </div>
         {/* Centered IntegrationsLoading in remaining space */}
         <div className="flex-1 flex justify-center">

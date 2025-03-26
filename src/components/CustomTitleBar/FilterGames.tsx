@@ -17,11 +17,13 @@ import {
   loadFilterState,
 } from "@/lib/api/filterGamesAPI";
 import { useToast } from "@/hooks/use-toast";
+import { useSortContext } from "@/hooks/useSortContex";
 
 export default function FilterGames({
   filterDialogOpen,
   setFilterDialogOpen,
 }: any) {
+  const { setFilterActive } = useSortContext();
   const [tagOptions, setTagOptions] = useState([]);
   const [platformOptions, setPlatformOptions] = useState([]);
   const [devOptions, setDevOptions] = useState([]);
@@ -76,6 +78,7 @@ export default function FilterGames({
       setSelectedPlatforms,
       setSelectedTags
     );
+    setFilterActive(false);
   };
 
   const loadFilterOptionsAndState = async () => {
@@ -103,6 +106,13 @@ export default function FilterGames({
         toast
       );
     }
+    const filtersActive =
+      selectedPlatforms.length > 0 ||
+      selectedTags.length > 0 ||
+      selectedName.length > 0 ||
+      selectedDevs.length > 0;
+
+    setFilterActive(filtersActive);
   }, [selectedTags, selectedPlatforms, selectedDevs, selectedName]);
 
   return (

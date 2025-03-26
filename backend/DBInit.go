@@ -204,11 +204,11 @@ func initializeDefaultDBValues(db *sql.DB) {
 	}
 
 	platforms := []string{
-		"Sony Playstation 1",
-		"Sony Playstation 2",
-		"Sony Playstation 3",
-		"Sony Playstation 4",
-		"Sony Playstation 5",
+		"Sony PlayStation 1",
+		"Sony PlayStation 2",
+		"Sony PlayStation 3",
+		"Sony PlayStation 4",
+		"Sony PlayStation 5",
 		"Xbox 360",
 		"Xbox One",
 		"Xbox Series X",

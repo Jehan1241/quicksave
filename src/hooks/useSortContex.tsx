@@ -13,11 +13,6 @@ interface SortContextType {
   setSortOrder: React.Dispatch<
     React.SetStateAction<"ASC" | "DESC" | "default">
   >;
-  fetchData: (
-    type: string,
-    order: "ASC" | "DESC" | "default",
-    size: number
-  ) => Promise<any>;
   metaData: any;
   setMetaData: React.Dispatch<React.SetStateAction<any>>;
   tileSize: number;
@@ -42,6 +37,8 @@ interface SortContextType {
   setCacheBuster: React.Dispatch<React.SetStateAction<number>>;
   integrationLoadCount: number;
   setIntegrationLoadCount: React.Dispatch<React.SetStateAction<number>>;
+  filterActive: boolean;
+  setFilterActive: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const SortContext = createContext<SortContextType | undefined>(undefined);
@@ -64,25 +61,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
   const [integrationLoadCount, setIntegrationLoadCount] = useState<number>(0);
   const [playingGame, setPlayingGame] = useState<boolean | null>(null);
-
-  const fetchData = async (
-    type: string,
-    order: "ASC" | "DESC" | "default",
-    size: number
-  ) => {
-    console.log("Sending Get Basic Info");
-    let json = null;
-    try {
-      const response = await fetch(
-        `http://localhost:8080/getBasicInfo?type=${type}&order=${order}&size=${size}`
-      );
-      json = await response.json();
-      /* console.log(json); */
-    } catch (error) {
-      console.error(error);
-    }
-    return json;
-  };
+  const [filterActive, setFilterActive] = useState<boolean>(false);
 
   return (
     <SortContext.Provider
@@ -91,7 +70,6 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setSortType,
         sortOrder,
         setSortOrder,
-        fetchData,
         metaData,
         tileSize,
         setMetaData,
@@ -116,6 +94,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setIntegrationLoadCount,
         playingGame,
         setPlayingGame,
+        filterActive,
+        setFilterActive,
       }}
     >
       {children}
