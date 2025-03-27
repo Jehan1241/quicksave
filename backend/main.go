@@ -408,7 +408,19 @@ func hideCurrentlyFiltered(uids []string) error {
 	for _, uid := range uids {
 		err := hideGame(uid)
 		if err != nil {
-			return fmt.Errorf("error deleting games: %w", err)
+			return fmt.Errorf("error hiding games: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func unhideCurrentlyFiltered(uids []string) error {
+
+	for _, uid := range uids {
+		err := unhideGame(uid)
+		if err != nil {
+			return fmt.Errorf("error unhiding games: %w", err)
 		}
 	}
 
@@ -1381,6 +1393,28 @@ func setupRouter() *gin.Engine {
 		}
 		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
 		sendSSEMessage("hidden games")
+	})
+
+	r.POST("/unHideCurrentlyFiltered", func(c *gin.Context) {
+		fmt.Println("Recieved Unhide Currently Filter")
+		var req struct {
+			UIDs []string `json:"uids"`
+		}
+		err := c.ShouldBindJSON(&req)
+		if err != nil {
+			log.Printf("[UnhideCurrentlyFiltered] ERROR invalid req payload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = unhideCurrentlyFiltered(req.UIDs)
+		if err != nil {
+			log.Printf("[UnhideCurrentlyFiltered] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unhide games", "details": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"HttpStatus": "ok"})
+		sendSSEMessage("unhidden games")
 	})
 
 	r.GET("/LoadFilters", func(c *gin.Context) {

@@ -21,6 +21,7 @@ import { getNpsso, getSteamCreds } from "./lib/api/getCreds";
 import {
   deleteCurrentlyFiltered,
   hideCurrentlyFiltered,
+  unHideCurrentlyFiltered,
 } from "./lib/api/filterGamesAPI";
 
 function App() {
@@ -68,25 +69,26 @@ function App() {
   };
 
   useEffect(() => {
-    if (!hideFilterGames) return;
+    if (hideFilterGames === null) return;
 
-    switch (location.pathname) {
-      case "/library":
-        hideCurrentlyFiltered(dataArray);
-        break;
-      case "/wishlist":
-        hideCurrentlyFiltered(wishlistArray);
-        break;
-      case "/installed":
-        hideCurrentlyFiltered(installedArray);
-        break;
-      case "/hidden":
-        hideCurrentlyFiltered(hiddenArray);
-        break;
-      default:
-        break;
+    if (hideFilterGames === "hide") {
+      switch (location.pathname) {
+        case "/library":
+          hideCurrentlyFiltered(dataArray);
+          break;
+        case "/wishlist":
+          hideCurrentlyFiltered(wishlistArray);
+          break;
+        case "/installed":
+          hideCurrentlyFiltered(installedArray);
+          break;
+        default:
+          break;
+      }
+    } else if (hideFilterGames === "unhide") {
+      unHideCurrentlyFiltered(hiddenArray);
     }
-    setHideFilterGames(false);
+    setHideFilterGames(null);
   }, [hideFilterGames]);
 
   useEffect(() => {

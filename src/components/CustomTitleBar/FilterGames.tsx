@@ -55,6 +55,7 @@ export default function FilterGames({
   >([]);
   const [isLoaded, setIsLoaded] = useState<boolean>(false); // Flag to track if data has been loaded
   const { toast } = useToast();
+  const location = useLocation();
 
   const OPTIONS: Option[] = [
     { label: "A", value: "A" },
@@ -230,40 +231,73 @@ export default function FilterGames({
               </DialogHeader>
 
               <DialogFooter>
-                <Button
-                  variant={"destructive"}
-                  onClick={() => setDeleteFilterGames(true)}
-                >
-                  Confirm Delete
-                </Button>
+                <DialogTrigger asChild>
+                  <Button
+                    variant={"destructive"}
+                    onClick={() => setDeleteFilterGames(true)}
+                  >
+                    Confirm Delete
+                  </Button>
+                </DialogTrigger>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full" variant={"default"}>
-                Hide Visible Games
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Hide Games</DialogTitle>
-                <DialogDescription>
-                  This will hide all currently visible games. Running a library
-                  import will not unhide them.
-                </DialogDescription>
-              </DialogHeader>
+          {location.pathname != "/hidden" ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="w-full" variant={"default"}>
+                  Hide Visible Games
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Hide Games</DialogTitle>
+                  <DialogDescription>
+                    This will hide all currently visible games. Running a
+                    library import will not unhide them.
+                  </DialogDescription>
+                </DialogHeader>
 
-              <DialogFooter>
-                <Button
-                  variant={"destructive"}
-                  onClick={() => setHideFilterGames(true)}
-                >
-                  Confirm Hide
+                <DialogFooter>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant={"destructive"}
+                      onClick={() => setHideFilterGames("hide")}
+                    >
+                      Confirm Hide
+                    </Button>
+                  </DialogTrigger>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="w-full" variant={"default"}>
+                  Unhide Visible Games
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Unhide Games</DialogTitle>
+                  <DialogDescription>
+                    This will unhide all currently visible games.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <DialogFooter>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant={"default"}
+                      onClick={() => setHideFilterGames("unhide")}
+                    >
+                      Confirm Unhide
+                    </Button>
+                  </DialogTrigger>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

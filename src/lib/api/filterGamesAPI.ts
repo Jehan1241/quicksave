@@ -160,3 +160,23 @@ export const hideCurrentlyFiltered = async (games: any[]) => {
     showErrorToast("Failed to hide games!", String(error));
   }
 };
+
+export const unHideCurrentlyFiltered = async (games: any[]) => {
+  const uids = games.map((game) => game.UID);
+  try {
+    const response = await fetch(
+      `http://localhost:8080/unHideCurrentlyFiltered`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uids }), // Send UIDs as JSON
+      }
+    );
+    if (!response.ok) await handleApiError(response);
+  } catch (error: any) {
+    console.error("error unhiding games:", error);
+    showErrorToast("Failed to unhide games!", String(error));
+  }
+};
