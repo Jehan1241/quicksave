@@ -34,6 +34,7 @@ function GameView() {
   >("metadata");
   const [hideDialogOpen, setHideDialogOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
 
   const updateDetails = () => {
     getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
@@ -55,8 +56,9 @@ function GameView() {
 
   // Its on UID change to accomodate randomGamesClicked
   useEffect(() => {
+    setLoading(true);
     console.log("Preload Data", preloadData);
-    if (preloadData !== undefined) {
+    if (preloadData !== null) {
       setCompanies(preloadData.companies ?? { 0: "Unknown" });
       setTags(preloadData.tags ?? { 0: "Unknown" });
       setScreenshots(preloadData.screenshots ?? {});
@@ -72,6 +74,7 @@ function GameView() {
         ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
         CoverArtPath: preloadData.metadata?.CoverArtPath ?? "",
       });
+      setLoading(false);
     } else {
       getGameDetails(
         uid,
@@ -91,7 +94,7 @@ function GameView() {
             }
           ),
         (data) => setScreenshots(data ?? {})
-      );
+      ).finally(() => setLoading(false));
     }
   }, [uid]);
 
@@ -120,85 +123,93 @@ function GameView() {
 
   return (
     <>
-      {/* Avoid undefined URL error */}
-      {screenshotsArray.length > 0 && (
-        <img
-          className="absolute z-0 h-full w-full rounded-2xl object-cover opacity-20 blur-md"
-          src={screenshotsArray[0]}
-        />
-      )}
-      <div className="absolute z-10 flex h-full w-full flex-col overflow-y-hidden px-6 py-8 text-center select-none">
-        <header className="mx-8 mb-2 text-left text-3xl font-semibold">
-          {metadata?.Name}
-        </header>
-        <div className="mx-8 mb-4 flex h-full flex-row gap-10 overflow-hidden">
-          <div className="flex h-full w-1/3 flex-col overflow-y-auto">
-            <div className="mt-2 flex w-full flex-row items-center gap-4 text-base font-normal xl:flex-row">
-              <div className="flex gap-2">
-                <Button
-                  onClick={playGame}
-                  disabled={hidden || playingGame}
-                  className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md"
-                >
-                  {playingGame ? (
-                    "Launched"
-                  ) : (
-                    <>
-                      <FaPlay /> Play
-                    </>
-                  )}
-                </Button>
+      {loading ? (
+        <div className="flex justify-center items-center h-full">
+          <Loader2 className="animate-spin w-10 h-10" />
+        </div>
+      ) : (
+        <>
+          {/* Avoid undefined URL error */}
+          {screenshotsArray.length > 0 && (
+            <img
+              className="absolute z-0 h-full w-full rounded-2xl object-cover opacity-20 blur-md"
+              src={screenshotsArray[0]}
+            />
+          )}
+          <div className="absolute z-10 flex h-full w-full flex-col overflow-y-hidden px-6 py-8 text-center select-none">
+            <header className="mx-8 mb-2 text-left text-3xl font-semibold">
+              {metadata?.Name}
+            </header>
+            <div className="mx-8 mb-4 flex h-full flex-row gap-10 overflow-hidden">
+              <div className="flex h-full w-1/3 flex-col overflow-y-auto">
+                <div className="mt-2 flex w-full flex-row items-center gap-4 text-base font-normal xl:flex-row">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={playGame}
+                      disabled={hidden || playingGame}
+                      className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md"
+                    >
+                      {playingGame ? (
+                        "Launched"
+                      ) : (
+                        <>
+                          <FaPlay /> Play
+                        </>
+                      )}
+                    </Button>
 
-                <SettingsDropdown
-                  uid={uid}
-                  hidden={hidden}
-                  setEditDialogOpen={setEditDialogOpen}
-                  setHideDialogOpen={setHideDialogOpen}
-                  setDeleteDialogOpen={setDeleteDialogOpen}
-                />
+                    <SettingsDropdown
+                      uid={uid}
+                      hidden={hidden}
+                      setEditDialogOpen={setEditDialogOpen}
+                      setHideDialogOpen={setHideDialogOpen}
+                      setDeleteDialogOpen={setDeleteDialogOpen}
+                    />
 
-                <EditDialog
-                  uid={uid}
-                  editDialogSelectedTab={editDialogSelectedTab}
-                  setEditDialogSelectedTab={setEditDialogSelectedTab}
-                  editDialogOpen={editDialogOpen}
-                  setEditDialogOpen={setEditDialogOpen}
-                  getGameDetails={updateDetails}
-                  coverArtPath={metadata?.CoverArtPath}
-                  screenshotsArray={screenshotsArray}
-                  platform={metadata?.OwnedPlatform}
+                    <EditDialog
+                      uid={uid}
+                      editDialogSelectedTab={editDialogSelectedTab}
+                      setEditDialogSelectedTab={setEditDialogSelectedTab}
+                      editDialogOpen={editDialogOpen}
+                      setEditDialogOpen={setEditDialogOpen}
+                      getGameDetails={updateDetails}
+                      coverArtPath={metadata?.CoverArtPath}
+                      screenshotsArray={screenshotsArray}
+                      platform={metadata?.OwnedPlatform}
+                      tags={tagsArray}
+                      companies={companiesArray}
+                    />
+                    <HideDialog
+                      uid={uid}
+                      hideDialogOpen={hideDialogOpen}
+                      setHideDialogOpen={setHideDialogOpen}
+                    />
+                    <DeleteDialog
+                      uid={uid}
+                      deleteDialogOpen={deleteDialogOpen}
+                      setDeleteDialogOpen={setDeleteDialogOpen}
+                    />
+                  </div>
+
+                  <DateTimeRatingSection
+                    releaseDate={releaseDate}
+                    rating={rating}
+                    isWishlist={isWishlist}
+                    timePlayed={timePlayed}
+                  />
+                </div>
+
+                <DisplayInfo
+                  data={metadata}
                   tags={tagsArray}
                   companies={companiesArray}
                 />
-                <HideDialog
-                  uid={uid}
-                  hideDialogOpen={hideDialogOpen}
-                  setHideDialogOpen={setHideDialogOpen}
-                />
-                <DeleteDialog
-                  uid={uid}
-                  deleteDialogOpen={deleteDialogOpen}
-                  setDeleteDialogOpen={setDeleteDialogOpen}
-                />
               </div>
-
-              <DateTimeRatingSection
-                releaseDate={releaseDate}
-                rating={rating}
-                isWishlist={isWishlist}
-                timePlayed={timePlayed}
-              />
+              <CarouselSection screenshotsArray={screenshotsArray} />
             </div>
-
-            <DisplayInfo
-              data={metadata}
-              tags={tagsArray}
-              companies={companiesArray}
-            />
           </div>
-          <CarouselSection screenshotsArray={screenshotsArray} />
-        </div>
-      </div>
+        </>
+      )}
     </>
   );
 }
