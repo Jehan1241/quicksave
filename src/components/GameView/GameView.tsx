@@ -132,8 +132,6 @@ function GameView() {
     releaseDate = `${day}-${month}-${year}`;
   }
 
-  console.log("timePlayed", timePlayed);
-
   return (
     <>
       {loading ? (
@@ -159,7 +157,7 @@ function GameView() {
                   <div className="flex gap-2">
                     <Button
                       onClick={playGame}
-                      disabled={hidden || playingGame}
+                      disabled={hidden || playingGame || isWishlist}
                       className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md font-semibold"
                     >
                       {playingGame ? (

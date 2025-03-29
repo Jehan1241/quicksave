@@ -37,6 +37,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
     OwnedPlatform: platform,
     TimePlayed,
     InstallPath,
+    isDLC: isWishlist,
   } = data;
 
   const installed = InstallPath === "" ? false : true;
@@ -165,6 +166,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
           </div>
           <ContextMenuItem asChild>
             <Button
+              disabled={hidden || isWishlist}
               onClick={playClickHandler}
               className="h-10 bg-playButton hover:!bg-playButtonHover hover:!text-playButtonText text-playButtonText text-md"
             >
