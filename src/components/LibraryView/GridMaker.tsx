@@ -1,7 +1,13 @@
 import { useSortContext } from "@/hooks/useSortContex";
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { doDataPreload, launchGame } from "@/lib/api/GameViewAPI";
+import {
+  doDataPreload,
+  hardDelete,
+  hideGame,
+  launchGame,
+  unhideGame,
+} from "@/lib/api/GameViewAPI";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -10,7 +16,16 @@ import {
 } from "../ui/context-menu";
 import { Button } from "../ui/button";
 import { FaPlay } from "react-icons/fa";
-import { Clock, Download, EyeOff, Trash2 } from "lucide-react";
+import { Clock, Download, Eye, EyeOff, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
 
 interface GridMakerProps {
   data: any;
@@ -89,7 +104,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
     checkImageLoadable(imageUrl);
   }, [imageUrl, cacheBuster]);
 
-  const { playingGame, setPlayingGame } = useSortContext();
+  const { setPlayingGame } = useSortContext();
 
   const playGame = async () => {};
 
@@ -109,6 +124,21 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
       });
     }
   };
+
+  const hideClickHandler = () => {
+    if (!hidden) {
+      hideGame(UID, () => {});
+    } else {
+      unhideGame(UID, () => {});
+    }
+  };
+
+  const deleteClickHandler = () => {
+    setDialogOpen(false);
+    hardDelete(UID, () => {});
+  };
+
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <ContextMenu>
@@ -183,14 +213,39 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
           </ContextMenuItem>
           <div className="flex justify-between gap-4">
             <ContextMenuItem asChild>
-              <Button variant={"ghost"} className="h-7 w-7 rounded-full">
-                <EyeOff size={16} />
+              <Button
+                variant={"ghost"}
+                onClick={hideClickHandler}
+                className="h-7 w-7 rounded-full"
+              >
+                {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
               </Button>
             </ContextMenuItem>
             <ContextMenuItem asChild>
-              <Button variant={"ghost"} className="h-7 rounded-full w-7">
-                <Trash2 size={16} />
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger>
+                  <Button variant={"ghost"} className="h-7 rounded-full w-7">
+                    <Trash2 size={16} />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete {Name}</DialogTitle>
+                  </DialogHeader>
+                  <DialogDescription>
+                    This will remove the game from your library. Running a
+                    library inegration will re-import it
+                  </DialogDescription>
+                  <DialogFooter>
+                    <Button
+                      onClick={deleteClickHandler}
+                      variant={"destructive"}
+                    >
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </ContextMenuItem>
           </div>
         </div>
