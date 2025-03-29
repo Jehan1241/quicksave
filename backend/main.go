@@ -1067,13 +1067,47 @@ func getPreferences(uid string) (map[string]interface{}, error) {
 }
 
 func setCustomImage(UID string, coverImage string, ssImage []string) error {
-	var validNames []string
+	// 1. First, process all NEW screenshots to temporary files
+	tempFiles := make([]string, len(ssImage))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstError error
+	for i, image := range ssImage {
+		wg.Add(1)
+
+		go func(idx int, img string) {
+			defer wg.Done()
+
+			location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
+			tempFileName := fmt.Sprintf("%s-%d.tmp.webp", UID, idx)
+			getImageFromURL(img, location, tempFileName)
+
+			// Verify file creation
+			if _, err := os.Stat(location + tempFileName); os.IsNotExist(err) {
+				mu.Lock()
+				if firstError == nil {
+					firstError = fmt.Errorf("temp file not created for image %d", idx)
+				}
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			tempFiles[idx] = location + tempFileName
+			mu.Unlock()
+		}(i, image)
+	}
 
 	if coverImage != "" {
 		getString := coverImage
 		location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
 		filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
 		getImageFromURL(getString, location, filename)
+	}
+
+	wg.Wait()
+	if firstError != nil {
+		return firstError
 	}
 
 	err := txWrite(func(tx *sql.Tx) error {
@@ -1088,7 +1122,6 @@ func setCustomImage(UID string, coverImage string, ssImage []string) error {
 			if err != nil {
 				return fmt.Errorf("tx error inserting to screenshots")
 			}
-			validNames = append(validNames, filepath.Join("screenshots", UID, fmt.Sprintf("%s-%d.webp", UID, i)))
 		}
 		return nil
 	})
@@ -1096,50 +1129,33 @@ func setCustomImage(UID string, coverImage string, ssImage []string) error {
 		return err
 	}
 
-	// Save screenshots outside of transaction for a faster commit
-	for i, image := range ssImage {
-		location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-		filename := fmt.Sprintf("%s-%d.webp", UID, i)
-		getImageFromURL(image, location, filename)
+	for i, tempFile := range tempFiles {
+		finalFile := fmt.Sprintf("screenshots/%s/%s-%d.webp", UID, UID, i)
+		if err := os.Rename(tempFile, finalFile); err != nil {
+			return fmt.Errorf("failed to rename %s to %s: %w", tempFile, finalFile, err)
+		}
 	}
 
-	//Delete old images
+	//Cleanup orphaned files (only after everything succeeded)
 	screenshotFolder := fmt.Sprintf("screenshots/%s", UID)
-	err = filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	expectedFiles := make(map[string]bool)
+	for i := range ssImage {
+		expectedFiles[fmt.Sprintf("%s-%d.webp", UID, i)] = true
+	}
+
+	filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
 		}
 
-		// Convert path to use forward slashes
-		//path = strings.Replace(path, "\\", "/", -1)
-
-		// Only delete files, keep the directories
-		if !info.IsDir() {
-			// Check if the path is in the validNames slice
-			shouldDelete := true
-			for _, validName := range validNames {
-				if path == validName {
-					shouldDelete = false
-					break
-				}
-			}
-
-			// Only delete if the path is not in validNames
-			if shouldDelete {
-				fmt.Println("Deleting file:", path)
-				err := os.Remove(path)
-				if err != nil {
-					return err
-				}
-			} else {
-				fmt.Println("Skipping valid file:", path)
-			}
+		filename := filepath.Base(path)
+		if !expectedFiles[filename] && !strings.HasSuffix(filename, ".tmp.webp") {
+			fmt.Println("Deleting orphaned file:", path)
+			os.Remove(path)
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("filewalk error: %w", err)
-	}
+
 	return nil
 }
 

@@ -59,6 +59,7 @@ export function ImagesTab({
   };
 
   const saveClickHandler = () => {
+    console.log("AAA", currentCover, ssImage);
     saveCustomImage(
       uid,
       setLoading,
@@ -71,7 +72,7 @@ export function ImagesTab({
   };
 
   const [ssImage, setSsImage] = useState<(string | null)[]>(screenshotsArray);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
   const [ssLinkClicked, setSSLinkClicked] = useState<number | null>(null);
 
   const handleScreenshotImageChange = (
