@@ -50,15 +50,7 @@ export default function GridView({
               style={style}
             >
               {visibleItems.has(itemId) && (
-                <GridMaker
-                  cleanedName={cleanedName}
-                  name={item.Name}
-                  cover={item.CoverArtPath}
-                  uid={item.UID}
-                  platform={item.OwnedPlatform}
-                  style={style}
-                  hidden={hidden}
-                />
+                <GridMaker data={item} style={style} hidden={hidden} />
               )}
             </div>
           );

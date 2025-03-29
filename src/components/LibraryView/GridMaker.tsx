@@ -4,11 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { doDataPreload } from "@/lib/api/GameViewAPI";
 
 interface GridMakerProps {
-  cleanedName: string;
-  name: string;
-  cover: string;
-  uid: string;
-  platform: string;
+  data: any;
   style: React.CSSProperties;
   hidden: boolean;
 }
@@ -24,29 +20,22 @@ interface GameData {
   screenshots: string[];
 }
 
-export default function GridMaker({
-  cleanedName,
-  name,
-  cover,
-  uid,
-  platform,
-  style,
-  hidden,
-}: GridMakerProps) {
+export default function GridMaker({ data, style, hidden }: GridMakerProps) {
+  const { UID, Name, CoverArtPath: cover } = data;
   const navigate = useNavigate();
   const [preloadData, setPreloadData] = useState<GameData | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
 
   const tileClickHandler = () => {
-    console.log(uid);
+    console.log(UID);
     navigate(`/gameview`, {
-      state: { data: uid, hidden: hidden, preloadData: preloadData },
+      state: { data: UID, hidden: hidden, preloadData: preloadData },
     });
   };
 
   const doPreload = () => {
-    doDataPreload(uid, setPreloadData);
+    doDataPreload(UID, setPreloadData);
   };
 
   const { cacheBuster } = useSortContext();
@@ -89,7 +78,7 @@ export default function GridMaker({
     >
       {!imageLoadFailed ? (
         <div
-          className="rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow relative"
+          className="group flex rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow relative overflow-hidden cursor-pointer"
           style={{
             ...style,
             backgroundImage: `url('${imageSrc}')`,
@@ -99,13 +88,17 @@ export default function GridMaker({
             height: "100%",
             width: "100%",
           }}
-        />
+        >
+          <div className="px-3 mt-auto mx-1 mb-1 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-sm truncate">
+            {Name}
+          </div>
+        </div>
       ) : (
         <div
           draggable={false}
           className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-lg border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
         >
-          {name}
+          {Name}
         </div>
       )}
     </div>
