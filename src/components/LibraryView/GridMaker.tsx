@@ -21,7 +21,7 @@ interface GameData {
 }
 
 export default function GridMaker({ data, style, hidden }: GridMakerProps) {
-  const { UID, Name, CoverArtPath: cover } = data;
+  const { UID, Name, CoverArtPath: cover, OwnedPlatform: platform } = data;
   const navigate = useNavigate();
   const [preloadData, setPreloadData] = useState<GameData | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
     >
       {!imageLoadFailed ? (
         <div
-          className="group flex rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow relative overflow-hidden cursor-pointer"
+          className="group flex flex-col rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow overflow-hidden cursor-pointer"
           style={{
             ...style,
             backgroundImage: `url('${imageSrc}')`,
@@ -89,8 +89,16 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
             width: "100%",
           }}
         >
-          <div className="px-3 mt-auto mx-1 mb-1 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-sm truncate">
-            {Name}
+          <div className="inline-flex mx-1 mt-1">
+            <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+              {platform}
+            </div>
+          </div>
+
+          <div className="inline-flex mx-1 mb-1 mt-auto">
+            <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+              {Name}
+            </div>
           </div>
         </div>
       ) : (
