@@ -15,7 +15,7 @@ export function DateTimeRatingSection({
         <Star size={18} className="mb-1 inline" /> {rating}
         {isWishlist === 0 && (
           <span>
-            <Clock className="mb-1 ml-2 inline" size={18} />
+            <Clock className="mb-1 ml-2 mr-1 inline" size={18} />
             {timePlayed}
           </span>
         )}

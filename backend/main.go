@@ -137,7 +137,7 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	m := make(map[string]map[string]interface{})
 
 	// Query 1 GameMetaData
-	QueryString := fmt.Sprintf(`SELECT UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating FROM GameMetaData Where UID = "%s"`, UID)
+	QueryString := fmt.Sprintf(`SELECT UID, Name, ReleaseDate, CoverArtPath, Description, isDLC, OwnedPlatform, TimePlayed, AggregatedRating, InstallPath FROM GameMetaData Where UID = "%s"`, UID)
 	rows, err := readDB.Query(QueryString)
 	if err != nil {
 		return nil, fmt.Errorf("query error GameMetaData: %w", err)
@@ -149,10 +149,18 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 		var isDLC int
 		var TimePlayed float64
 		var AggregatedRating float32
+		var InstallPath sql.NullString
 
-		err := rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating)
+		err := rows.Scan(&UID, &Name, &ReleaseDate, &CoverArtPath, &Description, &isDLC, &OwnedPlatform, &TimePlayed, &AggregatedRating, &InstallPath)
 		if err != nil {
 			return nil, fmt.Errorf("scan error GameMetaData: %w", err)
+		}
+
+		var installPathValue string
+		if InstallPath.Valid {
+			installPathValue = InstallPath.String
+		} else {
+			installPathValue = ""
 		}
 
 		m[UID] = make(map[string]interface{})
@@ -165,6 +173,7 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 		m[UID]["OwnedPlatform"] = OwnedPlatform
 		m[UID]["TimePlayed"] = TimePlayed
 		m[UID]["AggregatedRating"] = AggregatedRating
+		m[UID]["InstallPath"] = installPathValue
 	}
 
 	// Query 2 GamePreferences : Override meta-data with user prefs
@@ -1553,6 +1562,26 @@ func setupRouter() *gin.Engine {
 				sendSSEMessage("Game quit, updated playtime")
 				c.JSON(http.StatusOK, gin.H{"LaunchStatus": "Launched"})
 			}
+		}
+	})
+
+	r.GET("/steamInstallReq", func(c *gin.Context) {
+		fmt.Println("Received Steam Install Req")
+		uid := c.Query("uid")
+		appid, err := getSteamAppID(uid)
+		if err != nil {
+			log.Printf("[SteamInstallReq] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch game", "details": err.Error()})
+			return
+		}
+		if appid != 0 {
+			err := sendSteamInstallReq(appid)
+			if err != nil {
+				log.Printf("[SteamInstallReq] ERROR : %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to launch steam game", "details": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		}
 	})
 

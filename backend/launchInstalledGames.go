@@ -118,6 +118,32 @@ func launchGameFromPath(path string, uid string) error {
 	return nil
 }
 
+func sendSteamInstallReq(appid int) error {
+	// Get the current OS
+	currentOS := runtime.GOOS
+	fmt.Println("Launching Steam Game", appid)
+
+	var command string
+	var cmd *exec.Cmd
+
+	// Check the OS and run command
+	if currentOS == "linux" {
+		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
+		cmd = exec.Command("bash", "-c", command)
+	} else if currentOS == "windows" {
+		cmd = exec.Command("cmd", "/C", "start", "", fmt.Sprintf("steam://rungameid/%d", appid))
+	} else {
+		return fmt.Errorf("error launching game: unsupported OS")
+	}
+
+	// Execute the command
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error launching game: %w", err)
+	}
+	return nil
+}
+
 func launchSteamGame(appid int) error {
 	// Get the current OS
 	currentOS := runtime.GOOS
@@ -162,7 +188,7 @@ func launchAndMonitorSteamGame(appid int) error {
 	}
 
 	// Monitor child processes
-	gamePID, err := waitForSteamChildProcess(steamPID, 60*time.Second) // Extended timeout
+	gamePID, err := waitForSteamChildProcess(steamPID, 20*time.Second) // Extended timeout
 	if err != nil {
 		return fmt.Errorf("couldn't detect game process: %w", err)
 	}

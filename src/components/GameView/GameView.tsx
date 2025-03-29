@@ -9,11 +9,16 @@ import { EditDialog } from "./EditDialog/EditDialog";
 import { CarouselSection } from "./CarouselSection";
 import { DateTimeRatingSection } from "./DateTimeRatingSection";
 import { SettingsDropdown } from "./SettingsDropdown";
-import { getGameDetails, launchGame } from "@/lib/api/GameViewAPI";
+import {
+  getGameDetails,
+  launchGame,
+  sendSteamInstallReq,
+} from "@/lib/api/GameViewAPI";
 import { useSortContext } from "@/hooks/useSortContex";
 import { time } from "node:console";
-import { Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { importSteamLibrary } from "@/lib/api/libraryImports";
+import { platform } from "node:os";
 
 export default React.memo(GameView);
 
@@ -42,16 +47,21 @@ function GameView() {
   const { playingGame, setPlayingGame } = useSortContext();
 
   const playGame = async () => {
-    launchGame(
-      uid,
-      setEditDialogOpen,
-      setEditDialogSelectedTab,
-      setCompanies,
-      setTags,
-      setMetadata,
-      setScreenshots,
-      setPlayingGame
-    );
+    if (installed) {
+      launchGame(
+        uid,
+        setCompanies,
+        setTags,
+        setMetadata,
+        setScreenshots,
+        setPlayingGame
+      );
+    } else if (metadata?.OwnedPlatform === "Steam") {
+      sendSteamInstallReq(uid);
+    } else {
+      setEditDialogOpen(true);
+      setEditDialogSelectedTab("path");
+    }
   };
 
   // Its on UID change to accomodate randomGamesClicked
@@ -73,7 +83,9 @@ function GameView() {
         OwnedPlatform: preloadData.metadata?.OwnedPlatform ?? "Unknown",
         ReleaseDate: preloadData.metadata?.ReleaseDate ?? "?-?-?",
         CoverArtPath: preloadData.metadata?.CoverArtPath ?? "",
+        InstallPath: preloadData.metadata?.InstallPath ?? "",
       });
+      console.log(preloadData);
       setLoading(false);
     } else {
       getGameDetails(
@@ -98,6 +110,7 @@ function GameView() {
     }
   }, [uid]);
 
+  const installed = metadata?.InstallPath === "" ? false : true;
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(companies);
   let screenshotsArray = Object.values(screenshots);
@@ -147,13 +160,21 @@ function GameView() {
                     <Button
                       onClick={playGame}
                       disabled={hidden || playingGame}
-                      className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md"
+                      className="h-10 lg:w-20 xl:w-40 2xl:w-48 bg-playButton hover:bg-playButtonHover text-playButtonText text-md font-semibold"
                     >
                       {playingGame ? (
                         "Launched"
                       ) : (
                         <>
-                          <FaPlay /> Play
+                          {installed ? (
+                            <>
+                              <FaPlay /> Play
+                            </>
+                          ) : (
+                            <>
+                              <Download /> Install
+                            </>
+                          )}
                         </>
                       )}
                     </Button>

@@ -49,6 +49,7 @@ export const doDataPreload = async (
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
+    console.log("BBB", json);
     const { companies, tags, screenshots, m: metadata } = json.metadata;
     setPreloadData({
       companies: companies[uid],
@@ -100,10 +101,6 @@ export const unhideGame = async (uid: string, navigate: any) => {
 
 export const launchGame = async (
   uid: string,
-  setEditDialogOpen: React.Dispatch<React.SetStateAction<boolean>>,
-  setEditDialogSelectedTab: React.Dispatch<
-    React.SetStateAction<"metadata" | "images" | "path">
-  >,
   setCompanies: React.Dispatch<React.SetStateAction<string>>,
   setTags: React.Dispatch<React.SetStateAction<string>>,
   setMetadata: React.Dispatch<React.SetStateAction<string>>,
@@ -117,10 +114,6 @@ export const launchGame = async (
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
     const launchStatus = json.LaunchStatus;
-    if (launchStatus === "ToAddPath") {
-      setEditDialogSelectedTab("path");
-      setEditDialogOpen(true);
-    }
     if (launchStatus === "Launched") {
       getGameDetails(uid, setCompanies, setTags, setMetadata, setScreenshots);
     }
@@ -129,6 +122,19 @@ export const launchGame = async (
     showErrorToast("Failed to launch game!", String(error));
   } finally {
     setPlayingGame(false);
+  }
+};
+
+export const sendSteamInstallReq = async (uid: string) => {
+  console.log("Play Game Clicked");
+  try {
+    const response = await fetch(
+      `http://localhost:8080/steamInstallReq?uid=${uid}`
+    );
+    if (!response.ok) await handleApiError(response);
+  } catch (error) {
+    console.log(error);
+    showErrorToast("Failed to launch game!", String(error));
   }
 };
 
