@@ -141,115 +141,119 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger>
-        <div
-          onClick={tileClickHandler}
-          onMouseEnter={doPreload}
-          className="inline-flex rounded-md transition duration-300 ease-in-out hover:scale-105"
-          style={style}
-        >
-          {!imageLoadFailed ? (
-            <div
-              className="group flex flex-col rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow overflow-hidden cursor-pointer"
-              style={{
-                ...style,
-                backgroundImage: `url('${imageSrc}')`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-                height: "100%",
-                width: "100%",
-              }}
-            >
-              <div className="inline-flex mx-1 mt-1">
-                <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
-                  {platform}
+    <>
+      {/* This modal false makes the UI not freeze on delete, but also allows scrolling with menu open */}
+      <ContextMenu modal={false}>
+        <ContextMenuTrigger>
+          <div
+            onClick={tileClickHandler}
+            onMouseEnter={doPreload}
+            className="inline-flex rounded-md transition duration-300 ease-in-out hover:scale-105"
+            style={style}
+          >
+            {!imageLoadFailed ? (
+              <div
+                className="group flex flex-col rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow overflow-hidden cursor-pointer"
+                style={{
+                  ...style,
+                  backgroundImage: `url('${imageSrc}')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  height: "100%",
+                  width: "100%",
+                }}
+              >
+                <div className="inline-flex mx-1 mt-1">
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                    {platform}
+                  </div>
                 </div>
-              </div>
 
-              <div className="inline-flex mx-1 mb-1 mt-auto">
-                <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
-                  {Name}
+                <div className="inline-flex mx-1 mb-1 mt-auto">
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                    {Name}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div
-              draggable={false}
-              className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-lg border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
-            >
-              {Name}
-            </div>
-          )}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="text-sm min-w-52">
-        <div className="flex flex-col p-2 gap-2">
-          <div>{Name}</div>
-          <div className="flex justify-between gap-4">
-            <div>{platform}</div>
-            <div>
-              <Clock size={18} className="mb-1 inline mr-1" />
-              {playtime}
-            </div>
+            ) : (
+              <div
+                draggable={false}
+                className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-lg border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
+              >
+                {Name}
+              </div>
+            )}
           </div>
-          <ContextMenuItem asChild>
-            <Button
-              disabled={hidden || isWishlist}
-              onClick={playClickHandler}
-              className="h-10 bg-playButton hover:!bg-playButtonHover hover:!text-playButtonText text-playButtonText text-md"
-            >
-              {installed ? (
-                <>
-                  <FaPlay /> Play
-                </>
-              ) : (
-                <>
-                  <Download /> Install
-                </>
-              )}
-            </Button>
-          </ContextMenuItem>
-          <div className="flex justify-between gap-4">
+        </ContextMenuTrigger>
+        <ContextMenuContent className="text-sm min-w-52">
+          <div className="flex flex-col p-2 gap-2">
+            <div>{Name}</div>
+            <div className="flex justify-between gap-4">
+              <div>{platform}</div>
+              <div>
+                <Clock size={18} className="mb-1 inline mr-1" />
+                {playtime}
+              </div>
+            </div>
             <ContextMenuItem asChild>
               <Button
-                variant={"ghost"}
-                onClick={hideClickHandler}
-                className="h-7 w-7 rounded-full"
+                disabled={hidden || isWishlist}
+                onClick={playClickHandler}
+                className="h-10 bg-playButton hover:!bg-playButtonHover hover:!text-playButtonText text-playButtonText text-md"
               >
-                {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                {installed ? (
+                  <>
+                    <FaPlay /> Play
+                  </>
+                ) : (
+                  <>
+                    <Download /> Install
+                  </>
+                )}
               </Button>
             </ContextMenuItem>
-            <ContextMenuItem asChild>
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger>
-                  <Button variant={"ghost"} className="h-7 rounded-full w-7">
-                    <Trash2 size={16} />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Delete {Name}</DialogTitle>
-                  </DialogHeader>
-                  <DialogDescription>
-                    This will remove the game from your library. Running a
-                    library inegration will re-import it
-                  </DialogDescription>
-                  <DialogFooter>
-                    <Button
-                      onClick={deleteClickHandler}
-                      variant={"destructive"}
-                    >
-                      Delete
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </ContextMenuItem>
+            <div className="flex justify-between gap-4">
+              <ContextMenuItem asChild>
+                <Button
+                  variant={"ghost"}
+                  onClick={hideClickHandler}
+                  className="h-7 w-7 rounded-full"
+                >
+                  {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                </Button>
+              </ContextMenuItem>
+              <ContextMenuItem asChild>
+                <Button
+                  onClick={() => setDialogOpen(true)}
+                  variant={"ghost"}
+                  className="h-7 rounded-full w-7"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </ContextMenuItem>
+            </div>
           </div>
-        </div>
-      </ContextMenuContent>
-    </ContextMenu>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger></DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {Name}</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            This will remove the game from your library. Running a library
+            inegration will re-import it
+          </DialogDescription>
+          <DialogFooter>
+            <Button onClick={deleteClickHandler} variant={"destructive"}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
