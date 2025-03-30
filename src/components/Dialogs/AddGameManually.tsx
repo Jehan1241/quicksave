@@ -10,9 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSortContext } from "@/hooks/useSortContex";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
 import {
-  CalendarIcon,
   Globe,
   Link,
   Loader2,
@@ -27,12 +25,6 @@ import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import MultipleSelector from "@/components/ui/multiple-selector";
 
-import { cn } from "@/lib/utils";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Plus } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
