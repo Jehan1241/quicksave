@@ -68,7 +68,7 @@ function GameView() {
   useEffect(() => {
     setLoading(true);
     console.log("Preload Data", preloadData);
-    if (preloadData !== null) {
+    if (preloadData !== null && preloadData !== undefined) {
       setCompanies(preloadData.companies ?? { 0: "Unknown" });
       setTags(preloadData.tags ?? { 0: "Unknown" });
       setScreenshots(preloadData.screenshots ?? {});
@@ -88,6 +88,7 @@ function GameView() {
       console.log(preloadData);
       setLoading(false);
     } else {
+      console.log("else");
       getGameDetails(
         uid,
         (data) => setCompanies(data ?? { 0: "Unknown" }),
