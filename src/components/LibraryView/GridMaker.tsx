@@ -133,17 +133,22 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
     }
   };
 
-  const deleteClickHandler = () => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
     setDialogOpen(false);
     hardDelete(UID, () => {});
   };
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-
   return (
     <>
       {/* This modal false makes the UI not freeze on delete, but also allows scrolling with menu open */}
-      <ContextMenu modal={false}>
+      <ContextMenu modal={true}>
         <ContextMenuTrigger>
           <div
             onClick={tileClickHandler}
@@ -165,17 +170,17 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
                 }}
               >
                 <div className="inline-flex mx-1 mt-1 gap-4 justify-between">
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
                     {platform}
                   </div>
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
                     <Clock size={16} className="inline mr-1" />
                     {playtime}
                   </div>
                 </div>
 
                 <div className="inline-flex mx-1 mb-1 mt-auto">
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
                     {Name}
                   </div>
                 </div>
@@ -190,8 +195,13 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
             )}
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="text-sm min-w-52">
-          <div className="flex flex-col p-2 gap-2">
+        <ContextMenuContent
+          onInteractOutside={(e) => {
+            if (dialogOpen) e.preventDefault();
+          }}
+          className="text-sm min-w-52"
+        >
+          <div className="flex flex-col p-1 gap-2">
             <ContextMenuItem asChild>
               <Button
                 disabled={hidden || isWishlist}
@@ -209,16 +219,17 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
                 )}
               </Button>
             </ContextMenuItem>
-            <ContextMenuItem asChild>
-              <Button variant={"ghost"} onClick={hideClickHandler}>
-                {hidden ? <Eye size={16} /> : <EyeOff size={16} />}Hide
-              </Button>
+            <ContextMenuItem onClick={hideClickHandler}>
+              {hidden ? (
+                <Eye size={16} className="mr-2" />
+              ) : (
+                <EyeOff size={16} className="mr-2" />
+              )}
+              Hide
             </ContextMenuItem>
-            <ContextMenuItem asChild>
-              <Button onClick={() => setDialogOpen(true)} variant={"ghost"}>
-                <Trash2 size={16} />
-                Delete
-              </Button>
+            <ContextMenuItem onClick={handleDeleteClick}>
+              <Trash2 size={16} className="mr-2" />
+              Delete
             </ContextMenuItem>
           </div>
         </ContextMenuContent>
@@ -235,7 +246,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
             inegration will re-import it
           </DialogDescription>
           <DialogFooter>
-            <Button onClick={deleteClickHandler} variant={"destructive"}>
+            <Button onClick={confirmDelete} variant={"destructive"}>
               Delete
             </Button>
           </DialogFooter>
