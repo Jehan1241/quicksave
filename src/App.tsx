@@ -166,7 +166,7 @@ function App() {
   }, [sortStateUpdate]);
 
   useEffect(() => {
-    if (playingGame === false) {
+    if (playingGame === "") {
       const updateSteam = async () => {
         const steamCreds = await getSteamCreds();
 

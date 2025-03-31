@@ -31,8 +31,8 @@ interface SortContextType {
   setSearchText: React.Dispatch<React.SetStateAction<string>>;
   randomGameClicked: boolean;
   setRandomGameClicked: React.Dispatch<React.SetStateAction<boolean>>;
-  playingGame: boolean | null;
-  setPlayingGame: React.Dispatch<React.SetStateAction<boolean | null>>;
+  playingGame: string | null;
+  setPlayingGame: React.Dispatch<React.SetStateAction<string | null>>;
   cacheBuster: number;
   setCacheBuster: React.Dispatch<React.SetStateAction<number>>;
   integrationLoadCount: number;
@@ -66,7 +66,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [randomGameClicked, setRandomGameClicked] = useState<boolean>(false);
   const [cacheBuster, setCacheBuster] = useState<number>(Date.now());
   const [integrationLoadCount, setIntegrationLoadCount] = useState<number>(0);
-  const [playingGame, setPlayingGame] = useState<boolean | null>(null);
+  const [playingGame, setPlayingGame] = useState<string | null>(null);
   const [filterActive, setFilterActive] = useState<boolean>(false);
   const [deleteFilterGames, setDeleteFilterGames] = useState<boolean>(false);
   const [hideFilterGames, setHideFilterGames] = useState<
