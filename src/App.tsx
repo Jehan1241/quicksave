@@ -186,7 +186,8 @@ function App() {
   }, [playingGame]);
 
   useEffect(() => {
-    localStorage.setItem("lastPath", location.pathname);
+    if (location.pathname !== "/gameview")
+      localStorage.setItem("lastPath", location.pathname);
   }, [location.pathname]);
 
   return (
