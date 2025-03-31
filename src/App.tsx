@@ -13,7 +13,7 @@ import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
 import { attachSSEListener } from "./lib/attachSSEListener";
 import { fetchData } from "./lib/api/fetchBasicInfo";
-import { initTileSize } from "./lib/initTileSize";
+import { initTileSize, setLastPath } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
 import { useNavigationContext } from "./hooks/useNavigationContext";
 import { importSteamLibrary } from "./lib/api/libraryImports";
@@ -114,6 +114,7 @@ function App() {
 
   useEffect(() => {
     initTileSize(setTileSize);
+    setLastPath(navigate);
     setTheme();
     const initFunc = async () => {
       await updateData();
@@ -183,6 +184,10 @@ function App() {
       window.windowFunctions.updatePlayingGame(playingGame);
     }
   }, [playingGame]);
+
+  useEffect(() => {
+    localStorage.setItem("lastPath", location.pathname);
+  }, [location.pathname]);
 
   return (
     <>
