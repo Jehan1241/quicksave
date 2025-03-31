@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld("windowFunctions", {
   closeApp: () => ipcRenderer.send("closeApp"),
   minimize: () => ipcRenderer.send("minimize"),
   maximize: () => ipcRenderer.send("maximize"),
+  updatePlayingGame: (uid: string) =>
+    ipcRenderer.send("update-playing-game", uid),
 });
 
 contextBridge.exposeInMainWorld("electron", {

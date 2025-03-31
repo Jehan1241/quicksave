@@ -1,14 +1,22 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/HugoSmits86/nativewebp"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/vova616/screenshot"
 )
 
 // Function to extract the high-resolution image URL from the redirect page
@@ -100,4 +108,81 @@ func findLinksForScreenshot(screenshotString string) {
 			}
 		}
 	})
+}
+
+func takeScreenshot(uid string) error {
+	img, err := screenshot.CaptureScreen()
+	if err != nil {
+		return fmt.Errorf("error taking screenshot: %w", err)
+	}
+	myImg := image.Image(img)
+
+	nextIndex, err := getNextScreenshotIndex(uid)
+	if err != nil {
+		return fmt.Errorf("error getting next screenshot index: %w", err)
+	}
+
+	fileName := fmt.Sprintf("%s-%d.webp", uid, nextIndex)
+	filePath := filepath.Join("screenshots", uid, fileName)
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("error creating screenshot: %w", err)
+	}
+	defer file.Close()
+
+	err = nativewebp.Encode(file, myImg, nil)
+	if err != nil {
+		return fmt.Errorf("error creating screenshot file: %w", err)
+	}
+
+	pathToInsert := fmt.Sprintf("/%s/%s", uid, fileName)
+	err = insertScreenshotRecord(uid, pathToInsert)
+	if err != nil {
+		return fmt.Errorf("error inserting screenshot record: %w", err)
+	}
+
+	return nil
+}
+
+func insertScreenshotRecord(uid string, path string) error {
+	err := txWrite(func(tx *sql.Tx) error {
+		_, err := tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?, ?)", uid, path)
+		if err != nil {
+			return fmt.Errorf("tx write error to screenshots: %w", err)
+		}
+		return nil
+	})
+	return err
+}
+
+func getNextScreenshotIndex(uid string) (int, error) {
+
+	rows, err := readDB.Query("SELECT ScreenshotPath FROM ScreenShots WHERE UID = ?", uid)
+	if err != nil {
+		return 0, fmt.Errorf("error reading screenshots table: %w", err)
+	}
+	defer rows.Close()
+
+	// Regular expression to extract the screenshot index (uid-number.webp)
+	re := regexp.MustCompile(fmt.Sprintf(`^%s-(\d+)\.webp$`, uid))
+	maxIndex := -1
+
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return 0, fmt.Errorf("error scanning row: %w", err)
+		}
+
+		// Extract number from filename
+		matches := re.FindStringSubmatch(filepath.Base(path))
+		if matches != nil {
+			index, err := strconv.Atoi(matches[1])
+			if err == nil && index > maxIndex {
+				maxIndex = index
+			}
+		}
+	}
+
+	return maxIndex + 1, nil
 }

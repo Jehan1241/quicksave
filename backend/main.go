@@ -1877,6 +1877,19 @@ func setupRouter() *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "OK"})
 	})
 
+	r.GET("/takeScreenshot", func(c *gin.Context) {
+		fmt.Println("Received Take Screenshot")
+		uid := c.Query("uid")
+		err := takeScreenshot(uid)
+		if err != nil {
+			log.Printf("[TakeScreenshot] ERROR : %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get preferences", "details": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK})
+	})
+
 	return r
 }
 

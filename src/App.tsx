@@ -23,7 +23,6 @@ import {
   hideCurrentlyFiltered,
   unHideCurrentlyFiltered,
 } from "./lib/api/filterGamesAPI";
-
 function App() {
   const {
     sortType,
@@ -180,6 +179,8 @@ function App() {
       };
 
       updateSteam();
+    } else if (playingGame != null) {
+      window.windowFunctions.updatePlayingGame(playingGame);
     }
   }, [playingGame]);
 

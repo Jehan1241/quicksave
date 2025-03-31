@@ -12,8 +12,10 @@ require (
 )
 
 require (
+	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
+	github.com/vova616/screenshot v0.0.0-20220801010501-56c10359473c // indirect
 )
 
 require (

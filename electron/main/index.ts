@@ -46,6 +46,7 @@ const preload = path.join(__dirname, "../preload/index.mjs");
 const indexHtml = path.join(RENDERER_DIST, "index.html");
 
 const windowStateKeeper = require("electron-window-state");
+let currentPlayingGameUID: string | null = null;
 
 async function createWindow() {
   let mainWindowState = windowStateKeeper({
@@ -180,18 +181,6 @@ async function createWindow() {
     }
   });
 
-  // ipc.on("nukeCache", () => {
-  //   session.defaultSession.clearCache();
-  //   win.webContents.reloadIgnoringCache();
-  //   win.webContents.session.clearCache().then(() => {
-  //     win.webContents.executeJavaScript("location.reload(true)");
-  //   });
-  //   win.webContents.invalidate();
-  //   win.webContents.reloadIgnoringCache();
-  //   win.webContents.session.clearCache();
-  //   win.webContents.session.flushStorageData();
-  // });
-
   ipc.on("closeApp", () => {
     win.close();
   });
@@ -204,6 +193,11 @@ async function createWindow() {
     } else {
       win.maximize();
     }
+  });
+
+  ipcMain.on("update-playing-game", (_: any, uid: string) => {
+    console.log("Updated playing game UID:", uid);
+    currentPlayingGameUID = uid;
   });
 
   if (VITE_DEV_SERVER_URL) {
@@ -243,13 +237,20 @@ app.whenReady().then(() => {
   globalShortcut.register("CommandOrControl+Shift+X", async () => {
     console.log("Global shortcut triggered!");
 
-    //   // try {
-    //   //   const response = await fetch(`http://localhost:80880/takeScreenshot`);
-    //   //   const data = await response.text();
-    //   //   console.log("Screenshot request sent, response:", data);
-    //   // } catch (error) {
-    //   //   console.error("Error sending screenshot request:", error);
-    //   // }
+    if (!currentPlayingGameUID) {
+      console.log("No game UID found, skipping screenshot request.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/takeScreenshot?uid=${currentPlayingGameUID}`
+      );
+      const data = await response.text();
+      console.log("Screenshot request sent, response:", data);
+    } catch (error) {
+      console.error("Error sending screenshot request:", error);
+    }
   });
 
   app.on("will-quit", () => {
