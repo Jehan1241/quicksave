@@ -164,9 +164,13 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
                   width: "100%",
                 }}
               >
-                <div className="inline-flex mx-1 mt-1">
+                <div className="inline-flex mx-1 mt-1 gap-4 justify-between">
                   <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
                     {platform}
+                  </div>
+                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-85 transition-opacity duration-300 text-xs truncate">
+                    <Clock size={16} className="inline mr-1" />
+                    {playtime}
                   </div>
                 </div>
 
@@ -188,14 +192,6 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
         </ContextMenuTrigger>
         <ContextMenuContent className="text-sm min-w-52">
           <div className="flex flex-col p-2 gap-2">
-            <div>{Name}</div>
-            <div className="flex justify-between gap-4">
-              <div>{platform}</div>
-              <div>
-                <Clock size={18} className="mb-1 inline mr-1" />
-                {playtime}
-              </div>
-            </div>
             <ContextMenuItem asChild>
               <Button
                 disabled={hidden || isWishlist}
@@ -213,26 +209,17 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
                 )}
               </Button>
             </ContextMenuItem>
-            <div className="flex justify-between gap-4">
-              <ContextMenuItem asChild>
-                <Button
-                  variant={"ghost"}
-                  onClick={hideClickHandler}
-                  className="h-7 w-7 rounded-full"
-                >
-                  {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-                </Button>
-              </ContextMenuItem>
-              <ContextMenuItem asChild>
-                <Button
-                  onClick={() => setDialogOpen(true)}
-                  variant={"ghost"}
-                  className="h-7 rounded-full w-7"
-                >
-                  <Trash2 size={16} />
-                </Button>
-              </ContextMenuItem>
-            </div>
+            <ContextMenuItem asChild>
+              <Button variant={"ghost"} onClick={hideClickHandler}>
+                {hidden ? <Eye size={16} /> : <EyeOff size={16} />}Hide
+              </Button>
+            </ContextMenuItem>
+            <ContextMenuItem asChild>
+              <Button onClick={() => setDialogOpen(true)} variant={"ghost"}>
+                <Trash2 size={16} />
+                Delete
+              </Button>
+            </ContextMenuItem>
           </div>
         </ContextMenuContent>
       </ContextMenu>

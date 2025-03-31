@@ -32,8 +32,8 @@ export function QuickSaveButton({
         React.cloneElement(child as React.ReactElement, {
           className: cn(
             (child as React.ReactElement).props.className,
-            "group-hover:scale-125 transition-transform",
-            active ? "scale-150" : ""
+            "group-hover:scale-110 transition-transform",
+            active ? "scale-110" : ""
           ),
           size: 22,
         })
