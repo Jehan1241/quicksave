@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import path, { dirname } from "node:path";
 import os from "node:os";
 import { update } from "./update";
-
 const require = createRequire(import.meta.url);
+const { globalShortcut } = require("electron");
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ipc = ipcMain;
 
@@ -236,8 +237,25 @@ async function createWindow() {
   update(win);
 }
 
-app.whenReady().then(createWindow);
+//app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  globalShortcut.register("CommandOrControl+Shift+X", async () => {
+    console.log("Global shortcut triggered!");
 
+    //   // try {
+    //   //   const response = await fetch(`http://localhost:80880/takeScreenshot`);
+    //   //   const data = await response.text();
+    //   //   console.log("Screenshot request sent, response:", data);
+    //   // } catch (error) {
+    //   //   console.error("Error sending screenshot request:", error);
+    //   // }
+  });
+
+  app.on("will-quit", () => {
+    globalShortcut.unregisterAll(); // Clean up when app exits
+  });
+});
 let goServer: any;
 const { spawn } = require("child_process");
 
