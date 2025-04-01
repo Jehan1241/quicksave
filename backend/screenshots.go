@@ -147,7 +147,7 @@ func takeScreenshot(uid string) error {
 
 func insertScreenshotRecord(uid string, path string) error {
 	err := txWrite(func(tx *sql.Tx) error {
-		_, err := tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?, ?)", uid, path)
+		_, err := tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?, ?, ?)", uid, path, "user")
 		if err != nil {
 			return fmt.Errorf("tx write error to screenshots: %w", err)
 		}

@@ -340,10 +340,10 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 			values = append(values, []any{UID, ""})
 		} else {
 			for _, screenshotPath := range screenshotPaths {
-				values = append(values, []any{UID, screenshotPath})
+				values = append(values, []any{UID, screenshotPath, "generic"})
 			}
 		}
-		err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+		err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
 		if err != nil {
 			return fmt.Errorf("failed to insert into screenshots: %w", err)
 		}

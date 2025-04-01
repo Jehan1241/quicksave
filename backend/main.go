@@ -273,7 +273,7 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	}
 
 	// Query 5: ScreenShots
-	QueryString = fmt.Sprintf(`SELECT * FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
+	QueryString = fmt.Sprintf(`SELECT ScreenshotPath FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
 	rows, err = readDB.Query(QueryString)
 	if err != nil {
 		return nil, fmt.Errorf("query error Screenshots: %w", err)
@@ -285,10 +285,9 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	prevUID = "-xxx"
 	for rows.Next() {
 
-		var UUID int
-		var UID, ScreenshotPath string
+		var ScreenshotPath string
 
-		err := rows.Scan(&UUID, &UID, &ScreenshotPath)
+		err := rows.Scan(&ScreenshotPath)
 		if err != nil {
 			return nil, fmt.Errorf("scan error Screenshots: %w", err)
 		}
@@ -1127,7 +1126,7 @@ func setCustomImage(UID string, coverImage string, ssImage []string) error {
 
 		for i := range ssImage {
 			pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
-			_, err = tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", UID, pathString)
+			_, err = tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", UID, pathString, "user")
 			if err != nil {
 				return fmt.Errorf("tx error inserting to screenshots")
 			}

@@ -112,6 +112,8 @@ func createTables(db *sql.DB) {
 	"UUID"	INTEGER NOT NULL UNIQUE,
 	"UID"	TEXT NOT NULL,
 	"ScreenshotPath"	TEXT NOT NULL,
+	"ScreenshotType"	TEXT NOT NULL,
+	"ScreenshotType"	TEXT,
 	PRIMARY KEY("UUID")
 	);`,
 

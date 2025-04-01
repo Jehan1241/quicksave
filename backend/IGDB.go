@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -344,7 +343,6 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 	var UIDdb string
 	err := readDB.QueryRow("SELECT UID FROM GameMetaData WHERE UID = ?", UID).Scan(&UIDdb)
 	if err == nil { // No error means match
-		log.Println("Game already exists in database:", title)
 		return false, nil
 	} else if err != sql.ErrNoRows { // Means real error occured
 		return false, fmt.Errorf("database error %v", err)
@@ -404,9 +402,9 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 		if len(ScreenshotPaths) > 0 {
 			var values [][]any
 			for _, screenshotPath := range ScreenshotPaths {
-				values = append(values, []any{UID, screenshotPath})
+				values = append(values, []any{UID, screenshotPath, "generic"})
 			}
-			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
 			if err != nil {
 				return fmt.Errorf("DB write error - inserting screenshots: %v", err)
 			}

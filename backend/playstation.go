@@ -643,9 +643,9 @@ func insertMetaDataInDB(igdbMetaData igdbMetaData, title string, platform string
 		if len(ScreenshotPaths) > 0 {
 			var values [][]any
 			for _, screenshotPath := range ScreenshotPaths {
-				values = append(values, []any{UID, screenshotPath})
+				values = append(values, []any{UID, screenshotPath, "generic"})
 			}
-			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath) VALUES (?,?)", values)
+			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
 			if err != nil {
 				return fmt.Errorf("error inserting into ScreenShots: %w", err)
 			}
