@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Settings2, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,23 +26,23 @@ export function SettingsDropdown({
           <Settings2 />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>Edit Menu</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent className="w-44">
         <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
-          Edit Metadata
+          <Pencil className="mr-1" /> Edit Metadata
         </DropdownMenuItem>
         {hidden ? (
           <DropdownMenuItem onClick={() => unhideGame(uid, navigate)}>
+            <Eye size={16} className="mr-1" />
             Unhide Game
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem onClick={() => setHideDialogOpen(true)}>
+            <EyeOff size={16} className="mr-1" />
             Hide Game
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)}>
-          Delete Game
+          <Trash2 size={16} className="mr-1" /> Delete Game
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
