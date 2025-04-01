@@ -273,8 +273,18 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	}
 
 	// Query 5: ScreenShots
-	QueryString = fmt.Sprintf(`SELECT ScreenshotPath FROM ScreenShots Where ScreenShots.UID = "%s"`, UID)
-	rows, err = readDB.Query(QueryString)
+	QueryString = `
+		SELECT ScreenshotPath 
+		FROM ScreenShots 
+		WHERE ScreenShots.UID = ? 
+		ORDER BY 
+			CASE 
+				WHEN ScreenshotType = 'user' THEN 1
+				WHEN ScreenshotType = 'generic' THEN 2
+				ELSE 3
+			END
+	`
+	rows, err = readDB.Query(QueryString, UID)
 	if err != nil {
 		return nil, fmt.Errorf("query error Screenshots: %w", err)
 	}
