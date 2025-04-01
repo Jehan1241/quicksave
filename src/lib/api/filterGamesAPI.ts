@@ -68,7 +68,7 @@ export const handleFilterChange = async (
   selectedTags: Option[],
   selectedName: Option[],
   selectedDevs: Option[],
-  toast: any
+  setFilterActive: any
 ) => {
   const platformValues = selectedPlatforms.map((platform) => platform.value);
   const tagValues = selectedTags.map((tag) => tag.value);
@@ -81,6 +81,13 @@ export const handleFilterChange = async (
     platforms: platformValues,
     devs: devValues,
   };
+
+  const filtersActive =
+    selectedPlatforms.length > 0 ||
+    selectedTags.length > 0 ||
+    selectedName.length > 0 ||
+    selectedDevs.length > 0;
+  setFilterActive(filtersActive);
 
   try {
     console.log("Sending Set Filter");

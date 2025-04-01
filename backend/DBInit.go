@@ -147,19 +147,19 @@ func createTables(db *sql.DB) {
 	);`,
 
 		`CREATE TABLE "FilterTags" (
-		"Tag"	TEXT NOT NULL
+		"Tag"	TEXT NOT NULL UNIQUE
 	);`,
 
 		`CREATE TABLE "FilterDevs" (
-		"Dev"	TEXT NOT NULL
+		"Dev"	TEXT NOT NULL UNIQUE
 	);`,
 
 		`CREATE TABLE "FilterName" (
-		"Name"	TEXT NOT NULL
+		"Name"	TEXT NOT NULL UNIQUE
 	);`,
 
 		`CREATE TABLE "FilterPlatform" (
-		"Platform"	TEXT NOT NULL
+		"Platform"	TEXT NOT NULL UNIQUE
 	);`,
 
 		`CREATE TABLE "GamePreferences" (

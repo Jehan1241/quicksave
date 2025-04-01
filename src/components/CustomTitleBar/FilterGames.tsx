@@ -119,16 +119,9 @@ export default function FilterGames({
         selectedTags,
         selectedName,
         selectedDevs,
-        toast
+        setFilterActive
       );
     }
-    const filtersActive =
-      selectedPlatforms.length > 0 ||
-      selectedTags.length > 0 ||
-      selectedName.length > 0 ||
-      selectedDevs.length > 0;
-
-    setFilterActive(filtersActive);
   }, [selectedTags, selectedPlatforms, selectedDevs, selectedName]);
 
   return (

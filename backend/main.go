@@ -345,25 +345,25 @@ func setFilter(FilterStruct FilterStruct) error {
 		}
 
 		if len(tagValues) > 0 {
-			err = txBatchUpdate(tx, "INSERT INTO FilterTags (Tag) VALUES (?)", tagValues)
+			err = txBatchUpdate(tx, "INSERT INTO FilterTags (Tag) VALUES (?) ON CONFLICT DO NOTHING", tagValues)
 			if err != nil {
 				return fmt.Errorf("tx error inserting to tags: %w", err)
 			}
 		}
 		if len(nameValues) > 0 {
-			err = txBatchUpdate(tx, "INSERT INTO FilterName (Name) VALUES (?)", nameValues)
+			err = txBatchUpdate(tx, "INSERT INTO FilterName (Name) VALUES (?) ON CONFLICT DO NOTHING", nameValues)
 			if err != nil {
 				return fmt.Errorf("tx error inserting to name: %w", err)
 			}
 		}
 		if len(platformValues) > 0 {
-			err = txBatchUpdate(tx, "INSERT INTO FilterPlatform (Platform) VALUES (?)", platformValues)
+			err = txBatchUpdate(tx, "INSERT INTO FilterPlatform (Platform) VALUES (?) ON CONFLICT DO NOTHING", platformValues)
 			if err != nil {
 				return fmt.Errorf("tx error inserting to plats: %w", err)
 			}
 		}
 		if len(devValues) > 0 {
-			err = txBatchUpdate(tx, "INSERT INTO FilterDevs (Dev) VALUES (?)", devValues)
+			err = txBatchUpdate(tx, "INSERT INTO FilterDevs (Dev) VALUES (?) ON CONFLICT DO NOTHING", devValues)
 			if err != nil {
 				return fmt.Errorf("tx error inserting to devs: %w", err)
 			}
