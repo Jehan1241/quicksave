@@ -55,8 +55,10 @@ export function DisplayInfo({ data, tags, companies }: any) {
           Platform
           <Button
             onClick={() => {
-              setSelectedPlats((prev) => {
-                const updatedPlats = [...prev, data?.OwnedPlatform];
+              setSelectedPlats(() => {
+                const updatedPlats = [
+                  { value: data?.OwnedPlatform, label: data?.OwnedPlatform },
+                ];
                 clickHandler(
                   updatedPlats,
                   selectedTags,
@@ -124,6 +126,16 @@ export function DisplayInfo({ data, tags, companies }: any) {
               {item}
             </Button>
           ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col items-start justify-start gap-2">
+        Description
+        <div className="flex h-full flex-col">
+          <p
+            dangerouslySetInnerHTML={{ __html: data?.Description }}
+            className="text-sm"
+          ></p>
         </div>
       </div>
     </div>
