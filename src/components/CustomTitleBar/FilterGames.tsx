@@ -57,6 +57,8 @@ export default function FilterGames({
   const { toast } = useToast();
   const location = useLocation();
 
+  console.log("AADAWD");
+
   const OPTIONS: Option[] = [
     { label: "A", value: "A" },
     { label: "B", value: "B" },
@@ -108,7 +110,6 @@ export default function FilterGames({
   };
 
   useEffect(() => {
-    if (!filterDialogOpen) return;
     loadFilterOptionsAndState();
   }, [filterDialogOpen]); //so that filters have latest state always
 
