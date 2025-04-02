@@ -6,6 +6,7 @@ import os from "node:os";
 import { update } from "./update";
 const require = createRequire(import.meta.url);
 const { globalShortcut } = require("electron");
+const { autoUpdater } = require("electron-updater");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ipc = ipcMain;
@@ -231,8 +232,12 @@ async function createWindow() {
   update(win);
 }
 
-//app.whenReady().then(createWindow);
+autoUpdater.on("update-available", () => {
+  console.log("Update available");
+});
+
 app.whenReady().then(() => {
+  autoUpdater.checkForUpdatesAndNotify();
   createWindow();
   globalShortcut.register("CommandOrControl+Shift+X", async () => {
     console.log("Global shortcut triggered!");

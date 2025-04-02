@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "gg.quicksave.app",
   "asar": true,
   "directories": {
     "output": "release/${version}"
@@ -27,8 +27,10 @@
     "deleteAppDataOnUninstall": false
   },
   "publish": {
-    "provider": "generic",
-    "channel": "latest",
-    "url": "https://github.com/electron-vite/electron-vite-react/releases/download/v0.9.9/"
+    "provider": "github",
+    "owner": "Jehan1241",
+    "repo": "quicksave",
+    "releaseType": "release",
+    "publishAutoUpdate": true
   }
 }
