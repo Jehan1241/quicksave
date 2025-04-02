@@ -23,6 +23,7 @@ import {
   hideCurrentlyFiltered,
   unHideCurrentlyFiltered,
 } from "./lib/api/filterGamesAPI";
+import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
 function App() {
   const {
     sortType,
@@ -238,6 +239,7 @@ function App() {
           <Route element={<GameView />} path="/gameview" />
         </Routes>
         <Toaster />
+        <UpdateManager />
       </CustomTitleBar>
     </>
   );

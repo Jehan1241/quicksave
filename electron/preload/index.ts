@@ -14,6 +14,22 @@ contextBridge.exposeInMainWorld("electron", {
   browseFileHandler: () => ipcRenderer.invoke("browseFileHandler"),
   validateGamePath: (gamePath: any) =>
     ipcRenderer.invoke("validate-game-path", gamePath),
+
+  onUpdateAvailable: (callback: (version: string) => void) => {
+    ipcRenderer.on("update-available", (_, { version }) => callback(version));
+  },
+
+  onProgress: (callback: (progress: number) => void) => {
+    ipcRenderer.on("download-progress", (_, progress) => callback(progress));
+  },
+
+  onReady: (callback: () => void) => {
+    ipcRenderer.on("update-downloaded", callback);
+  },
+
+  startDownload: () => ipcRenderer.send("start-download"),
+
+  restartNow: () => ipcRenderer.send("restart-app"),
 });
 
 // --------- Expose some API to the Renderer process ---------

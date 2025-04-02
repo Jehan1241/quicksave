@@ -14,6 +14,11 @@ declare interface Window {
     browseFileHandler: (
       options: Electron.OpenDialogOptions
     ) => Promise<Electron.OpenDialogReturnValue>;
+    onUpdateAvailable: (callback: (version: string) => void) => void;
+    onProgress: (callback: (progress: number) => void) => void;
+    onReady: (callback: () => void) => void;
+    startDownload: () => void;
+    restartNow: () => void;
   };
   themeMode: {
     toggle: () => Promise<boolean>;

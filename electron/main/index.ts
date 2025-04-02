@@ -203,6 +203,16 @@ async function createWindow() {
     currentPlayingGameUID = uid;
   });
 
+  ipcMain.on("start-download", () => autoUpdater.downloadUpdate());
+  ipcMain.on("restart-app", () => autoUpdater.quitAndInstall());
+  autoUpdater.on("download-progress", (progress: any) => {
+    win.webContents.send("download-progress", progress.percent);
+  });
+
+  autoUpdater.on("update-downloaded", () => {
+    win.webContents.send("update-downloaded");
+  });
+
   if (VITE_DEV_SERVER_URL) {
     // #298
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -211,6 +221,10 @@ async function createWindow() {
   } else {
     win.loadFile(indexHtml);
   }
+
+  autoUpdater.on("update-available", ({ version }: any) => {
+    win.webContents.send("update-available", { version });
+  });
 
   // Test actively push message to the Electron-Renderer
   win.webContents.on("did-finish-load", () => {
@@ -234,37 +248,10 @@ async function createWindow() {
   update(win);
 }
 
-autoUpdater.on("update-available", ({ version }: any) => {
-  const choice = dialog.showMessageBoxSync({
-    type: "info",
-    buttons: ["Download Now", "Later"],
-    title: "Update Available",
-    message: `Version ${version} is available. Download now?`,
-    detail: "The update will download in the background and prompt when ready.",
-  });
-
-  if (choice === 0) {
-    autoUpdater.downloadUpdate(); // User chose to download
-  }
-});
-
-autoUpdater.on("update-downloaded", () => {
-  const choice = dialog.showMessageBoxSync({
-    type: "question",
-    buttons: ["Restart Now", "Later"],
-    title: "Update Ready",
-    message: "Update downloaded. Restart to apply?",
-    defaultId: 0,
-  });
-
-  if (choice === 0) {
-    autoUpdater.quitAndInstall(); // Restart the app
-  }
-});
-
 app.whenReady().then(() => {
   autoUpdater.checkForUpdates();
   createWindow();
+
   globalShortcut.register("CommandOrControl+Shift+X", async () => {
     console.log("Global shortcut triggered!");
 
