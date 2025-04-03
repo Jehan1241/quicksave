@@ -10,6 +10,9 @@ const { autoUpdater } = require("electron-updater");
 
 autoUpdater.autoDownload = false;
 
+process.env.ELECTRON_ENABLE_LOGGING = "1";
+console.log("=== MAIN PROCESS STARTED ===");
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ipc = ipcMain;
 
@@ -281,6 +284,44 @@ const { spawn } = require("child_process");
 const isDev = !app.isPackaged;
 const fs = require("fs");
 
+function getAppRoot() {
+  console.log("APP ROOT", process.env.PORTABLE_EXECUTABLE_DIR);
+  return process.env.PORTABLE_EXECUTABLE_DIR
+    ? process.env.PORTABLE_EXECUTABLE_DIR
+    : path.dirname(app.getPath("exe"));
+}
+
+// Gets the backend folder NEXT to the EXE
+function getBackendPath() {
+  console.log("BACKEND PATH", path.join(getAppRoot(), "backend"));
+
+  return path.join(getAppRoot(), "backend");
+}
+
+// **Critical:** Ensure backend folder + EXE exist
+function ensureBackend() {
+  const backendPath = getBackendPath();
+  if (!fs.existsSync(backendPath)) {
+    fs.mkdirSync(backendPath, { recursive: true });
+  }
+
+  // Copy thismodule.exe from resources if missing
+  const exeDest = path.join(backendPath, "thismodule.exe");
+  if (!fs.existsSync(exeDest)) {
+    const exeSource = path.join(
+      process.resourcesPath,
+      "..",
+      "backend",
+      "thismodule.exe"
+    );
+    if (fs.existsSync(exeSource)) {
+      fs.copyFileSync(exeSource, exeDest);
+    }
+  }
+
+  return exeDest;
+}
+
 app.on("ready", () => {
   let serverPath;
 
@@ -289,8 +330,7 @@ app.on("ready", () => {
     serverPath = path.join(__dirname, "../../backend", "thismodule.exe");
   } else {
     // Production: The backend folder is next to the packaged Electron executable
-    const execDir = path.dirname(process.execPath); // Use execPath instead of __dirname
-    serverPath = path.join(execDir, "resources/backend", "thismodule.exe");
+    serverPath = ensureBackend();
   }
   console.log("Launching Go server from:", serverPath);
 

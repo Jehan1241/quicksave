@@ -6,10 +6,10 @@
     "output": "release/${version}"
   },
   "files": ["dist-electron", "dist"],
-  "extraResources": [
+  "extraFiles": [
     {
       "from": "backend/thismodule.exe",
-      "to": "./backend/thismodule.exe"
+      "to": "../backend/thismodule.exe"
     }
   ],
   "mac": {
@@ -17,14 +17,9 @@
     "target": ["dmg", "zip"]
   },
   "win": {
-    "target": "nsis",
-    "artifactName": "${productName}_${version}.${ext}"
-  },
-  "nsis": {
-    "oneClick": false,
-    "perMachine": false,
-    "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+    "target": "portable",
+    "artifactName": "${productName}.${ext}",
+    "icon": "build/icon.ico"
   },
   "publish": {
     "provider": "github",
