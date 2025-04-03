@@ -18,6 +18,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -1897,6 +1898,53 @@ func setupRouter() *gin.Engine {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK})
+	})
+
+	r.POST("/updateApp", func(c *gin.Context) {
+		var data struct {
+			Source string `json:"source"`
+			Target string `json:"target"`
+		}
+		if err := c.BindJSON(&data); err != nil {
+			log.Printf("[UpdateApp] ERROR invalid req payload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Received Update App", data.Source, data.Target)
+
+		// Get updater path (same directory as main exe)
+		updaterPath := filepath.Join(filepath.Dir(os.Args[0]), "updater.exe")
+
+		// Verify updater exists
+		if _, err := os.Stat(updaterPath); os.IsNotExist(err) {
+			log.Printf("[UpdateApp] Updater not found at: %s", updaterPath)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Updater program not found",
+			})
+			return
+		}
+
+		// Launch updater directly (not through cmd)
+		cmd := exec.Command(updaterPath, data.Source, data.Target)
+		cmd.Stdout = os.Stdout // Optional: capture output
+		cmd.Stderr = os.Stderr
+
+		// Critical: Set proper working directory
+		cmd.Dir = filepath.Dir(updaterPath)
+
+		if err := cmd.Start(); err != nil {
+			log.Printf("[UpdateApp] Failed to start updater: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to start updater",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Detach from parent process
+		cmd.Process.Release()
+
+		c.JSON(http.StatusOK, gin.H{"status": "Update started"})
 	})
 
 	return r

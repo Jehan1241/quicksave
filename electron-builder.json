@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "gg.quicksave.app",
+  "productName": "quicksave",
   "asar": true,
   "directories": {
     "output": "release/${version}"
@@ -10,6 +11,10 @@
     {
       "from": "backend/thismodule.exe",
       "to": "../backend/thismodule.exe"
+    },
+    {
+      "from": "backend/updater/updater.exe",
+      "to": "../backend/updater.exe"
     }
   ],
   "mac": {
@@ -17,7 +22,12 @@
     "target": ["dmg", "zip"]
   },
   "win": {
-    "target": "portable",
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
     "artifactName": "${productName}.${ext}",
     "icon": "build/icon.ico"
   },

@@ -2,7 +2,7 @@
   "name": "quicksave",
   "version": "0.5.6",
   "main": "dist-electron/main/index.js",
-  "description": "Video game library manager.",
+  "description": "quicksave",
   "author": "Jehan",
   "license": "GNU",
   "private": true,

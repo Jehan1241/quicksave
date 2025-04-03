@@ -1,14 +1,11 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import path, { dirname } from "node:path";
-import os from "node:os";
+import path from "node:path";
 import { update } from "./update";
+import { promptUpdate } from "./github-updater";
 const require = createRequire(import.meta.url);
 const { globalShortcut } = require("electron");
-const { autoUpdater } = require("electron-updater");
-
-autoUpdater.autoDownload = false;
 
 process.env.ELECTRON_ENABLE_LOGGING = "1";
 console.log("=== MAIN PROCESS STARTED ===");
@@ -67,6 +64,7 @@ async function createWindow() {
     height: mainWindowState.height,
     minWidth: 1080,
     minHeight: 550,
+    title: "quicksave",
     webPreferences: {
       devTools: true,
       contextIsolation: true,
@@ -206,16 +204,6 @@ async function createWindow() {
     currentPlayingGameUID = uid;
   });
 
-  ipcMain.on("start-download", () => autoUpdater.downloadUpdate());
-  ipcMain.on("restart-app", () => autoUpdater.quitAndInstall());
-  autoUpdater.on("download-progress", (progress: any) => {
-    win.webContents.send("download-progress", progress.percent);
-  });
-
-  autoUpdater.on("update-downloaded", () => {
-    win.webContents.send("update-downloaded");
-  });
-
   if (VITE_DEV_SERVER_URL) {
     // #298
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -224,10 +212,6 @@ async function createWindow() {
   } else {
     win.loadFile(indexHtml);
   }
-
-  autoUpdater.on("update-available", ({ version }: any) => {
-    win.webContents.send("update-available", { version });
-  });
 
   // Test actively push message to the Electron-Renderer
   win.webContents.on("did-finish-load", () => {
@@ -252,8 +236,8 @@ async function createWindow() {
 }
 
 app.whenReady().then(() => {
-  autoUpdater.checkForUpdates();
   createWindow();
+  if (app.isPackaged) promptUpdate(app.getVersion());
 
   globalShortcut.register("CommandOrControl+Shift+X", async () => {
     console.log("Global shortcut triggered!");
