@@ -16,9 +16,13 @@ export function UpdateManager() {
         <UpdateAvailableDialog
           version={version!}
           onCancel={() => {
+            startDownload(false);
             setShowDialog(false);
           }}
-          onConfirm={startDownload}
+          onConfirm={() => {
+            startDownload(true);
+            //setShowDialog(false);
+          }}
         />
       )}
 

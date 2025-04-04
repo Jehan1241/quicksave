@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Button } from "../ui/button";
+import { Loader2 } from "lucide-react";
 
 // UpdateAvailableDialog.tsx
 export function UpdateAvailableDialog({
@@ -10,6 +12,8 @@ export function UpdateAvailableDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const [confirmClicked, setConfirmClicked] = useState(false);
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-Sidebar rounded-lg border border-border max-w-md w-full p-6 animate-fade-in">
@@ -20,8 +24,16 @@ export function UpdateAvailableDialog({
           <Button variant={"outline"} onClick={onCancel}>
             Later
           </Button>
-          <Button variant={"outline"} onClick={onConfirm}>
-            Download Update
+          <Button
+            className="w-44"
+            variant={"outline"}
+            onClick={() => {
+              onConfirm();
+              setConfirmClicked(true);
+            }}
+          >
+            Download Update{" "}
+            {confirmClicked && <Loader2 className="animate-spin" />}
           </Button>
         </div>
       </div>

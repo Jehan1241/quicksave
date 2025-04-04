@@ -229,11 +229,11 @@ async function createWindow() {
       shell.openExternal(url);
     }
   });
+  promptUpdate(win, app.getVersion());
 }
 
 app.whenReady().then(() => {
   createWindow();
-  if (app.isPackaged) promptUpdate(app.getVersion());
 
   globalShortcut.register("CommandOrControl+Shift+X", async () => {
     console.log("Global shortcut triggered!");

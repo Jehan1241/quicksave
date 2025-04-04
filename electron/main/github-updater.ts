@@ -1,8 +1,9 @@
-import { app, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import path from "path";
 import fs from "fs-extra";
 import { spawn, exec } from "child_process";
 import extract from "extract-zip";
+import { version } from "os";
 
 const REPO = "Jehan1241/quicksave";
 const BACKUP_DIR = "backend-backup";
@@ -35,17 +36,50 @@ export async function checkForUpdates(currentVersion: any) {
   }
 }
 
-async function downloadUpdate(zipUrl: string) {
+async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
   const appDir = String(process.env.PORTABLE_EXECUTABLE_DIR);
   const tempZip = path.join(app.getPath("temp"), "quicksave-update.zip");
+  console.log(`Temp ZIP path: ${tempZip}`);
   const tempExtract = path.join(app.getPath("temp"), "quicksave-extracted");
 
   try {
-    // 1. Download the update
     console.log(`Downloading update...`);
     const response = await fetch(zipUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    await fs.writeFile(tempZip, Buffer.from(await response.arrayBuffer()));
+    if (!response.body) throw new Error(`Response body is null`);
+
+    const contentLength = Number(response.headers.get("content-length")) || 0;
+    console.log(`Expected size: ${contentLength} bytes`);
+
+    const reader = response.body.getReader();
+    let receivedLength = 0;
+    const chunks = [];
+    let lastSentPercent = -1;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      receivedLength += value.length;
+
+      if (contentLength > 0) {
+        const currentPercent = Math.round(
+          (receivedLength / contentLength) * 100
+        );
+        if (currentPercent !== lastSentPercent) {
+          win.webContents.send("download-progress", currentPercent);
+          lastSentPercent = currentPercent;
+        }
+      }
+    }
+
+    win.webContents.send("download-progress", 100);
+
+    // 2. Combine chunks using modern Blob API
+    const blob = new Blob(chunks);
+    const arrayBuffer = await blob.arrayBuffer();
+    await fs.writeFile(tempZip, Buffer.from(arrayBuffer));
 
     // 2. Extract to temp directory first
     await fs.ensureDir(tempExtract);
@@ -60,70 +94,45 @@ async function downloadUpdate(zipUrl: string) {
       }
     }
 
-    // 4. Prepare update instructions for next launch
-    const pendingUpdate = {
-      source: tempExtract,
-      target: appDir,
-      files: requiredFiles,
-      timestamp: Date.now(),
-    };
-
-    console.log("Pending Update", pendingUpdate);
-
     try {
       const response = await fetch("http://localhost:8080/updateApp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: pendingUpdate.source,
+          source: tempExtract,
           target: appDir,
         }),
       });
-
       if (!response.ok) throw new Error("Update initiation failed");
     } catch (error) {
       console.error("Update failed:", error);
     }
-    console.log("After Pending Update", pendingUpdate);
-
-    return true;
   } catch (error) {
     console.error("Update failed:", error);
     throw error;
   } finally {
-    // Cleanup temp files (keep extracted files if pending update exists)
     await fs.remove(tempZip).catch(() => {});
   }
 }
 
-export async function promptUpdate(currentVersion: any): Promise<boolean> {
+export async function promptUpdate(win: BrowserWindow, currentVersion: any) {
   const update = await checkForUpdates(currentVersion);
   if (!update) return false;
 
-  const dialogResult = await dialog.showMessageBox({
-    type: "info",
-    buttons: ["Update", "Release Notes", "Later"],
-    message: `Update to ${update.version} available`,
-    detail: "Would you like to download and install it now?",
-    cancelId: 2, // Index of "Later" button
-    noLink: true, // Prevent default Escape behavior
+  win.webContents.once("did-finish-load", () => {
+    setTimeout(() => {
+      win.webContents.send("update-available", {
+        version: update.version,
+        zipUrl: update.zipUrl,
+      });
+    }, 1000); //Avoid edge case no dialog showing
   });
 
-  // response will be:
-  // 0 - Update
-  // 1 - Release Notes
-  // 2 - Later (or close/X button)
-  const { response } = dialogResult;
+  const response = await new Promise<boolean>((resolve) => {
+    ipcMain.once("update-response", (_, userChoice) => resolve(userChoice));
+  });
 
-  if (response === 0) {
-    // User clicked "Update"
-    await downloadUpdate(update.zipUrl);
-    return true;
-  } else if (response === 1) {
-    // User clicked "Release Notes"
-    shell.openExternal(`https://github.com/${REPO}/releases/latest`);
+  if (response) {
+    await downloadUpdate(update.zipUrl, win);
   }
-
-  // For response === 2 (Later) or dialog closed (X button)
-  return false;
 }
