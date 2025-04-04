@@ -46,9 +46,12 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 let win: BrowserWindow | null = null;
 const preload = path.join(__dirname, "../preload/index.mjs");
 const indexHtml = path.join(RENDERER_DIST, "index.html");
-
 const windowStateKeeper = require("electron-window-state");
 let currentPlayingGameUID: string | null = null;
+let goServer: any;
+const { spawn } = require("child_process");
+const isDev = !app.isPackaged;
+const fs = require("fs");
 
 async function createWindow() {
   let mainWindowState = windowStateKeeper({
@@ -78,10 +81,10 @@ async function createWindow() {
 
   mainWindowState.manage(win);
 
-  const { ipcMain, app } = require("electron");
+  const { ipcMain } = require("electron");
   const fs = require("fs");
   const path = require("path");
-  const ws = require("windows-shortcuts"); // Import windows-shortcuts
+  const ws = require("windows-shortcuts");
 
   ipcMain.handle(
     "browseFileHandler",
@@ -204,10 +207,7 @@ async function createWindow() {
   });
 
   if (VITE_DEV_SERVER_URL) {
-    // #298
     win.loadURL(VITE_DEV_SERVER_URL);
-    // Open devTool if the app is not packaged
-    win.webContents.openDevTools();
   } else {
     win.loadFile(indexHtml);
   }
@@ -258,22 +258,13 @@ app.whenReady().then(() => {
     globalShortcut.unregisterAll(); // Clean up when app exits
   });
 });
-let goServer: any;
-const { spawn } = require("child_process");
-
-const isDev = !app.isPackaged;
-const fs = require("fs");
-
-function getAppRoot() {
-  return String(process.env.PORTABLE_EXECUTABLE_DIR);
-}
-
-function getBackendPath() {
-  return path.join(getAppRoot(), "backend");
-}
 
 function ensureBackend() {
-  const exeDest = path.join(getBackendPath(), "thismodule.exe");
+  const exeDest = path.join(
+    String(process.env.PORTABLE_EXECUTABLE_DIR),
+    "backend",
+    "thismodule.exe"
+  );
   if (!fs.existsSync(exeDest)) {
     console.error("Go server (thismodule.exe) not found");
   }
