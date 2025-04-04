@@ -125,7 +125,7 @@ export async function promptUpdate(win: BrowserWindow, currentVersion: any) {
         version: update.version,
         zipUrl: update.zipUrl,
       });
-    }, 1000); //Avoid edge case no dialog showing
+    }, 2000); //Avoid edge case no dialog showing
   });
 
   const response = await new Promise<boolean>((resolve) => {

@@ -229,7 +229,7 @@ async function createWindow() {
       shell.openExternal(url);
     }
   });
-  promptUpdate(win, app.getVersion());
+  if (app.isPackaged) promptUpdate(win, app.getVersion());
 }
 
 app.whenReady().then(() => {
