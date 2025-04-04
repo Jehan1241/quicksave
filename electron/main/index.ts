@@ -2,7 +2,6 @@ import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { update } from "./update";
 import { promptUpdate } from "./github-updater";
 const require = createRequire(import.meta.url);
 const { globalShortcut } = require("electron");
@@ -230,9 +229,6 @@ async function createWindow() {
       shell.openExternal(url);
     }
   });
-
-  // Auto update
-  update(win);
 }
 
 app.whenReady().then(() => {
@@ -269,40 +265,18 @@ const isDev = !app.isPackaged;
 const fs = require("fs");
 
 function getAppRoot() {
-  console.log("APP ROOT", process.env.PORTABLE_EXECUTABLE_DIR);
-  return process.env.PORTABLE_EXECUTABLE_DIR
-    ? process.env.PORTABLE_EXECUTABLE_DIR
-    : path.dirname(app.getPath("exe"));
+  return String(process.env.PORTABLE_EXECUTABLE_DIR);
 }
 
-// Gets the backend folder NEXT to the EXE
 function getBackendPath() {
-  console.log("BACKEND PATH", path.join(getAppRoot(), "backend"));
-
   return path.join(getAppRoot(), "backend");
 }
 
-// **Critical:** Ensure backend folder + EXE exist
 function ensureBackend() {
-  const backendPath = getBackendPath();
-  if (!fs.existsSync(backendPath)) {
-    fs.mkdirSync(backendPath, { recursive: true });
-  }
-
-  // Copy thismodule.exe from resources if missing
-  const exeDest = path.join(backendPath, "thismodule.exe");
+  const exeDest = path.join(getBackendPath(), "thismodule.exe");
   if (!fs.existsSync(exeDest)) {
-    const exeSource = path.join(
-      process.resourcesPath,
-      "..",
-      "backend",
-      "thismodule.exe"
-    );
-    if (fs.existsSync(exeSource)) {
-      fs.copyFileSync(exeSource, exeDest);
-    }
+    console.error("Go server (thismodule.exe) not found");
   }
-
   return exeDest;
 }
 
@@ -310,10 +284,8 @@ app.on("ready", () => {
   let serverPath;
 
   if (isDev) {
-    // Development: Look for backend in the project directory
     serverPath = path.join(__dirname, "../../backend", "thismodule.exe");
   } else {
-    // Production: The backend folder is next to the packaged Electron executable
     serverPath = ensureBackend();
   }
   console.log("Launching Go server from:", serverPath);
