@@ -221,11 +221,15 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
             </ContextMenuItem>
             <ContextMenuItem onClick={hideClickHandler}>
               {hidden ? (
-                <Eye size={16} className="mr-2" />
+                <>
+                  <Eye size={16} className="mr-2" /> Unhide
+                </>
               ) : (
-                <EyeOff size={16} className="mr-2" />
+                <>
+                  <EyeOff size={16} className="mr-2" />
+                  Hide
+                </>
               )}
-              Hide
             </ContextMenuItem>
             <ContextMenuItem onClick={handleDeleteClick}>
               <Trash2 size={16} className="mr-2" />
