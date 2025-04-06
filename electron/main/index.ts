@@ -235,7 +235,7 @@ async function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  globalShortcut.register("CommandOrControl+Shift+X", async () => {
+  globalShortcut.register("Shift+/", async () => {
     console.log("Global shortcut triggered!");
 
     if (!currentPlayingGameUID) {
