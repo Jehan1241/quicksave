@@ -337,7 +337,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 		//Insert to Screenshots
 		var values [][]any
 		if len(screenshotPaths) == 0 {
-			values = append(values, []any{UID, ""})
+			values = append(values, []any{UID, "", "generic"})
 		} else {
 			for _, screenshotPath := range screenshotPaths {
 				values = append(values, []any{UID, screenshotPath, "generic"})
