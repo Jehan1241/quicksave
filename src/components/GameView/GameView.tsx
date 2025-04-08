@@ -150,7 +150,7 @@ function GameView() {
           )}
           <div className="absolute z-10 flex h-full w-full flex-col overflow-y-hidden px-6 py-8 text-center select-none">
             <header className="mx-8 mb-2 text-left text-3xl font-semibold">
-              ABCD {metadata?.Name}
+              {metadata?.Name}
             </header>
             <div className="mx-8 mb-4 flex h-full flex-row gap-10 overflow-hidden">
               <div className="flex h-full w-1/3 flex-col overflow-y-auto">
