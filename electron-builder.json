@@ -25,9 +25,10 @@
     "target": [
       {
         "target": "portable",
-        "arch": ["x64"]
+        "arch": "x64"
       }
     ],
+    "defaultArch": "x64",
     "artifactName": "${productName}.${ext}",
     "icon": "build/icon.ico"
   },
