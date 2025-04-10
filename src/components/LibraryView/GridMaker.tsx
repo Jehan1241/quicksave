@@ -56,7 +56,8 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
   } = data;
 
   const installed = InstallPath === "" ? false : true;
-  const playtime = TimePlayed.toFixed(2);
+  let playtime = TimePlayed.toFixed(2);
+  if (playtime < 0) playtime = 0.0;
   const navigate = useNavigate();
   const [preloadData, setPreloadData] = useState<GameData | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -147,7 +148,6 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
 
   return (
     <>
-      {/* This modal false makes the UI not freeze on delete, but also allows scrolling with menu open */}
       <ContextMenu modal={true}>
         <ContextMenuTrigger>
           <div

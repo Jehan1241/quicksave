@@ -16,7 +16,10 @@ import { fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize, setLastPath } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
 import { useNavigationContext } from "./hooks/useNavigationContext";
-import { importSteamLibrary } from "./lib/api/libraryImports";
+import {
+  importPlaystationLibrary,
+  importSteamLibrary,
+} from "./lib/api/libraryImports";
 import { getNpsso, getSteamCreds } from "./lib/api/getCreds";
 import {
   deleteCurrentlyFiltered,
@@ -24,6 +27,7 @@ import {
   unHideCurrentlyFiltered,
 } from "./lib/api/filterGamesAPI";
 import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
+import { toast } from "./hooks/use-toast";
 function App() {
   const {
     sortType,
@@ -119,20 +123,24 @@ function App() {
     setTheme();
     const initFunc = async () => {
       await updateData();
-      // const steamCreds = await getSteamCreds();
-      // const npsso = await getNpsso();
-      // importSteamLibrary(
-      //   steamCreds?.ID,
-      //   steamCreds?.APIKey,
-      //   () => {},
-      //   setIntegrationLoadCount
-      // );
-      // importPlaystationLibrary(
-      //   npsso,
-      //   () => {},
-      //   () => {},
-      //   setIntegrationLoadCount
-      // );
+      if (import.meta.env.MODE === "production") {
+        const steamCreds = await getSteamCreds();
+        const npsso = await getNpsso();
+        importSteamLibrary(
+          steamCreds?.ID,
+          steamCreds?.APIKey,
+          () => {},
+          setIntegrationLoadCount,
+          toast
+        );
+        importPlaystationLibrary(
+          npsso,
+          () => {},
+          () => {},
+          setIntegrationLoadCount,
+          toast
+        );
+      }
     };
     initFunc();
     attachSSEListener(updateData);
