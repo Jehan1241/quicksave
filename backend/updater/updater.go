@@ -41,7 +41,6 @@ func main() {
 	}
 	defer logFile.Close()
 
-	logger.Println("=== QuickSave Updater ===")
 	defer keepWindowOpen()
 
 	if len(os.Args) < 3 {
@@ -77,9 +76,7 @@ func main() {
 	logger.Printf("Cleaning up backup at: %s\n", backupDir)
 	os.RemoveAll(backupDir)
 
-	logger.Println("Restarting applications...")
 	restartApp(filepath.Join(target, "quicksave.exe"))
-
 	logger.Println("Update completed successfully!")
 }
 
@@ -144,7 +141,6 @@ func performUpdate(source, target string) error {
 			logger.Printf("Failed to update %s: %v\n", file.dst, err)
 			return fmt.Errorf("failed to update %s: %v", file.dst, err)
 		}
-		logger.Printf("Successfully updated: %s\n", file.dst)
 	}
 
 	return nil
@@ -181,14 +177,12 @@ func rollback(target, backupDir string) error {
 
 // Helper functions
 func killProcesses() {
-	logger.Println("Terminating processes...")
 	killProcess("thismodule.exe")
 	killProcess("quicksave.exe")
 	time.Sleep(2 * time.Second)
 }
 
 func copyFile(src, dst string) error {
-	logger.Printf("Copying file: %s -> %s\n", src, dst)
 	input, err := os.ReadFile(src)
 	if err != nil {
 		logger.Printf("Error reading source file %s: %v\n", src, err)
@@ -198,12 +192,16 @@ func copyFile(src, dst string) error {
 }
 
 func atomicMove(src, dst string) error {
-	logger.Printf("Attempting to move: %s -> %s\n", src, dst)
-	// Try multiple times in case of locks
+	logger.Printf("Attempting to move (with copy/delete): %s -> %s\n", src, dst)
+
 	for i := 0; i < 5; i++ {
-		err := os.Rename(src, dst)
+		err := copyFile(src, dst)
 		if err == nil {
-			logger.Printf("Successfully moved: %s\n", filepath.Base(src))
+			if removeErr := os.Remove(src); removeErr != nil {
+				logger.Printf("Copied %s but failed to delete original: %v\n", src, removeErr)
+				return fmt.Errorf("copy succeeded but failed to remove original: %v", removeErr)
+			}
+			logger.Printf("Successfully moved (via copy/delete): %s\n", filepath.Base(src))
 			return nil
 		}
 		logger.Printf("Attempt %d failed for %s: %v\n", i+1, filepath.Base(src), err)
@@ -228,7 +226,6 @@ func showError(msg string) {
 }
 
 func killProcess(name string) {
-	logger.Printf("Killing process: %s\n", name)
 	cmd := exec.Command("taskkill", "/F", "/IM", name)
 	if runtime.GOOS != "windows" {
 		cmd = exec.Command("pkill", "-f", name)
@@ -239,7 +236,6 @@ func killProcess(name string) {
 }
 
 func restartApp(exePath string) {
-	logger.Printf("Launching: %s\n", exePath)
 	cmd := exec.Command(exePath)
 	cmd.Dir = filepath.Dir(exePath)
 	if err := cmd.Start(); err != nil {
