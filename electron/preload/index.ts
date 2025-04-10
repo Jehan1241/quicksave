@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld("electron", {
   },
 });
 
+const exePath = process.env.PORTABLE_EXECUTABLE_DIR;
+
+contextBridge.exposeInMainWorld("appPaths", {
+  exePath: exePath,
+});
+
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld("ipcRenderer", {
   on(...args: Parameters<typeof ipcRenderer.on>) {

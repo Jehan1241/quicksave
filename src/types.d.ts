@@ -27,4 +27,7 @@ declare interface Window {
     system: () => Promise<boolean>;
     current: () => Promise<"dark" | "light" | "system">;
   };
+  appPaths: {
+    exePath: string | undefined;
+  };
 }

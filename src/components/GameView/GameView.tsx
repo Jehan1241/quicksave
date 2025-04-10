@@ -117,7 +117,11 @@ function GameView() {
   let screenshotsArray = Object.values(screenshots);
   const { cacheBuster } = useSortContext();
   screenshotsArray = screenshotsArray.map((screenshot) => {
-    return `http://localhost:8080/screenshots${screenshot}?t=${cacheBuster}`;
+    if (import.meta.env.MODE === "production") {
+      return `${window.appPaths.exePath}/backend/screenshots${screenshot}?t=${cacheBuster}`;
+    } else {
+      return `./backend/screenshots${screenshot}?t=${cacheBuster}`;
+    }
   });
   let timePlayed = metadata?.TimePlayed?.toFixed(1);
   if (timePlayed < 0) timePlayed = "0.0";

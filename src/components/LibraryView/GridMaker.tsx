@@ -75,7 +75,12 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
   };
 
   const { cacheBuster } = useSortContext();
-  const imageUrl = `http://localhost:8080/cover-art${cover}`;
+
+  const exePath = window.appPaths.exePath;
+  let imageUrl = `${exePath}/backend/coverArt${cover}`;
+  if (import.meta.env.MODE !== "production") {
+    imageUrl = `./backend/coverArt${cover}`;
+  }
 
   //Check if image exists & is loadable
   const checkImageLoadable = async (url: string) => {
