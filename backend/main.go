@@ -1954,15 +1954,15 @@ func routing() {
 	r := setupRouter()
 
 	// Serve cover art and screenshots with aggressive caching
-	r.Use(func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/cover-art") || strings.HasPrefix(c.Request.URL.Path, "/screenshots") {
-			c.Header("Cache-Control", "public, max-age=31536000, immutable")
-		}
-		c.Next()
-	})
+	// r.Use(func(c *gin.Context) {
+	// 	if strings.HasPrefix(c.Request.URL.Path, "/cover-art") || strings.HasPrefix(c.Request.URL.Path, "/screenshots") {
+	// 		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	// 	}
+	// 	c.Next()
+	// })
 
-	r.StaticFS("/cover-art", http.Dir("./coverArt"))
-	r.StaticFS("/screenshots", http.Dir("./screenshots"))
+	// r.StaticFS("/cover-art", http.Dir("./coverArt"))
+	// r.StaticFS("/screenshots", http.Dir("./screenshots"))
 
 	r.Run(":8080")
 }
