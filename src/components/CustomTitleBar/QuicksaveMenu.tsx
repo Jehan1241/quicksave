@@ -15,7 +15,12 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { darkMode, darkPurpleMode, lightMode, redMode } from "@/ToggleTheme";
+import {
+  darkMode,
+  darkPurpleMode,
+  lightMode,
+  redMode,
+} from "@/lib/ToggleTheme";
 import { useSortContext } from "@/hooks/useSortContex";
 import { useNavigate } from "react-router-dom";
 import { FolderDown, Plus, Settings } from "lucide-react";

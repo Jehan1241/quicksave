@@ -25,6 +25,8 @@ export default function GridView({
     height: `calc(16rem * ${tileSizeInt})`,
   };
 
+  const TileRoundness = localStorage.getItem("tile-roundness") || "lg";
+
   return (
     <div
       onScroll={scrollHandler}
@@ -50,7 +52,12 @@ export default function GridView({
               style={style}
             >
               {visibleItems.has(itemId) && (
-                <GridMaker data={item} style={style} hidden={hidden} />
+                <GridMaker
+                  data={item}
+                  style={style}
+                  hidden={hidden}
+                  roundness={TileRoundness}
+                />
               )}
             </div>
           );

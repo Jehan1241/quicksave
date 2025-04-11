@@ -31,6 +31,7 @@ interface GridMakerProps {
   data: any;
   style: React.CSSProperties;
   hidden: boolean;
+  roundness: string;
 }
 
 interface GameData {
@@ -44,7 +45,12 @@ interface GameData {
   screenshots: string[];
 }
 
-export default function GridMaker({ data, style, hidden }: GridMakerProps) {
+export default function GridMaker({
+  data,
+  style,
+  hidden,
+  roundness,
+}: GridMakerProps) {
   const {
     UID,
     Name,
@@ -163,7 +169,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
           >
             {!imageLoadFailed ? (
               <div
-                className="group flex flex-col rounded-lg hover:shadow-xl hover:shadow-border hover:transition-shadow overflow-hidden cursor-pointer"
+                className={`group flex flex-col rounded-${roundness} hover:shadow-xl hover:shadow-border hover:transition-shadow overflow-hidden cursor-pointer`}
                 style={{
                   ...style,
                   backgroundImage: `url('${imageSrc}')`,
@@ -175,17 +181,23 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
                 }}
               >
                 <div className="inline-flex mx-1 mt-1 gap-4 justify-between">
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
+                  <div
+                    className={`px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-xl opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate`}
+                  >
                     {platform}
                   </div>
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
+                  <div
+                    className={`px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-xl opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate`}
+                  >
                     <Clock size={16} className="inline mr-1" />
                     {playtime}
                   </div>
                 </div>
 
                 <div className="inline-flex mx-1 mb-1 mt-auto">
-                  <div className="px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-lg opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate">
+                  <div
+                    className={`px-3 py-1 bg-emptyGameTile text-emptyGameTileText rounded-xl opacity-0 group-hover:opacity-90 transition-opacity duration-300 text-xs truncate`}
+                  >
                     {Name}
                   </div>
                 </div>
@@ -193,7 +205,7 @@ export default function GridMaker({ data, style, hidden }: GridMakerProps) {
             ) : (
               <div
                 draggable={false}
-                className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-lg border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
+                className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-${tileRoundness} border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
               >
                 {Name}
               </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { setTheme } from "./ToggleTheme";
+import { setTheme } from "./lib/ToggleTheme";
 import { data, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Route, Routes } from "react-router-dom";
 import CustomTitleBar from "./components/CustomTitleBar/CustomTitleBar";
@@ -28,7 +28,7 @@ import {
 } from "./lib/api/filterGamesAPI";
 import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
 import { toast } from "./hooks/use-toast";
-import Settings from "./components/Dialogs/Settings";
+import Settings from "./components/Dialogs/settings/Settings";
 function App() {
   const {
     sortType,
