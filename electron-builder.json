@@ -30,7 +30,7 @@
     ],
     "defaultArch": "x64",
     "artifactName": "${productName}.${ext}",
-    "icon": "build/icon.ico"
+    "icon": "assets/image.ico"
   },
   "publish": {
     "provider": "github",
