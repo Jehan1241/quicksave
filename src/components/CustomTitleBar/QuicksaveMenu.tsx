@@ -24,6 +24,7 @@ export default function QuicksaveMenu() {
     setIsAddGameDialogOpen,
     setIsIntegrationsDialogOpen,
     setIsWishlistAddDialogOpen,
+    setSettingsDialogOpen,
   } = useSortContext();
 
   const navigate = useNavigate();
@@ -65,25 +66,6 @@ export default function QuicksaveMenu() {
               Integrate Libraries
             </DropdownMenuItem>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => darkMode()}>
-                    Dark
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => lightMode()}>
-                    Light
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => redMode()}>
-                    Red
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => darkPurpleMode()}>
-                    Dark Purple
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
               <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
@@ -107,7 +89,9 @@ export default function QuicksaveMenu() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem disabled>Check For Updates</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSettingsDialogOpen(true)}>
+              Settings
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuItem disabled>Quit</DropdownMenuItem>
         </DropdownMenuContent>

@@ -45,6 +45,8 @@ interface SortContextType {
   setHideFilterGames: React.Dispatch<
     React.SetStateAction<null | "hide" | "unhide">
   >;
+  setSettingsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  settingsDialogOpen: boolean;
 }
 
 const SortContext = createContext<SortContextType | undefined>(undefined);
@@ -72,6 +74,7 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
   const [hideFilterGames, setHideFilterGames] = useState<
     null | "hide" | "unhide"
   >(null);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   return (
     <SortContext.Provider
@@ -110,6 +113,8 @@ export const SortProvider = ({ children }: { children: ReactNode }) => {
         setDeleteFilterGames,
         hideFilterGames,
         setHideFilterGames,
+        settingsDialogOpen,
+        setSettingsDialogOpen,
       }}
     >
       {children}

@@ -13,6 +13,26 @@ export function setTheme() {
   console.log(theme);
 }
 
+export function updateTheme(theme: string) {
+  switch (theme) {
+    case "light":
+      lightMode();
+      break;
+    case "red":
+      redMode();
+      break;
+    case "magenta-dark":
+      darkPurpleMode();
+      break;
+    case "dark":
+      darkMode();
+      break;
+    default:
+      darkMode();
+      break;
+  }
+}
+
 export function lightMode() {
   removeAllThemes();
   localStorage.setItem(THEME_KEY, "light");
@@ -20,8 +40,8 @@ export function lightMode() {
 
 export function darkPurpleMode() {
   removeAllThemes();
-  document.documentElement.classList.add("darkPurple");
-  localStorage.setItem(THEME_KEY, "darkPurple");
+  document.documentElement.classList.add("magenta-dark");
+  localStorage.setItem(THEME_KEY, "magenta-dark");
 }
 
 export function darkMode() {
@@ -39,5 +59,5 @@ export function redMode() {
 function removeAllThemes() {
   document.documentElement.classList.remove("red");
   document.documentElement.classList.remove("dark");
-  document.documentElement.classList.remove("darkPurple");
+  document.documentElement.classList.remove("magenta-dark");
 }

@@ -28,6 +28,7 @@ import {
 } from "./lib/api/filterGamesAPI";
 import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
 import { toast } from "./hooks/use-toast";
+import Settings from "./components/Dialogs/Settings";
 function App() {
   const {
     sortType,
@@ -206,6 +207,7 @@ function App() {
         <AddGameManuallyDialog />
         <Integrations />
         <WishlistDialog />
+        <Settings />
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route
