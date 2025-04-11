@@ -108,7 +108,6 @@ export const launchGame = async (
   setPlayingGame: React.Dispatch<React.SetStateAction<string | null>>
 ) => {
   setPlayingGame(uid);
-  console.log("Play Game Clicked");
   try {
     const response = await fetch(`http://localhost:8080/LaunchGame?uid=${uid}`);
     if (!response.ok) await handleApiError(response);

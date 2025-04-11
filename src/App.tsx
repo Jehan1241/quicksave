@@ -177,6 +177,7 @@ function App() {
 
   useEffect(() => {
     if (playingGame === "") {
+      window.windowFunctions.updatePlayingGame("");
       const updateSteam = async () => {
         const steamCreds = await getSteamCreds();
 

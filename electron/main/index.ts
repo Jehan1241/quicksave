@@ -47,7 +47,6 @@ let win: BrowserWindow | null = null;
 const preload = path.join(__dirname, "../preload/index.mjs");
 const indexHtml = path.join(RENDERER_DIST, "index.html");
 const windowStateKeeper = require("electron-window-state");
-let currentPlayingGameUID: string | null = null;
 let goServer: any;
 const { spawn } = require("child_process");
 const isDev = !app.isPackaged;
@@ -202,8 +201,12 @@ async function createWindow() {
   });
 
   ipcMain.on("update-playing-game", (_: any, uid: string) => {
-    console.log("Updated playing game UID:", uid);
-    currentPlayingGameUID = uid;
+    unregisterScreenshotShortcut();
+    if (uid === "") {
+      unregisterScreenshotShortcut();
+    } else if (uid) {
+      registerScreenshotShortcut(uid);
+    }
   });
 
   if (VITE_DEV_SERVER_URL) {
@@ -234,25 +237,6 @@ async function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-
-  globalShortcut.register("Shift+/", async () => {
-    console.log("Global shortcut triggered!");
-
-    if (!currentPlayingGameUID) {
-      console.log("No game UID found, skipping screenshot request.");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `http://localhost:8080/takeScreenshot?uid=${currentPlayingGameUID}`
-      );
-      const data = await response.text();
-      console.log("Screenshot request sent, response:", data);
-    } catch (error) {
-      console.error("Error sending screenshot request:", error);
-    }
-  });
 
   app.on("will-quit", () => {
     globalShortcut.unregisterAll(); // Clean up when app exits
@@ -375,3 +359,29 @@ ipcMain.handle("open-win", (_, arg) => {
     childWindow.loadFile(indexHtml, { hash: arg });
   }
 });
+
+function registerScreenshotShortcut(uid: string) {
+  globalShortcut.register("Shift+/", async () => {
+    if (!uid) {
+      console.log("No game UID found, skipping screenshot request.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/takeScreenshot?uid=${uid}`
+      );
+      const data = await response.text();
+      console.log("Screenshot request sent, response:", data);
+    } catch (error) {
+      console.error("Error sending screenshot request:", error);
+    }
+  });
+}
+
+function unregisterScreenshotShortcut() {
+  if (globalShortcut.isRegistered("Shift+/")) {
+    globalShortcut.unregister("Shift+/");
+    console.log("Screenshot shortcut unregistered");
+  }
+}
