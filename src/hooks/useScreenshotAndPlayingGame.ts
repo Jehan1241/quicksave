@@ -3,8 +3,9 @@ import { useSortContext } from "@/hooks/useSortContex";
 import { getScreenshotBind, getScreenshotEnabled } from "@/lib/screeenshots";
 import { getSteamCreds } from "@/lib/api/getCreds";
 import { importSteamLibrary } from "@/lib/api/libraryImports";
+import { getIntegrateOnExitEnabled } from "@/lib/integrationSettings";
 
-export function useScreenshotEffect() {
+export function useScreenshotAndPlayingGame() {
   const { playingGame, setIntegrationLoadCount } = useSortContext();
 
   const updateSteam = async () => {
@@ -26,7 +27,7 @@ export function useScreenshotEffect() {
 
     if (playingGame === "") {
       window.windowFunctions.updatePlayingGame("", screenshotBind);
-      updateSteam();
+      if (getIntegrateOnExitEnabled()) updateSteam();
     } else if (playingGame != null) {
       window.windowFunctions.updatePlayingGame(playingGame, screenshotBind);
     }

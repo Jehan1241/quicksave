@@ -29,7 +29,8 @@ import {
 import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
 import { toast } from "./hooks/use-toast";
 import Settings from "./components/Dialogs/settings/Settings";
-import { useScreenshotEffect } from "./hooks/useScreenshotEffect";
+import { useScreenshotAndPlayingGame } from "./hooks/useScreenshotAndPlayingGame";
+import { getIntegrateOnLaunchEnabled } from "./lib/integrationSettings";
 function App() {
   const {
     sortType,
@@ -43,7 +44,6 @@ function App() {
     randomGameClicked,
     setRandomGameClicked,
     setIntegrationLoadCount,
-    playingGame,
     deleteFilterGames,
     setDeleteFilterGames,
     hideFilterGames,
@@ -125,7 +125,10 @@ function App() {
     setTheme();
     const initFunc = async () => {
       await updateData();
-      if (import.meta.env.MODE === "production") {
+      if (
+        import.meta.env.MODE === "production" &&
+        getIntegrateOnLaunchEnabled()
+      ) {
         const steamCreds = await getSteamCreds();
         const npsso = await getNpsso();
         importSteamLibrary(
@@ -176,7 +179,7 @@ function App() {
     }
   }, [sortStateUpdate]);
 
-  useScreenshotEffect();
+  useScreenshotAndPlayingGame();
 
   useEffect(() => {
     if (location.pathname !== "/gameview")
