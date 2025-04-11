@@ -1,6 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TabsContent } from "@/components/ui/tabs";
-import { getScreenshotBind, setScreenshotBind } from "@/lib/screenshotBind";
+import {
+  getScreenshotBind,
+  getScreenshotEnabled,
+  setScreenshotBind,
+  setScreenshotEnabled,
+} from "@/lib/screeenshots";
 import { Ghost } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -36,8 +42,22 @@ export default function ScreeenshotsTab() {
     };
   }, [recording]);
 
+  const [checked, setChecked] = useState(getScreenshotEnabled());
+
   return (
-    <TabsContent value="screenshots" className="text-sm flex flex-col">
+    <TabsContent value="screenshots" className="text-sm flex flex-col gap-4">
+      <div className="flex gap-4 items-center">
+        <label className="w-36">Enable Screenshots</label>
+        <div className="w-40 flex justify-center">
+          <Checkbox
+            checked={checked}
+            onCheckedChange={(value: boolean) => {
+              setChecked(value);
+              setScreenshotEnabled(value);
+            }}
+          />
+        </div>
+      </div>
       <div className="flex gap-4 items-center">
         <label className="w-36">Screenshot Keybind</label>
         <Button
