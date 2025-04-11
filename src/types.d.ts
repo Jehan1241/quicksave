@@ -7,7 +7,7 @@ declare interface Window {
     closeApp: () => void;
     minimize: () => void;
     maximize: () => void;
-    updatePlayingGame: (uid: string) => void;
+    updatePlayingGame: (uid: string, screenshotBind: string) => void;
   };
   electron: {
     validateGamePath: (gamePath) => any;

@@ -29,6 +29,7 @@ import {
 import { UpdateManager } from "./components/AutoUpdate/AutoUpdateManager";
 import { toast } from "./hooks/use-toast";
 import Settings from "./components/Dialogs/settings/Settings";
+import { getScreenshotBind } from "./lib/screenshotBind";
 function App() {
   const {
     sortType,
@@ -176,8 +177,9 @@ function App() {
   }, [sortStateUpdate]);
 
   useEffect(() => {
+    const screenshotBind = getScreenshotBind();
     if (playingGame === "") {
-      window.windowFunctions.updatePlayingGame("");
+      window.windowFunctions.updatePlayingGame("", screenshotBind);
       const updateSteam = async () => {
         const steamCreds = await getSteamCreds();
 
@@ -192,7 +194,7 @@ function App() {
 
       updateSteam();
     } else if (playingGame != null) {
-      window.windowFunctions.updatePlayingGame(playingGame);
+      window.windowFunctions.updatePlayingGame(playingGame, screenshotBind);
     }
   }, [playingGame]);
 

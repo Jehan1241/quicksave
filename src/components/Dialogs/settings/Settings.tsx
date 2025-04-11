@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import ThemeTab from "./ThemeTab";
 import { Button } from "@/components/ui/button";
+import ScreenshotsTab from "./ScreenshotsTab";
 
 export default function Settings() {
   const { settingsDialogOpen, setSettingsDialogOpen } = useSortContext();
@@ -26,7 +27,7 @@ export default function Settings() {
             <TabsTrigger value="screenshots">Screenshots</TabsTrigger>
           </TabsList>
           <ThemeTab />
-          <TabsContent value="screenshots">SS</TabsContent>
+          <ScreenshotsTab />
         </Tabs>
         <DialogFooter className="mt-auto">
           <DialogTrigger>

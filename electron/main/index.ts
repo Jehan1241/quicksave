@@ -200,14 +200,17 @@ async function createWindow() {
     }
   });
 
-  ipcMain.on("update-playing-game", (_: any, uid: string) => {
-    unregisterScreenshotShortcut();
-    if (uid === "") {
-      unregisterScreenshotShortcut();
-    } else if (uid) {
-      registerScreenshotShortcut(uid);
+  ipcMain.on(
+    "update-playing-game",
+    (_: any, uid: string, screenshotBind: string) => {
+      unregisterScreenshotShortcut(screenshotBind);
+      if (uid === "") {
+        unregisterScreenshotShortcut(screenshotBind);
+      } else if (uid) {
+        registerScreenshotShortcut(uid, screenshotBind);
+      }
     }
-  });
+  );
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -360,8 +363,8 @@ ipcMain.handle("open-win", (_, arg) => {
   }
 });
 
-function registerScreenshotShortcut(uid: string) {
-  globalShortcut.register("Shift+/", async () => {
+function registerScreenshotShortcut(uid: string, screenshotBind: string) {
+  globalShortcut.register(screenshotBind, async () => {
     if (!uid) {
       console.log("No game UID found, skipping screenshot request.");
       return;
@@ -379,9 +382,8 @@ function registerScreenshotShortcut(uid: string) {
   });
 }
 
-function unregisterScreenshotShortcut() {
-  if (globalShortcut.isRegistered("Shift+/")) {
-    globalShortcut.unregister("Shift+/");
-    console.log("Screenshot shortcut unregistered");
+function unregisterScreenshotShortcut(screenshotBind: string) {
+  if (globalShortcut.isRegistered(screenshotBind)) {
+    globalShortcut.unregister(screenshotBind);
   }
 }
