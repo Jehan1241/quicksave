@@ -18,6 +18,7 @@ import {
 import { darkMode, darkPurpleMode, lightMode, redMode } from "@/ToggleTheme";
 import { useSortContext } from "@/hooks/useSortContex";
 import { useNavigate } from "react-router-dom";
+import { FolderDown, Plus, Settings } from "lucide-react";
 
 export default function QuicksaveMenu() {
   const {
@@ -46,7 +47,9 @@ export default function QuicksaveMenu() {
         <DropdownMenuContent className="w-56">
           <DropdownMenuGroup>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Add a Game</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <Plus /> Add a Game
+              </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
                   <DropdownMenuItem
@@ -63,10 +66,12 @@ export default function QuicksaveMenu() {
               </DropdownMenuPortal>
             </DropdownMenuSub>
             <DropdownMenuItem onClick={() => setIsIntegrationsDialogOpen(true)}>
-              Integrate Libraries
+              <FolderDown /> Integrate Libraries
             </DropdownMenuItem>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger className="pl-8">
+                View
+              </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
                   <DropdownMenuItem onClick={() => handleViewClick("")}>
@@ -90,10 +95,9 @@ export default function QuicksaveMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => setSettingsDialogOpen(true)}>
-              Settings
+              <Settings /> Settings
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          <DropdownMenuItem disabled>Quit</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
