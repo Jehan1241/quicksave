@@ -78,27 +78,31 @@ export function DisplayInfo({ data, tags, companies }: any) {
       {/* Tags */}
       <div className="flex flex-col gap-2 text-base">
         <p className="text-left text-base">Tags</p>
-        <div className="flex flex-wrap gap-2 rounded-md text-center">
-          {tags.map((item: any, index: number) => (
-            <Button
-              className="h-6 rounded-full bg-platformBadge hover:bg-platformBadgeHover text-platformBadgeText text-xs"
-              key={index}
-              onClick={() => {
-                setSelectedTags((prev) => {
-                  const updatedTags = [...prev, { value: item, label: item }];
-                  clickHandler(
-                    selectedPlats,
-                    updatedTags,
-                    selectedDevs,
-                    selectedName
-                  );
-                  return updatedTags;
-                });
-              }}
-            >
-              {item}
-            </Button>
-          ))}
+        <div className="group relative">
+          <div
+            className={`flex flex-wrap gap-2 rounded-md text-center transition-all duration-75 max-h-[60px] group-hover:max-h-[1000px] overflow-hidden`}
+          >
+            {tags.map((item: any, index: number) => (
+              <Button
+                className="h-6 rounded-full bg-platformBadge hover:bg-platformBadgeHover text-platformBadgeText text-xs"
+                key={index}
+                onClick={() => {
+                  setSelectedTags((prev) => {
+                    const updatedTags = [...prev, { value: item, label: item }];
+                    clickHandler(
+                      selectedPlats,
+                      updatedTags,
+                      selectedDevs,
+                      selectedName
+                    );
+                    return updatedTags;
+                  });
+                }}
+              >
+                {item}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
