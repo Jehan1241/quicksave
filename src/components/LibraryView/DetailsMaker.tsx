@@ -35,16 +35,10 @@ export default function DetialsMaker({
   hidden,
 }: DetailsMakerProps) {
   // Only does rating decimal if it has decimals to begin with
-  let ratingDecimal;
-  ratingDecimal = rating;
-  if (rating % 1 !== 0) {
-    ratingDecimal = rating.toFixed(1);
-  }
-  let timePlayedDecimal;
-  timePlayedDecimal = timePlayed;
-  if (timePlayed % 1 !== 0) {
-    timePlayedDecimal = timePlayed.toFixed(1);
-  }
+  const ratingDecimal = rating < 0 ? "0.00" : rating.toFixed(2);
+  const timePlayedDecimal = timePlayed < 0 ? "0.00" : timePlayed.toFixed(2);
+  const [year, month, day] = releaseDate.split("-");
+  const releaseDateNormalized = `${day}-${month}-${year}`;
 
   const navigate = useNavigate();
 
@@ -97,7 +91,7 @@ export default function DetialsMaker({
         {timePlayedDecimal}
       </div>
       <div className="flex w-60 items-center justify-center text-center">
-        {releaseDate}
+        {releaseDateNormalized}
       </div>
     </div>
   );

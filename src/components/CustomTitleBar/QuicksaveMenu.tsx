@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import React from "react";
 import { BsFloppyFill } from "react-icons/bs";
 import {
   DropdownMenu,
@@ -15,12 +14,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  darkMode,
-  darkPurpleMode,
-  lightMode,
-  redMode,
-} from "@/lib/ToggleTheme";
 import { useSortContext } from "@/hooks/useSortContex";
 import { useNavigate } from "react-router-dom";
 import { FolderDown, Plus, Settings } from "lucide-react";
@@ -43,9 +36,11 @@ export default function QuicksaveMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant={"ghost"} className="group hover:bg-transparent px-2">
-            <BsFloppyFill
-              size={25}
+            <img
+              src={"./assets/image.svg"}
               className="group-hover:scale-110 text-leftbarIcons"
+              width={32}
+              height={32}
             />
           </Button>
         </DropdownMenuTrigger>

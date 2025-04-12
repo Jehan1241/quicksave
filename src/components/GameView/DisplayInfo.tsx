@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { useNavigate } from "react-router-dom";
 import { useSortContext } from "@/hooks/useSortContex";
-import { RadioItem } from "@radix-ui/react-dropdown-menu";
 import { useNavigationContext } from "@/hooks/useNavigationContext";
 import { handleFilterChange, loadFilterState } from "@/lib/api/filterGamesAPI";
-import { useToast } from "@/hooks/use-toast";
 
 export function DisplayInfo({ data, tags, companies }: any) {
   const [selectedDevs, setSelectedDevs] = useState<
