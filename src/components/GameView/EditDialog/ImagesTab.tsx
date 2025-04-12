@@ -36,7 +36,7 @@ export function ImagesTab({
   const navigate = useNavigate();
   const [coverArtLinkClicked, setCoverArtLinkClicked] = useState(false);
   const [currentCover, setCurrentCover] = useState<string | null>(
-    `http://localhost:8080/cover-art/${coverArtPath}?t=${cacheBuster}`
+    `./backend/coverArt${coverArtPath}?t=${cacheBuster}`
   );
 
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +59,6 @@ export function ImagesTab({
   };
 
   const saveClickHandler = () => {
-    console.log("AAA", currentCover, ssImage);
     saveCustomImage(
       uid,
       setLoading,
