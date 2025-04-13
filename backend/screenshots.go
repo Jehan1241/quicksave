@@ -122,7 +122,7 @@ func takeScreenshot(uid string) error {
 		return fmt.Errorf("error getting next screenshot index: %w", err)
 	}
 
-	fileName := fmt.Sprintf("%s-%d.webp", uid, nextIndex)
+	fileName := fmt.Sprintf("User-%d.webp", nextIndex)
 	filePath := filepath.Join("screenshots", uid, fileName)
 
 	file, err := os.Create(filePath)
@@ -157,25 +157,24 @@ func insertScreenshotRecord(uid string, path string) error {
 }
 
 func getNextScreenshotIndex(uid string) (int, error) {
+	screenshotDir := fmt.Sprintf("screenshots/%s/", uid)
 
-	rows, err := readDB.Query("SELECT ScreenshotPath FROM ScreenShots WHERE UID = ?", uid)
+	dir, err := os.Open(screenshotDir)
 	if err != nil {
-		return 0, fmt.Errorf("error reading screenshots table: %w", err)
+		return 0, fmt.Errorf("error opening directory %s: %w", screenshotDir, err)
 	}
-	defer rows.Close()
+	defer dir.Close()
 
-	// Regular expression to extract the screenshot index (uid-number.webp)
-	re := regexp.MustCompile(fmt.Sprintf(`^%s-(\d+)\.webp$`, uid))
+	files, err := dir.Readdirnames(0)
+	if err != nil {
+		return 0, fmt.Errorf("error reading directory %s: %w", screenshotDir, err)
+	}
+
+	re := regexp.MustCompile(`^User-(\d+)\.webp$`)
 	maxIndex := -1
 
-	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
-			return 0, fmt.Errorf("error scanning row: %w", err)
-		}
-
-		// Extract number from filename
-		matches := re.FindStringSubmatch(filepath.Base(path))
+	for _, file := range files {
+		matches := re.FindStringSubmatch(file)
 		if matches != nil {
 			index, err := strconv.Atoi(matches[1])
 			if err == nil && index > maxIndex {

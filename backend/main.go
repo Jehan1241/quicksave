@@ -274,42 +274,22 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	}
 
 	// Query 5: ScreenShots
-	QueryString = `
-		SELECT ScreenshotPath 
-		FROM ScreenShots 
-		WHERE ScreenShots.UID = ? 
-		ORDER BY 
-			CASE 
-				WHEN ScreenshotType = 'user' THEN 1
-				WHEN ScreenshotType = 'generic' THEN 2
-				ELSE 3
-			END
-	`
-	rows, err = readDB.Query(QueryString, UID)
-	if err != nil {
-		return nil, fmt.Errorf("query error Screenshots: %w", err)
-	}
-	defer rows.Close()
-
 	screenshots := make(map[string]map[int]string)
-	varr = 0
-	prevUID = "-xxx"
-	for rows.Next() {
+	screenshots[UID] = make(map[int]string)
 
-		var ScreenshotPath string
+	screenshotDir := filepath.Join("screenshots", UID)
+	entries, err := os.ReadDir(screenshotDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read screenshots dirr: %w", err)
+	}
 
-		err := rows.Scan(&ScreenshotPath)
-		if err != nil {
-			return nil, fmt.Errorf("scan error Screenshots: %w", err)
+	index := 0
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".webp") {
+			screenshotPath := fmt.Sprintf("%s/%s", UID, entry.Name())
+			screenshots[UID][index] = screenshotPath
+			index++
 		}
-
-		if prevUID != UID {
-			prevUID = UID
-			varr = 0
-			screenshots[UID] = make(map[int]string)
-		}
-		screenshots[UID][varr] = ScreenshotPath
-		varr++
 	}
 
 	MetaData := make(map[string]interface{})
@@ -1086,94 +1066,81 @@ func getPreferences(uid string) (map[string]interface{}, error) {
 }
 
 func setCustomImage(UID string, coverImage string, ssImage []string) error {
-	// 1. First, process all NEW screenshots to temporary files
-	tempFiles := make([]string, len(ssImage))
+
+	var keepList []string
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var firstError error
 	for i, image := range ssImage {
+
+		if strings.HasPrefix(image, "./backend") {
+			keepList = append(keepList, strings.TrimPrefix(image, "./backend/"))
+			continue
+		}
+
 		wg.Add(1)
 
 		go func(idx int, img string) {
 			defer wg.Done()
-
 			location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-			tempFileName := fmt.Sprintf("%s-%d.tmp.webp", UID, idx)
-			getImageFromURL(img, location, tempFileName)
-
-			// Verify file creation
-			if _, err := os.Stat(location + tempFileName); os.IsNotExist(err) {
-				mu.Lock()
-				if firstError == nil {
-					firstError = fmt.Errorf("temp file not created for image %d", idx)
-				}
-				mu.Unlock()
-				return
-			}
-
+			fileName := fmt.Sprintf("User-%d.webp", idx)
+			getImageFromURL(img, location, fileName)
 			mu.Lock()
-			tempFiles[idx] = location + tempFileName
+			keepList = append(keepList, location+fileName)
 			mu.Unlock()
 		}(i, image)
 	}
 
 	if coverImage != "" {
-		getString := coverImage
-		location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
-		filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
-		getImageFromURL(getString, location, filename)
+		if strings.HasPrefix(coverImage, "./backend") {
+			keepList = append(keepList, strings.TrimPrefix(coverImage, "./backend/"))
+
+		} else {
+			getString := coverImage
+			location := fmt.Sprintf(`%s/%s/`, "coverArt", UID)
+			filename := fmt.Sprintf(`%s-%d.webp`, UID, 0)
+			getImageFromURL(getString, location, filename)
+			keepList = append(keepList, (location + filename))
+		}
 	}
 
 	wg.Wait()
-	if firstError != nil {
-		return firstError
+
+	allDirs := []string{
+		fmt.Sprintf("screenshots/%s", UID),
+		fmt.Sprintf("coverArt/%s", UID),
+	}
+	keepSet := make(map[string]struct{})
+	for _, path := range keepList {
+		cleanPath := strings.Split(path, "?")[0]
+		abs, err := filepath.Abs(cleanPath)
+		if err == nil {
+			keepSet[abs] = struct{}{}
+		} else {
+			log.Printf("Failed to get absolute path for %s: %v", path, err)
+		}
 	}
 
-	err := txWrite(func(tx *sql.Tx) error {
-		_, err := tx.Exec("DELETE FROM ScreenShots WHERE UID=?", UID)
+	for _, dir := range allDirs {
+		files, err := os.ReadDir(dir)
 		if err != nil {
-			return fmt.Errorf("tx error deleting from screenshots")
+			log.Printf("Error reading directory %s: %v", dir, err)
+			continue
 		}
-
-		for i := range ssImage {
-			pathString := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
-			_, err = tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", UID, pathString, "user")
+		for _, file := range files {
+			fullPath := filepath.Join(dir, file.Name())
+			absFullPath, err := filepath.Abs(fullPath)
 			if err != nil {
-				return fmt.Errorf("tx error inserting to screenshots")
+				log.Printf("Failed to resolve absolute path for %s: %v", fullPath, err)
+				continue
+			}
+			if _, keep := keepSet[absFullPath]; !keep {
+				err := os.Remove(absFullPath)
+				if err != nil {
+					log.Printf("Failed to delete %s: %v", absFullPath, err)
+				}
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		return err
 	}
-
-	for i, tempFile := range tempFiles {
-		finalFile := fmt.Sprintf("screenshots/%s/%s-%d.webp", UID, UID, i)
-		if err := os.Rename(tempFile, finalFile); err != nil {
-			return fmt.Errorf("failed to rename %s to %s: %w", tempFile, finalFile, err)
-		}
-	}
-
-	//Cleanup orphaned files (only after everything succeeded)
-	screenshotFolder := fmt.Sprintf("screenshots/%s", UID)
-	expectedFiles := make(map[string]bool)
-	for i := range ssImage {
-		expectedFiles[fmt.Sprintf("%s-%d.webp", UID, i)] = true
-	}
-
-	filepath.Walk(screenshotFolder, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
-
-		filename := filepath.Base(path)
-		if !expectedFiles[filename] && !strings.HasSuffix(filename, ".tmp.webp") {
-			fmt.Println("Deleting orphaned file:", path)
-			os.Remove(path)
-		}
-		return nil
-	})
 
 	return nil
 }

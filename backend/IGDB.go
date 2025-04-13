@@ -360,7 +360,7 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 					defer wg.Done()
 					getString := screenshots[i]
 					location := fmt.Sprintf(`%s/%s/`, "screenshots", UID)
-					filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+					filename := fmt.Sprintf(`generic-%d.webp`, i)
 					getImageFromURL(getString, location, filename)
 				}(i, screenshot)
 			}
@@ -397,17 +397,6 @@ func addGameToDB(title string, releaseDate string, platform string, timePlayed s
 			UID, title, releaseDate, coverArtPath, descripton, isWishlist, platform, timePlayed, rating)
 		if err != nil {
 			return fmt.Errorf("DB write error - inserting GameMetaData: %v", err)
-		}
-
-		if len(ScreenshotPaths) > 0 {
-			var values [][]any
-			for _, screenshotPath := range ScreenshotPaths {
-				values = append(values, []any{UID, screenshotPath, "generic"})
-			}
-			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
-			if err != nil {
-				return fmt.Errorf("DB write error - inserting screenshots: %v", err)
-			}
 		}
 		if len(devs) > 0 {
 			var values [][]any

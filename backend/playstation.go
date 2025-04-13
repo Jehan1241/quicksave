@@ -639,17 +639,6 @@ func insertMetaDataInDB(igdbMetaData igdbMetaData, title string, platform string
 			return fmt.Errorf("error inserting to GameMetaData: %w", err)
 		}
 
-		// Insert Screenshots
-		if len(ScreenshotPaths) > 0 {
-			var values [][]any
-			for _, screenshotPath := range ScreenshotPaths {
-				values = append(values, []any{UID, screenshotPath, "generic"})
-			}
-			err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
-			if err != nil {
-				return fmt.Errorf("error inserting into ScreenShots: %w", err)
-			}
-		}
 		// Insert Involved Companies
 		if len(igdbMetaData.InvolvedCompanies) > 0 {
 			var values [][]any
@@ -708,7 +697,7 @@ func getMetaData_ImagesPSN(accessToken string, postString string, UID string, ga
 			defer wg.Done()
 			getString := url
 			location := fmt.Sprintf(`%s/%s/`, folderName, UID)
-			filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+			filename := fmt.Sprintf(`generic-%d.webp`, i)
 			getImageFromURL(getString, location, filename)
 		}(i, GeneralStruct[i].URL)
 	}

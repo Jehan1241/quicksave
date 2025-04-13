@@ -316,7 +316,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 		go func(i int, screenshot SteamScreenshotStruct) {
 			defer wg.Done()
 			location := fmt.Sprintf(`screenshots/%s/`, UID)
-			filename := fmt.Sprintf(`%s-%d.webp`, UID, i)
+			filename := fmt.Sprintf(`generic-%d.webp`, i)
 			screenshotPath := fmt.Sprintf(`/%s/%s-%d.webp`, UID, UID, i)
 			getImageFromURL(screenshot.PathFull, location, filename)
 			mu.Lock()
@@ -334,20 +334,7 @@ func InsertSteamGameMetaData(Appid int, timePlayed float32, SteamGameMetadataStr
 		if err != nil {
 			return fmt.Errorf("failed to insert into GameMetaData: %w", err)
 		}
-		//Insert to Screenshots
-		var values [][]any
-		if len(screenshotPaths) == 0 {
-			values = append(values, []any{UID, "", "generic"})
-		} else {
-			for _, screenshotPath := range screenshotPaths {
-				values = append(values, []any{UID, screenshotPath, "generic"})
-			}
-		}
-		err = txBatchUpdate(tx, "INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?,?,?)", values)
-		if err != nil {
-			return fmt.Errorf("failed to insert into screenshots: %w", err)
-		}
-		values = [][]any{}
+		var values = [][]any{}
 		//Insert to involved companies
 		if len(SteamGameMetadataStruct.Data.Developers) == 0 {
 			values = append(values, []any{UID, "Unknown"})
