@@ -136,14 +136,14 @@ function App() {
           steamCreds?.APIKey,
           () => {},
           setIntegrationLoadCount,
-          toast
+          () => {}
         );
         importPlaystationLibrary(
           npsso,
           () => {},
           () => {},
           setIntegrationLoadCount,
-          toast
+          () => {}
         );
       }
     };

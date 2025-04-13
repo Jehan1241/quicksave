@@ -616,10 +616,6 @@ func deleteGameFromDB(uid string) error {
 		if err != nil {
 			return fmt.Errorf("error deleting InvolvedCompanies: %w", err)
 		}
-		_, err = tx.Exec("DELETE FROM ScreenShots WHERE UID=?", uid)
-		if err != nil {
-			return fmt.Errorf("error deleting ScreenShots: %w", err)
-		}
 		_, err = tx.Exec("DELETE FROM SteamAppIds WHERE UID=?", uid)
 		if err != nil {
 			return fmt.Errorf("error deleting SteamAppIds: %w", err)
@@ -630,7 +626,17 @@ func deleteGameFromDB(uid string) error {
 		}
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(filepath.Join("screenshots", uid)); err != nil {
+		return fmt.Errorf("failed to delete screenshots for UID %s: %w", uid, err)
+	}
+	if err := os.RemoveAll(filepath.Join("coverArt", uid)); err != nil {
+		return fmt.Errorf("failed to delete screenshots for UID %s: %w", uid, err)
+	}
+	return nil
 }
 
 func hideGame(uid string) error {
