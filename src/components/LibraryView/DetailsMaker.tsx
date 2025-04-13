@@ -34,7 +34,6 @@ export default function DetialsMaker({
   releaseDate,
   hidden,
 }: DetailsMakerProps) {
-  // Only does rating decimal if it has decimals to begin with
   const ratingDecimal = rating < 0 ? "0.00" : rating.toFixed(2);
   const timePlayedDecimal = timePlayed < 0 ? "0.00" : timePlayed.toFixed(2);
   const [year, month, day] = releaseDate.split("-");
