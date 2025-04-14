@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("windowFunctions", {
 });
 
 contextBridge.exposeInMainWorld("electron", {
+  openFolder: (folderPath: string) =>
+    ipcRenderer.invoke("open-folder", folderPath),
   browseFileHandler: () => ipcRenderer.invoke("browseFileHandler"),
   validateGamePath: (gamePath: any) =>
     ipcRenderer.invoke("validate-game-path", gamePath),

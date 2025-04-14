@@ -212,6 +212,15 @@ async function createWindow() {
     }
   );
 
+  ipcMain.handle("open-folder", (event: any, folderPath: string) => {
+    const exePath = isDev
+      ? path.resolve(__dirname, "../..")
+      : String(process.env.PORTABLE_EXECUTABLE_DIR);
+    shell
+      .openPath(path.join(exePath, folderPath))
+      .catch((err) => console.error("Error opening folder:", err));
+  });
+
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {

@@ -230,7 +230,7 @@ function GameView() {
                   companies={companiesArray}
                 />
               </div>
-              <CarouselSection screenshotsArray={screenshotsArray} />
+              <CarouselSection uid={uid} screenshotsArray={screenshotsArray} />
             </div>
           </div>
         </>

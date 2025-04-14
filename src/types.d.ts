@@ -10,6 +10,7 @@ declare interface Window {
     updatePlayingGame: (uid: string, screenshotBind: string) => void;
   };
   electron: {
+    openFolder: (folderPath: string) => Promise<void>;
     validateGamePath: (gamePath) => any;
     browseFileHandler: (
       options: Electron.OpenDialogOptions

@@ -5,12 +5,12 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { Button } from "../ui/button";
-import { ArrowLeft, ArrowRight, Cross, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Cross, FolderSymlink, X } from "lucide-react";
 import { CgScrollH } from "react-icons/cg";
 import { useCallback, useEffect, useRef, useState } from "react";
 import React from "react";
 
-export function CarouselSection({ screenshotsArray }: any) {
+export function CarouselSection({ uid, screenshotsArray }: any) {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [autoPlayOn, setAutoPlayOn] = useState(false);
   const [mainApi, setMainApi] = React.useState<CarouselApi>();
@@ -45,6 +45,10 @@ export function CarouselSection({ screenshotsArray }: any) {
   };
 
   const [fullscreen, setFullscreen] = useState(false);
+
+  const openFileLocation = () => {
+    window.electron.openFolder(`/backend/screenshots/${uid}`);
+  };
 
   return (
     <>
@@ -230,6 +234,15 @@ export function CarouselSection({ screenshotsArray }: any) {
               }`}
             >
               <CgScrollH size={22} />
+            </Button>
+            <Button
+              onClick={openFileLocation}
+              variant={"outline"}
+              className={`h-8 w-8 rounded-full ${
+                autoPlayOn ? "animate-spin duration-1000" : null
+              }`}
+            >
+              <FolderSymlink size={18} />
             </Button>
             <Button
               onClick={() => mainApi?.scrollNext()}
