@@ -397,22 +397,76 @@ function unregisterScreenshotShortcut(screenshotBind: string) {
   }
 }
 
-ipcMain.handle("image-search", async (_event, query, page = 1) => {
+ipcMain.handle("image-search", async (_event, query, page) => {
+  const userAgents = [
+    // Chrome (Windows/Mac/Linux)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+
+    // Firefox (Windows/Mac/Linux)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13.5; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (X11; Linux i686; rv:119.0) Gecko/20100101 Firefox/119.0",
+
+    // Safari (Mac/iOS)
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
+
+    // Edge (Windows/Mac)
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.2210.91",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.2210.91",
+
+    // Mobile Devices
+    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.210 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-A736B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.210 Mobile Safari/537.36",
+
+    // Additional Variants
+    "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko", // IE11
+    "Mozilla/5.0 (Windows NT 6.3; Win64; x64; Trident/7.0; Touch; rv:11.0) like Gecko", // IE11 Touch
+    "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // ChromeOS
+  ];
+
+  // Improved random user agent selection
+  const randomUserAgent =
+    userAgents[Math.floor(Math.random() * userAgents.length)];
+
+  // Additional headers for better emulation
+  const headers = {
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate, br",
+    Connection: "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
+  };
+
   const win = new BrowserWindow({
     show: false,
     webPreferences: {
-      offscreen: false,
-      contextIsolation: false,
+      offscreen: true,
+      contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: true,
     },
   });
 
-  // Set realistic user agent to match browser behavior
-  await win.webContents.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  // Set headers and user agent
+  await win.webContents.setUserAgent(randomUserAgent);
+  await win.webContents.session.webRequest.onBeforeSendHeaders(
+    (details, callback) => {
+      details.requestHeaders = { ...details.requestHeaders, ...headers };
+      callback({ requestHeaders: details.requestHeaders });
+    }
   );
 
-  const url = `https://www.google.com/search?hl=en&tbm=isch&q=${encodeURIComponent(query)}&start=${(page - 1) * 20}`;
+  const url = `https://www.google.com/search?hl=en&tbm=isch&q=${encodeURIComponent(query)}&start=${page}`;
   console.log("Loading URL:", url);
 
   try {
@@ -424,11 +478,28 @@ ipcMain.handle("image-search", async (_event, query, page = 1) => {
       ),
     ]);
 
+    await win.webContents.executeJavaScript(`
+      window.scrollBy(0, 100); // Scroll down by 100px
+      setTimeout(() => {}, 500); // Wait a bit before loading more content
+    `);
+
+    // Handle consent form if it appears (like Playnite does)
+    const hasConsent = await win.webContents.executeJavaScript(`
+          document.querySelector('form[action*="consent.google.com"]') !== null
+        `);
+
+    if (hasConsent) {
+      await win.webContents.executeJavaScript(`
+            document.querySelector('form').submit();
+          `);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
     // Wait for either metadata or images to appear (with timeout)
     await win.webContents.executeJavaScript(`
       new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Content load timeout')), 10000);
-        
+
         const checkReady = () => {
           if (document.querySelector('.rg_meta') || document.querySelector('img[src^="http"]')) {
             clearTimeout(timeout);
@@ -437,37 +508,35 @@ ipcMain.handle("image-search", async (_event, query, page = 1) => {
             setTimeout(checkReady, 300);
           }
         };
-        
+
         checkReady();
       });
     `);
-
-    // Handle consent form if it appears (like Playnite does)
-    const hasConsent = await win.webContents.executeJavaScript(`
-      document.querySelector('form[action*="consent.google.com"]') !== null
-    `);
-
-    if (hasConsent) {
-      await win.webContents.executeJavaScript(`
-        document.querySelector('form').submit();
-      `);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
 
     const images = await win.webContents.executeJavaScript(`
       (() => {
         try {
           const results = [];
-    
+          const decodeUrl = (url) => {
+            try {
+              return decodeURIComponent(url);
+            } catch (e) {
+              return url; // Return original if decoding fails
+            }
+          };
+
           // First: Try Google's classic .rg_meta style
           const metaElements = document.querySelectorAll('.rg_meta');
           if (metaElements.length > 0) {
             metaElements.forEach(meta => {
               try {
                 const data = JSON.parse(meta.textContent);
+                const imageUrl = data.ou || data.ru;
+                const thumbUrl = data.tu;
+
                 results.push({
-                  ImageUrl: JSON.parse('"' + (data.ou || data.ru).replace(/"/g, '\\"') + '"'),
-                  ThumbUrl: JSON.parse('"' + data.tu.replace(/"/g, '\\"') + '"'),
+                  ImageUrl: decodeUrl(imageUrl),
+                  ThumbUrl: decodeUrl(thumbUrl),
                   Width: data.ow,
                   Height: data.oh,
                   position: parseInt(meta.closest('[data-ri]')?.getAttribute('data-ri') || 0)
@@ -478,21 +547,21 @@ ipcMain.handle("image-search", async (_event, query, page = 1) => {
             });
             return results;
           }
-    
+
           // Fallback: Regex scrape like Playnite
           const html = document.documentElement.outerHTML.replace(/\\n/g, "");
           const regex = /\\["(https:\\/\\/encrypted-[^,]+?)",\\d+,\\d+\\],\\["(http.+?)",(\\d+),(\\d+)\\]/g;
           let match;
           while ((match = regex.exec(html)) !== null) {
             results.push({
-              ThumbUrl: JSON.parse('"' + match[1].replace(/"/g, '\\"') + '"'),
-              ImageUrl: JSON.parse('"' + match[2].replace(/"/g, '\\"') + '"'),
+              ThumbUrl: decodeUrl(match[1]),
+              ImageUrl: decodeUrl(match[2]),
               Width: parseInt(match[4]),
               Height: parseInt(match[3]),
               position: results.length
             });
           }
-    
+
           return results;
         } catch (e) {
           console.error('Image scraping failed:', e);
@@ -525,7 +594,7 @@ ipcMain.handle("image-search", async (_event, query, page = 1) => {
     });
 
     // Return top 20 results (like Google's pagination)
-    const topImages = validImages.slice(0, 20);
+    const topImages = validImages;
     console.log(`Returning ${topImages.length} valid image results`);
     win.destroy();
     return topImages;

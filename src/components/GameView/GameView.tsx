@@ -123,7 +123,8 @@ function GameView() {
       return `./backend/screenshots/${screenshot}?t=${cacheBuster}`;
     }
   });
-  screenshotsArray = screenshotsArray.reverse();
+  screenshotsArray = screenshotsArray;
+  console.log("ccc", screenshotsArray);
   let timePlayed = metadata?.TimePlayed?.toFixed(1);
   if (timePlayed < 0) timePlayed = "0.0";
   const isWishlist = metadata?.isDLC;

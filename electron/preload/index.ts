@@ -27,7 +27,11 @@ contextBridge.exposeInMainWorld("electron", {
   onProgress: (callback: (progress: number) => void) => {
     ipcRenderer.on("download-progress", (_, progress) => callback(progress));
   },
-  imageSearch: (query: string) => ipcRenderer.invoke("image-search", query),
+  imageSearch: (query: string, page: number) =>
+    ipcRenderer.invoke("image-search", query, page),
+  fetchImageBuffer: async (url: string): Promise<string | null> => {
+    return await ipcRenderer.invoke("fetch-image-buffer", url);
+  },
 });
 
 const exePath = process.env.PORTABLE_EXECUTABLE_DIR;

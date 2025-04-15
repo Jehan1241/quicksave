@@ -21,7 +21,8 @@ declare interface Window {
     ) => void;
     sendUpdateResponse: (choice: boolean) => Promise<void>;
     onProgress: (callback: (progress: number) => void) => void;
-    imageSearch: (query: string) => Promise<GoogleImage[]>;
+    imageSearch: (query: string, page: number) => Promise<GoogleImage[]>;
+    fetchImageBuffer: (url: string) => Promise<string | null>;
   };
   themeMode: {
     toggle: () => Promise<boolean>;

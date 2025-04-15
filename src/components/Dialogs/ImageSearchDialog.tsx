@@ -22,105 +22,180 @@ interface ImageSearchDialogProps {
   searchDialogOpen: boolean;
   setSearchDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   title: string;
+  onImageSelect: (url: string) => void;
+  isCoverImage?: boolean;
+  defaultSearchSuffix: string;
 }
+
+const DISPLAY_BATCH_SIZE = 20;
 
 export default function ImageSearchDialog({
   searchDialogOpen,
   setSearchDialogOpen,
   title,
+  onImageSelect,
+  isCoverImage,
+  defaultSearchSuffix,
 }: ImageSearchDialogProps) {
-  const [images, setImages] = useState<GoogleImage[]>([]);
+  const [allImages, setAllImages] = useState<GoogleImage[]>([]);
+  const [displayImages, setDisplayImages] = useState<GoogleImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1); // Track the page for infinite scroll
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set()); // Track failed images
+  const [nextPageOffset, setNextPageOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentSearchQuery, setCurrentSearchQuery] = useState("");
 
-  const handleSearch = async () => {
+  useEffect(() => {
+    if (!searchDialogOpen) return;
+
+    const initialQuery = String(title + " " + defaultSearchSuffix);
+    setQuery(initialQuery);
+    setCurrentSearchQuery(initialQuery);
+    handleSearch(initialQuery);
+  }, [searchDialogOpen]);
+
+  const getProxiedImageUrl = (originalUrl: string) => {
+    if (!originalUrl) return "";
+    try {
+      const decoded = decodeURIComponent(originalUrl);
+      return `http://localhost:8080/image-proxy?url=${encodeURIComponent(decoded)}`;
+    } catch {
+      return `http://localhost:8080/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+    }
+  };
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!searchDialogOpen) {
+      setAllImages([]);
+      setDisplayImages([]);
+      setNextPageOffset(0);
+      setHasMore(true);
+      setCurrentSearchQuery("");
+    }
+  }, [searchDialogOpen]);
+
+  const handleSearch = async (searchQuery?: string) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery.trim()) return;
+
     setLoading(true);
     setError(null);
+    setAllImages([]);
+    setDisplayImages([]);
+    setNextPageOffset(0);
+    setHasMore(true);
+    setCurrentSearchQuery(finalQuery);
+
     try {
-      const result = await window.electron.imageSearch(query);
-      if (result && result.length > 0) {
-        setImages(result);
+      const result = await window.electron.imageSearch(finalQuery, 0);
+      if (result?.length > 0) {
+        setAllImages(result);
       } else {
         setError("No images found.");
       }
     } catch (err) {
-      console.error("Error during image search:", err);
-      setError("An error occurred during the search.");
+      console.error("Search error:", err);
+      setError("Search failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const loadMoreImages = async () => {
-    if (loading) return; // Prevent loading more images if already loading
+    if (loading || !hasMore || query !== currentSearchQuery) return;
 
     setLoading(true);
-    console.log("Loading more images...");
-
     try {
-      const imageData: GoogleImage[] = await window.electron.imageSearch(
-        query + `&page=${page + 1}`
-      );
-      setImages((prevImages) => [...prevImages, ...imageData]);
-      setPage((prevPage) => prevPage + 1); // Increment page for next load
+      const result = await window.electron.imageSearch(query, nextPageOffset);
+      if (result?.length > 0) {
+        setAllImages((prev) => [...prev, ...result]);
+        setNextPageOffset((prev) => prev + 10);
+      } else {
+        setHasMore(false);
+      }
     } catch (err) {
-      console.error("Error loading more images:", err);
-    }
-
-    setLoading(false);
-  };
-
-  const handleImageClick = (img: string) => {
-    console.log("Image selected:", img);
-    setSearchDialogOpen(false);
-  };
-
-  const handleImageError = (
-    e: React.SyntheticEvent<HTMLImageElement, Event>
-  ) => {
-    const imageUrl = e.currentTarget.src;
-
-    // Prevent infinite error logging for the same broken image or the fallback image
-    if (imageUrl.includes("via.placeholder.com")) return; // Ignore errors for fallback image
-
-    if (!imageErrors.has(imageUrl)) {
-      console.error(`Image failed to load: ${imageUrl}`);
-      setImageErrors((prevErrors) => new Set(prevErrors).add(imageUrl)); // Mark this image as having failed
-    }
-
-    // Set fallback image
-    e.currentTarget.src = "https://via.placeholder.com/150";
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-    const scrollHeight = e.currentTarget.scrollHeight;
-    const scrollTop = e.currentTarget.scrollTop;
-    const clientHeight = e.currentTarget.clientHeight;
-
-    console.log(
-      "Scroll Event - ScrollHeight:",
-      scrollHeight,
-      "ScrollTop:",
-      scrollTop,
-      "ClientHeight:",
-      clientHeight
-    );
-
-    // Check if user has scrolled to the bottom (with a small tolerance)
-    const nearBottom = scrollHeight - scrollTop - clientHeight < 10;
-
-    if (nearBottom && !loading) {
-      console.log("Reached bottom, loading more...");
-      loadMoreImages(); // Load more images when scrolled to bottom
+      console.error("Load more error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Update display images when allImages changes
   useEffect(() => {
-    console.log(images); // For debugging
-  }, [images]);
+    if (allImages.length > 0 && displayImages.length < allImages.length) {
+      const nextBatch = allImages.slice(
+        displayImages.length,
+        displayImages.length + DISPLAY_BATCH_SIZE
+      );
+      setDisplayImages((prev) => [...prev, ...nextBatch]);
+    }
+  }, [allImages, displayImages.length]);
+
+  // Handle scroll for infinite loading
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+    const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+    if (nearBottom) {
+      if (displayImages.length < allImages.length) {
+        const nextBatch = allImages.slice(
+          displayImages.length,
+          displayImages.length + DISPLAY_BATCH_SIZE
+        );
+        setDisplayImages((prev) => [...prev, ...nextBatch]);
+      } else if (hasMore) {
+        loadMoreImages();
+      }
+    }
+  };
+
+  const ImageWithFallback = ({
+    image,
+    index,
+  }: {
+    image: GoogleImage;
+    index: number;
+  }) => {
+    const [currentUrl, setCurrentUrl] = useState(image.ImageUrl);
+    const [hasError, setHasError] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const handleError = () => {
+      if (!hasError) {
+        setCurrentUrl(getProxiedImageUrl(image.ImageUrl));
+        setHasError(true);
+        setIsLoading(true); // Retry loading with proxy URL
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    return (
+      <div
+        key={`${image.ImageUrl}-${index}`}
+        className="flex w-[calc(16*1.5rem)] h-[calc(9*1.5rem)] m-2 border-2 p-1 border-muted overflow-hidden hover:bg-topBarButtonsHover rounded-md relative"
+      >
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="animate-spin" size={20} />
+          </div>
+        )}
+        <img
+          src={currentUrl}
+          alt={`Image ${index}`}
+          className={`cursor-pointer object-contain w-full rounded-md ${isLoading ? "opacity-0" : "opacity-100"}`}
+          onClick={() => {
+            onImageSelect(image.ImageUrl);
+            setSearchDialogOpen(false);
+          }}
+          onLoad={() => setIsLoading(false)}
+          onError={handleError}
+        />
+      </div>
+    );
+  };
 
   return (
     <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
@@ -131,41 +206,44 @@ export default function ImageSearchDialog({
             Left click on an image to set it.
           </DialogDescription>
         </DialogHeader>
+
         <div
           className="h-full w-full flex flex-wrap overflow-auto justify-center"
-          onScroll={handleScroll} // Add scroll event listener here
+          onScroll={handleScroll}
         >
-          {loading && images.length === 0 ? (
+          {loading && displayImages.length === 0 ? (
             <div className="flex justify-center items-center">
               <Loader2 size={50} className="animate-spin" />
-            </div> // Loading indicator for initial load
+            </div>
           ) : (
-            images.map((img, index) => (
-              <div className="flex w-[calc(16*1.5rem)] h-[calc(9*1.5rem)] m-2 border-2 p-1 border-muted overflow-hidden hover:bg-topBarButtonsHover rounded-md">
-                <img
-                  key={index}
-                  src={img.ImageUrl}
-                  alt={`Image ${index}`}
-                  className="cursor-pointer object-contain w-full rounded-md"
-                  onClick={() => handleImageClick(img.ImageUrl)}
-                  onError={handleImageError} // Fallback to placeholder image
-                />
-              </div>
+            displayImages.map((img, index) => (
+              <ImageWithFallback
+                key={`${img.ImageUrl}-${index}`}
+                image={img}
+                index={index}
+              />
             ))
           )}
         </div>
-        {loading && images.length > 0 && (
+
+        {loading && displayImages.length > 0 && (
           <div className="m-4 flex w-full justify-center items-center">
             <Loader2 className="animate-spin" size={30} />
           </div>
         )}
+
+        {error && (
+          <div className="text-destructive text-center p-2">{error}</div>
+        )}
+
         <DialogFooter>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for images"
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
-          <Button onClick={handleSearch}>Search</Button>
+          <Button onClick={() => handleSearch()}>Search</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

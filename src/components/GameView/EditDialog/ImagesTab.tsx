@@ -143,7 +143,14 @@ export function ImagesTab({
 
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
-  const searchClickHandler = () => {
+  const [selectingForCover, setSelectingForCover] = useState(false);
+  const searchCoverClickHandler = () => {
+    setSelectingForCover(true);
+    setSearchDialogOpen(true);
+  };
+
+  const searchScreenshotClickHandler = () => {
+    setSelectingForCover(false);
     setSearchDialogOpen(true);
   };
 
@@ -154,9 +161,19 @@ export function ImagesTab({
           searchDialogOpen={searchDialogOpen}
           setSearchDialogOpen={setSearchDialogOpen}
           title={title}
+          defaultSearchSuffix={selectingForCover ? "cover" : "1080p"}
+          onImageSelect={(url) => {
+            if (selectingForCover) {
+              setCurrentCover(url); // Set as cover image
+            } else if (selectedIndex !== null) {
+              const updatedScreenshots = [...ssImage];
+              updatedScreenshots[selectedIndex] = url;
+              setSsImage(updatedScreenshots); // Set as screenshot
+            }
+          }}
         />
       )}
-      //Extra div cause TabsContent cannot be a flex
+      {/* //Extra div cause TabsContent cannot be a flex */}
       <TabsContent value="images" className=" h-full w-full">
         <div className="flex h-full flex-col w-full justify-between p-2 px-4 focus:outline-none ">
           <div className="flex justify-between w-full">
@@ -194,8 +211,8 @@ export function ImagesTab({
                 </Button>
                 <Button
                   variant={"outline"}
+                  onClick={searchCoverClickHandler}
                   className="w-8 h-8 rounded-full"
-                  disabled
                 >
                   <Globe size={18} />
                 </Button>
@@ -289,7 +306,7 @@ export function ImagesTab({
                     </Button>
                     <Button
                       variant={"outline"}
-                      onClick={searchClickHandler}
+                      onClick={searchScreenshotClickHandler}
                       className="w-8 h-8 rounded-full"
                     >
                       <Globe size={18} />
