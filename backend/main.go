@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1871,6 +1872,137 @@ func setupRouter() *gin.Engine {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK})
+	})
+
+	r.GET("/image-proxy", func(c *gin.Context) {
+		encodedUrl := c.Query("url")
+		if encodedUrl == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing url parameter"})
+			return
+		}
+
+		// Decode URL only once (you had duplicate ParseRequestURI calls)
+		imageUrl, err := url.QueryUnescape(encodedUrl)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid url encoding"})
+			return
+		}
+
+		imageUrl = strings.ReplaceAll(imageUrl, `\u003d`, "=")
+		imageUrl = strings.ReplaceAll(imageUrl, `\u0026`, "&")
+
+		// Validate URL more thoroughly
+		parsedUrl, err := url.ParseRequestURI(imageUrl)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid url"})
+			return
+		}
+
+		// Security: Only allow HTTP/HTTPS protocols
+		if parsedUrl.Scheme != "http" && parsedUrl.Scheme != "https" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid url scheme"})
+			return
+		}
+
+		// Security: Add domain allowlist if needed (example)
+		// if !isAllowedDomain(parsedUrl.Host) {
+		//     c.JSON(http.StatusForbidden, gin.H{"error": "domain not allowed"})
+		//     return
+		// }
+
+		client := &http.Client{
+			Timeout: 15 * time.Second,
+			// Add redirect policy
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 3 { // Limit redirects
+					return fmt.Errorf("too many redirects")
+				}
+				// Security: Verify redirect URLs
+				if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+					return fmt.Errorf("invalid redirect scheme")
+				}
+				return nil
+			},
+		}
+
+		req, err := http.NewRequest("GET", imageUrl, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request"})
+			return
+		}
+
+		req.Header = http.Header{
+			"User-Agent":      {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
+			"Referer":         {"https://www.google.com/"},
+			"Origin":          {"https://www.google.com"},
+			"Accept":          {"image/webp,image/apng,image/*,*/*;q=0.8"},
+			"Accept-Language": {"en-US,en;q=0.9"},
+			"Sec-Fetch-Dest":  {"image"},
+			"Sec-Fetch-Mode":  {"no-cors"},
+			"Sec-Fetch-Site":  {"cross-site"},
+		}
+
+		// Log outgoing request details
+		log.Printf("Making request to: %s", imageUrl)
+		log.Printf("Headers: %+v", req.Header)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Request failed: %v", err)
+			// [existing error handling...]
+		}
+
+		log.Printf("Response status: %d", resp.StatusCode)
+		log.Printf("Response headers: %+v", resp.Header)
+
+		resp, err = client.Do(req)
+		if err != nil {
+			// More specific error messages
+			if strings.Contains(err.Error(), "timeout") {
+				c.JSON(http.StatusGatewayTimeout, gin.H{"error": "upstream timeout"})
+			} else if strings.Contains(err.Error(), "redirects") {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "too many redirects"})
+			} else {
+				c.JSON(http.StatusBadGateway, gin.H{"error": "failed to fetch image"})
+			}
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":  "upstream server error",
+				"status": resp.StatusCode,
+			})
+			return
+		}
+
+		contentType := resp.Header.Get("Content-Type")
+		if !strings.HasPrefix(contentType, "image/") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":       "url does not point to an image",
+				"contentType": contentType,
+			})
+			return
+		}
+
+		// Security: Limit image size (e.g., 10MB max)
+		maxBytes := int64(10 * 1024 * 1024) // 10MB
+		c.Header("Content-Type", contentType)
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Header("X-Content-Type-Options", "nosniff") // Security header
+
+		// Stream with size limit
+		_, err = io.Copy(c.Writer, io.LimitReader(resp.Body, maxBytes))
+		if err != nil {
+			if err == io.EOF {
+				// Normal completion
+				return
+			}
+			// Don't expose internal errors to client
+			log.Printf("Proxy error: %v", err)
+			return
+		}
 	})
 
 	r.POST("/updateApp", func(c *gin.Context) {
