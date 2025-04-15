@@ -27,6 +27,7 @@ export function EditDialog({
   platform,
   tags,
   companies,
+  title,
 }: any) {
   const isPathTabDisabled = platform === "Steam" ? true : false;
 
@@ -62,6 +63,7 @@ export function EditDialog({
               screenshotsArray={screenshotsArray}
               uid={uid}
               fetchData={getGameDetails}
+              title={title}
             />
             <PathTab uid={uid} setEditDialogOpen={setEditDialogOpen} />
           </Tabs>

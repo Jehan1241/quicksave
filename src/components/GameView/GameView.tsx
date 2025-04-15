@@ -203,6 +203,7 @@ function GameView() {
                       platform={metadata?.OwnedPlatform}
                       tags={tagsArray}
                       companies={companiesArray}
+                      title={metadata?.Name}
                     />
                     <HideDialog
                       uid={uid}

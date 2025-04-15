@@ -396,3 +396,142 @@ function unregisterScreenshotShortcut(screenshotBind: string) {
     globalShortcut.unregister(screenshotBind);
   }
 }
+
+ipcMain.handle("image-search", async (_event, query, page = 1) => {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      offscreen: false,
+      contextIsolation: false,
+      nodeIntegration: false,
+    },
+  });
+
+  // Set realistic user agent to match browser behavior
+  await win.webContents.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  );
+
+  const url = `https://www.google.com/search?hl=en&tbm=isch&q=${encodeURIComponent(query)}&start=${(page - 1) * 20}`;
+  console.log("Loading URL:", url);
+
+  try {
+    // Load page with timeout
+    await Promise.race([
+      win.loadURL(url),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Page load timeout")), 15000)
+      ),
+    ]);
+
+    // Wait for either metadata or images to appear (with timeout)
+    await win.webContents.executeJavaScript(`
+      new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Content load timeout')), 10000);
+        
+        const checkReady = () => {
+          if (document.querySelector('.rg_meta') || document.querySelector('img[src^="http"]')) {
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            setTimeout(checkReady, 300);
+          }
+        };
+        
+        checkReady();
+      });
+    `);
+
+    // Handle consent form if it appears (like Playnite does)
+    const hasConsent = await win.webContents.executeJavaScript(`
+      document.querySelector('form[action*="consent.google.com"]') !== null
+    `);
+
+    if (hasConsent) {
+      await win.webContents.executeJavaScript(`
+        document.querySelector('form').submit();
+      `);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    const images = await win.webContents.executeJavaScript(`
+      (() => {
+        try {
+          const results = [];
+    
+          // First: Try Google's classic .rg_meta style
+          const metaElements = document.querySelectorAll('.rg_meta');
+          if (metaElements.length > 0) {
+            metaElements.forEach(meta => {
+              try {
+                const data = JSON.parse(meta.textContent);
+                results.push({
+                  ImageUrl: JSON.parse('"' + (data.ou || data.ru).replace(/"/g, '\\"') + '"'),
+                  ThumbUrl: JSON.parse('"' + data.tu.replace(/"/g, '\\"') + '"'),
+                  Width: data.ow,
+                  Height: data.oh,
+                  position: parseInt(meta.closest('[data-ri]')?.getAttribute('data-ri') || 0)
+                });
+              } catch (e) {
+                console.warn('Metadata parse error:', e);
+              }
+            });
+            return results;
+          }
+    
+          // Fallback: Regex scrape like Playnite
+          const html = document.documentElement.outerHTML.replace(/\\n/g, "");
+          const regex = /\\["(https:\\/\\/encrypted-[^,]+?)",\\d+,\\d+\\],\\["(http.+?)",(\\d+),(\\d+)\\]/g;
+          let match;
+          while ((match = regex.exec(html)) !== null) {
+            results.push({
+              ThumbUrl: JSON.parse('"' + match[1].replace(/"/g, '\\"') + '"'),
+              ImageUrl: JSON.parse('"' + match[2].replace(/"/g, '\\"') + '"'),
+              Width: parseInt(match[4]),
+              Height: parseInt(match[3]),
+              position: results.length
+            });
+          }
+    
+          return results;
+        } catch (e) {
+          console.error('Image scraping failed:', e);
+          return [];
+        }
+      })();
+    `);
+
+    // Log all image URLs found
+    console.log("Raw image URLs scraped:");
+    images.forEach((img: any) => {
+      console.log(`Raw Image URL: ${img.ImageUrl}`);
+    });
+
+    // Sort by original position (like Google's ranking)
+    images.sort((a: any, b: any) => a.position - b.position);
+
+    // Filter to only valid, high-res images (minimum 300px on either dimension)
+    const validImages = images.filter(
+      (img: any) =>
+        img.ImageUrl?.startsWith("http") &&
+        img.ThumbUrl?.startsWith("http") &&
+        Math.max(img.Width, img.Height) >= 300
+    );
+
+    // Log filtered (valid) image URLs
+    console.log("Filtered valid image URLs:");
+    validImages.forEach((img: any) => {
+      console.log(`Valid Image URL: ${img.ImageUrl}`);
+    });
+
+    // Return top 20 results (like Google's pagination)
+    const topImages = validImages.slice(0, 20);
+    console.log(`Returning ${topImages.length} valid image results`);
+    win.destroy();
+    return topImages;
+  } catch (err) {
+    console.error("Image search failed:", err);
+    if (!win.isDestroyed()) win.destroy();
+    return []; // Return empty array instead of throwing error
+  }
+});

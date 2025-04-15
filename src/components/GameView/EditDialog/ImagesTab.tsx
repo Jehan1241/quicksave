@@ -24,12 +24,15 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { CgSpinner } from "react-icons/cg";
 import { useSortContext } from "@/hooks/useSortContex";
 import { saveCustomImage } from "@/lib/api/GameViewAPI";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import ImageSearchDialog from "@/components/Dialogs/ImageSearchDialog";
 
 export function ImagesTab({
   coverArtPath,
   uid,
   screenshotsArray,
   fetchData,
+  title,
 }: any) {
   const { cacheBuster, setCacheBuster } = useSortContext();
   const [loading, setLoading] = useState(false);
@@ -138,215 +141,229 @@ export function ImagesTab({
     });
   }, [api]);
 
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+
+  const searchClickHandler = () => {
+    setSearchDialogOpen(true);
+  };
+
   return (
-    //Extra div cause TabsContent cannot be a flex
-    <TabsContent value="images" className=" h-full w-full">
-      <div className="flex h-full flex-col w-full justify-between p-2 px-4 focus:outline-none ">
-        <div className="flex justify-between w-full">
-          <div className="flex flex-col gap-2 w-96">
-            <input
-              hidden
-              id="cover-picture"
-              type="file"
-              onChange={handleCoverImageChange}
-            />
-            <label htmlFor="cover-picture" className="xl:w-60 cursor-pointer">
-              <Card className="flex w-28 xl:h-[calc(15rem*4/3)] xl:w-60 select-none items-center justify-center overflow-hidden">
-                <CardContent className="p-0 m-0 h-full w-full flex">
-                  {currentCover ? (
-                    <img
-                      draggable={false}
-                      src={currentCover}
-                      className="object-cover h-full w-full"
-                    />
-                  ) : (
-                    <p className="text-sm m-auto text-muted-foreground">
-                      Choose an Image
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </label>
-            <div className="flex gap-2">
-              <Button
-                variant={"outline"}
-                className="w-8 h-8 rounded-full"
-                onClick={handleDeleteCoverArt}
-              >
-                <Trash2 size={18} />
-              </Button>
-              <Button
-                variant={"outline"}
-                className="w-8 h-8 rounded-full"
-                disabled
-              >
-                <Globe size={18} />
-              </Button>
-              <div className="flex gap-1">
+    <>
+      {searchDialogOpen && (
+        <ImageSearchDialog
+          searchDialogOpen={searchDialogOpen}
+          setSearchDialogOpen={setSearchDialogOpen}
+          title={title}
+        />
+      )}
+      //Extra div cause TabsContent cannot be a flex
+      <TabsContent value="images" className=" h-full w-full">
+        <div className="flex h-full flex-col w-full justify-between p-2 px-4 focus:outline-none ">
+          <div className="flex justify-between w-full">
+            <div className="flex flex-col gap-2 w-96">
+              <input
+                hidden
+                id="cover-picture"
+                type="file"
+                onChange={handleCoverImageChange}
+              />
+              <label htmlFor="cover-picture" className="xl:w-60 cursor-pointer">
+                <Card className="flex w-28 xl:h-[calc(15rem*4/3)] xl:w-60 select-none items-center justify-center overflow-hidden">
+                  <CardContent className="p-0 m-0 h-full w-full flex">
+                    {currentCover ? (
+                      <img
+                        draggable={false}
+                        src={currentCover}
+                        className="object-cover h-full w-full"
+                      />
+                    ) : (
+                      <p className="text-sm m-auto text-muted-foreground">
+                        Choose an Image
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </label>
+              <div className="flex gap-2">
                 <Button
                   variant={"outline"}
-                  onClick={() => {
-                    setCoverArtLinkClicked(!coverArtLinkClicked);
-                  }}
                   className="w-8 h-8 rounded-full"
+                  onClick={handleDeleteCoverArt}
                 >
-                  <Link size={18} />
+                  <Trash2 size={18} />
                 </Button>
-                {coverArtLinkClicked && (
-                  <Input
-                    placeholder="Paste link and press Enter"
-                    className="h-8 rounded-full"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const inputElement = e.target as HTMLInputElement; // Type cast to HTMLInputElement
-                        setCurrentCover(inputElement.value); // Access value
-                      }
+                <Button
+                  variant={"outline"}
+                  className="w-8 h-8 rounded-full"
+                  disabled
+                >
+                  <Globe size={18} />
+                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant={"outline"}
+                    onClick={() => {
+                      setCoverArtLinkClicked(!coverArtLinkClicked);
                     }}
-                  ></Input>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="w-72 xl:w-full flex justify-end">
-            <Carousel setApi={setApi} className="max-w-3xl w-full">
-              <CarouselContent className="w-full h-full">
-                {ssImage?.map((image, index) => (
-                  <CarouselItem key={index} className="w-full h-full">
-                    <input
-                      hidden
-                      id={`ss-picture-${index}`} // Unique ID for each screenshot input
-                      type="file"
-                      onChange={(e) => handleScreenshotImageChange(index, e)}
-                    />
-                    <div
-                      className="w-full h-full cursor-pointer"
-                      onClick={() => {
-                        const fileInput = document.getElementById(
-                          `ss-picture-${index}`
-                        ) as HTMLInputElement | null;
-                        if (fileInput) {
-                          fileInput.click();
+                    className="w-8 h-8 rounded-full"
+                  >
+                    <Link size={18} />
+                  </Button>
+                  {coverArtLinkClicked && (
+                    <Input
+                      placeholder="Paste link and press Enter"
+                      className="h-8 rounded-full"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const inputElement = e.target as HTMLInputElement; // Type cast to HTMLInputElement
+                          setCurrentCover(inputElement.value); // Access value
                         }
                       }}
+                    ></Input>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="w-72 xl:w-full flex justify-end">
+              <Carousel setApi={setApi} className="max-w-3xl w-full">
+                <CarouselContent className="w-full h-full">
+                  {ssImage?.map((image, index) => (
+                    <CarouselItem key={index} className="w-full h-full">
+                      <input
+                        hidden
+                        id={`ss-picture-${index}`} // Unique ID for each screenshot input
+                        type="file"
+                        onChange={(e) => handleScreenshotImageChange(index, e)}
+                      />
+                      <div
+                        className="w-full h-full cursor-pointer"
+                        onClick={() => {
+                          const fileInput = document.getElementById(
+                            `ss-picture-${index}`
+                          ) as HTMLInputElement | null;
+                          if (fileInput) {
+                            fileInput.click();
+                          }
+                        }}
+                      >
+                        <Card className="w-full h-full">
+                          <CardContent className="flex justify-center items-center p-0 w-full h-full select-none">
+                            <AspectRatio
+                              ratio={16 / 9}
+                              className="flex justify-center items-center rounded-md border-b border-border"
+                            >
+                              {image ? (
+                                <img
+                                  draggable={false}
+                                  src={image}
+                                  alt="Broken Image"
+                                  className="h-full rounded-md"
+                                />
+                              ) : (
+                                <div className="text-muted-foreground">
+                                  Click to choose image
+                                </div>
+                              )}
+                            </AspectRatio>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <div className="flex gap-2 justify-between mt-1">
+                  <div className="flex gap-2">
+                    <Button
+                      variant={"outline"}
+                      onClick={addScreenshot}
+                      className="w-8 h-8 rounded-full"
                     >
-                      <Card className="w-full h-full">
-                        <CardContent className="flex justify-center items-center p-0 w-full h-full select-none">
-                          <AspectRatio
-                            ratio={16 / 9}
-                            className="flex justify-center items-center rounded-md border-b border-border"
-                          >
-                            {image ? (
-                              <img
-                                draggable={false}
-                                src={image}
-                                alt="Broken Image"
-                                className="h-full rounded-md"
-                              />
-                            ) : (
-                              <div className="text-muted-foreground">
-                                Click to choose image
-                              </div>
-                            )}
-                          </AspectRatio>
-                        </CardContent>
-                      </Card>
+                      <Plus size={18} />
+                    </Button>
+                    <Button
+                      variant={"outline"}
+                      onClick={handleDeleteScreenshot}
+                      className="w-8 h-8 rounded-full"
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                    <Button
+                      variant={"outline"}
+                      onClick={searchClickHandler}
+                      className="w-8 h-8 rounded-full"
+                    >
+                      <Globe size={18} />
+                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={"outline"}
+                        onClick={() => {
+                          const scrollpoint = api?.selectedScrollSnap();
+                          if (scrollpoint != null) {
+                            setSSLinkClicked(scrollpoint);
+                            if (scrollpoint == ssLinkClicked) {
+                              setSSLinkClicked(null);
+                            }
+                          }
+                        }}
+                        className="w-8 h-8 rounded-full"
+                      >
+                        <Link size={18} />
+                      </Button>
+                      {ssLinkClicked != null ? (
+                        <Input
+                          className="mx-2 h-8 rounded-full"
+                          placeholder="Paste link and press Enter"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && selectedIndex !== null) {
+                              const link = (e.target as HTMLInputElement).value; // Typecast to HTMLInputElement
+
+                              // Ensure it's a valid link before updating
+                              const updatedScreenshots = [...ssImage];
+                              updatedScreenshots[selectedIndex] = link; // Set the link at the selected index
+                              console.log(updatedScreenshots);
+                              setSsImage(updatedScreenshots); // Update the state with the new array
+                              setSSLinkClicked(null);
+                            }
+                          }}
+                        />
+                      ) : null}
                     </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <div className="flex gap-2 justify-between mt-1">
-                <div className="flex gap-2">
-                  <Button
-                    variant={"outline"}
-                    onClick={addScreenshot}
-                    className="w-8 h-8 rounded-full"
-                  >
-                    <Plus size={18} />
-                  </Button>
-                  <Button
-                    variant={"outline"}
-                    onClick={handleDeleteScreenshot}
-                    className="w-8 h-8 rounded-full"
-                  >
-                    <Trash2 size={18} />
-                  </Button>
-                  <Button
-                    variant={"outline"}
-                    onClick={addScreenshot}
-                    className="w-8 h-8 rounded-full"
-                    disabled
-                  >
-                    <Globe size={18} />
-                  </Button>
-                  <div className="flex gap-1">
+                  </div>
+                  <div className="flex gap-2 mr-4">
                     <Button
                       variant={"outline"}
                       onClick={() => {
-                        const scrollpoint = api?.selectedScrollSnap();
-                        if (scrollpoint != null) {
-                          setSSLinkClicked(scrollpoint);
-                          if (scrollpoint == ssLinkClicked) {
-                            setSSLinkClicked(null);
-                          }
-                        }
+                        api?.scrollPrev();
+                        setSSLinkClicked(null);
                       }}
                       className="w-8 h-8 rounded-full"
                     >
-                      <Link size={18} />
+                      <LucideArrowLeft size={18} />
                     </Button>
-                    {ssLinkClicked != null ? (
-                      <Input
-                        className="mx-2 h-8 rounded-full"
-                        placeholder="Paste link and press Enter"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && selectedIndex !== null) {
-                            const link = (e.target as HTMLInputElement).value; // Typecast to HTMLInputElement
-
-                            // Ensure it's a valid link before updating
-                            const updatedScreenshots = [...ssImage];
-                            updatedScreenshots[selectedIndex] = link; // Set the link at the selected index
-                            console.log(updatedScreenshots);
-                            setSsImage(updatedScreenshots); // Update the state with the new array
-                            setSSLinkClicked(null);
-                          }
-                        }}
-                      />
-                    ) : null}
+                    <Button
+                      variant={"outline"}
+                      onClick={() => {
+                        api?.scrollNext();
+                        setSSLinkClicked(null);
+                      }}
+                      className="w-8 h-8 rounded-full"
+                    >
+                      <LucideArrowRight size={18} />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2 mr-4">
-                  <Button
-                    variant={"outline"}
-                    onClick={() => {
-                      api?.scrollPrev();
-                      setSSLinkClicked(null);
-                    }}
-                    className="w-8 h-8 rounded-full"
-                  >
-                    <LucideArrowLeft size={18} />
-                  </Button>
-                  <Button
-                    variant={"outline"}
-                    onClick={() => {
-                      api?.scrollNext();
-                      setSSLinkClicked(null);
-                    }}
-                    className="w-8 h-8 rounded-full"
-                  >
-                    <LucideArrowRight size={18} />
-                  </Button>
-                </div>
-              </div>
-            </Carousel>
+              </Carousel>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button variant={"dialogSaveButton"} onClick={saveClickHandler}>
+              {loading && <Loader2 className="animate-spin" />}
+              Save
+            </Button>
           </div>
         </div>
-        <div className="flex justify-end">
-          <Button variant={"dialogSaveButton"} onClick={saveClickHandler}>
-            {loading && <Loader2 className="animate-spin" />}
-            Save
-          </Button>
-        </div>
-      </div>
-    </TabsContent>
+      </TabsContent>
+    </>
   );
 }
