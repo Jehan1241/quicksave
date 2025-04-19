@@ -10,6 +10,7 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Loader2 } from "lucide-react";
+import { showErrorToast } from "@/lib/toastService";
 
 interface GoogleImage {
   ImageUrl: string;
@@ -27,32 +28,31 @@ interface ImageSearchDialogProps {
   defaultSearchSuffix: string;
 }
 
-const DISPLAY_BATCH_SIZE = 20;
-
 export default function ImageSearchDialog({
   searchDialogOpen,
   setSearchDialogOpen,
   title,
   onImageSelect,
-  isCoverImage,
   defaultSearchSuffix,
 }: ImageSearchDialogProps) {
   const [allImages, setAllImages] = useState<GoogleImage[]>([]);
-  const [displayImages, setDisplayImages] = useState<GoogleImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [nextPageOffset, setNextPageOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [currentSearchQuery, setCurrentSearchQuery] = useState("");
 
   useEffect(() => {
-    if (!searchDialogOpen) return;
-
-    const initialQuery = String(title + " " + defaultSearchSuffix);
-    setQuery(initialQuery);
-    setCurrentSearchQuery(initialQuery);
-    handleSearch(initialQuery);
+    if (!searchDialogOpen) {
+      setAllImages([]);
+      setNextPageOffset(0);
+      setHasMore(true);
+      setQuery("");
+    } else {
+      const initialQuery = String(title + " " + defaultSearchSuffix);
+      setQuery(initialQuery);
+      handleSearch(initialQuery);
+    }
   }, [searchDialogOpen]);
 
   const getProxiedImageUrl = (originalUrl: string) => {
@@ -65,17 +65,6 @@ export default function ImageSearchDialog({
     }
   };
 
-  // Reset when dialog closes
-  useEffect(() => {
-    if (!searchDialogOpen) {
-      setAllImages([]);
-      setDisplayImages([]);
-      setNextPageOffset(0);
-      setHasMore(true);
-      setCurrentSearchQuery("");
-    }
-  }, [searchDialogOpen]);
-
   const handleSearch = async (searchQuery?: string) => {
     const finalQuery = searchQuery || query;
     if (!finalQuery.trim()) return;
@@ -83,10 +72,9 @@ export default function ImageSearchDialog({
     setLoading(true);
     setError(null);
     setAllImages([]);
-    setDisplayImages([]);
     setNextPageOffset(0);
     setHasMore(true);
-    setCurrentSearchQuery(finalQuery);
+    setQuery(finalQuery);
 
     try {
       const result = await window.electron.imageSearch(finalQuery, 0);
@@ -97,14 +85,14 @@ export default function ImageSearchDialog({
       }
     } catch (err) {
       console.error("Search error:", err);
-      setError("Search failed. Please try again.");
+      showErrorToast("Search Error", "Search failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const loadMoreImages = async () => {
-    if (loading || !hasMore || query !== currentSearchQuery) return;
+    if (loading || !hasMore) return;
 
     setLoading(true);
     try {
@@ -116,39 +104,16 @@ export default function ImageSearchDialog({
         setHasMore(false);
       }
     } catch (err) {
-      console.error("Load more error:", err);
+      showErrorToast("Error loading more images", String(err));
     } finally {
       setLoading(false);
     }
   };
 
-  // Update display images when allImages changes
-  useEffect(() => {
-    if (allImages.length > 0 && displayImages.length < allImages.length) {
-      const nextBatch = allImages.slice(
-        displayImages.length,
-        displayImages.length + DISPLAY_BATCH_SIZE
-      );
-      setDisplayImages((prev) => [...prev, ...nextBatch]);
-    }
-  }, [allImages, displayImages.length]);
-
-  // Handle scroll for infinite loading
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
     const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
-
-    if (nearBottom) {
-      if (displayImages.length < allImages.length) {
-        const nextBatch = allImages.slice(
-          displayImages.length,
-          displayImages.length + DISPLAY_BATCH_SIZE
-        );
-        setDisplayImages((prev) => [...prev, ...nextBatch]);
-      } else if (hasMore) {
-        loadMoreImages();
-      }
-    }
+    if (nearBottom) loadMoreImages();
   };
 
   const ImageWithFallback = ({
@@ -158,16 +123,18 @@ export default function ImageSearchDialog({
     image: GoogleImage;
     index: number;
   }) => {
-    const [currentUrl, setCurrentUrl] = useState(image.ImageUrl);
+    const [url, setUrl] = useState(image.ImageUrl);
     const [hasError, setHasError] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [attemptedProxy, setAttemptedProxy] = useState(false);
 
     const handleError = () => {
-      if (!hasError) {
-        setCurrentUrl(getProxiedImageUrl(image.ImageUrl));
-        setHasError(true);
-        setIsLoading(true); // Retry loading with proxy URL
+      if (!attemptedProxy) {
+        const proxiedURL = getProxiedImageUrl(image.ImageUrl);
+        setUrl(proxiedURL);
+        setAttemptedProxy(true);
       } else {
+        setHasError(true);
         setIsLoading(false);
       }
     };
@@ -175,24 +142,30 @@ export default function ImageSearchDialog({
     return (
       <div
         key={`${image.ImageUrl}-${index}`}
-        className="flex w-[calc(16*1.5rem)] h-[calc(9*1.5rem)] m-2 border-2 p-1 border-muted overflow-hidden hover:bg-topBarButtonsHover rounded-md relative"
+        className="flex w-[calc(16*1.5rem)] h-[calc(9*1.5rem)] m-2 border-2 p-1 border-muted overflow-hidden hover:bg-topBarButtonsHover rounded-md relative justify-center items-center"
       >
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="animate-spin" size={20} />
-          </div>
+        {hasError ? (
+          <div className="text-sm">Error Loading Image</div>
+        ) : (
+          <>
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="animate-spin" size={20} />
+              </div>
+            )}
+            <img
+              src={url}
+              alt={`Image ${index}`}
+              className={`cursor-pointer object-contain w-full rounded-md ${isLoading ? "opacity-0" : "opacity-100"}`}
+              onClick={() => {
+                onImageSelect(image.ImageUrl);
+                setSearchDialogOpen(false);
+              }}
+              onLoad={() => setIsLoading(false)}
+              onError={handleError}
+            />
+          </>
         )}
-        <img
-          src={currentUrl}
-          alt={`Image ${index}`}
-          className={`cursor-pointer object-contain w-full rounded-md ${isLoading ? "opacity-0" : "opacity-100"}`}
-          onClick={() => {
-            onImageSelect(image.ImageUrl);
-            setSearchDialogOpen(false);
-          }}
-          onLoad={() => setIsLoading(false)}
-          onError={handleError}
-        />
       </div>
     );
   };
@@ -211,12 +184,12 @@ export default function ImageSearchDialog({
           className="h-full w-full flex flex-wrap overflow-auto justify-center"
           onScroll={handleScroll}
         >
-          {loading && displayImages.length === 0 ? (
+          {loading && allImages.length === 0 ? (
             <div className="flex justify-center items-center">
               <Loader2 size={50} className="animate-spin" />
             </div>
           ) : (
-            displayImages.map((img, index) => (
+            allImages.map((img, index) => (
               <ImageWithFallback
                 key={`${img.ImageUrl}-${index}`}
                 image={img}
@@ -226,7 +199,7 @@ export default function ImageSearchDialog({
           )}
         </div>
 
-        {loading && displayImages.length > 0 && (
+        {loading && allImages.length > 0 && (
           <div className="m-4 flex w-full justify-center items-center">
             <Loader2 className="animate-spin" size={30} />
           </div>
