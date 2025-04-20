@@ -17,6 +17,7 @@ import {
 import { useSortContext } from "@/hooks/useSortContex";
 import { useNavigate } from "react-router-dom";
 import { FolderDown, Plus, Settings } from "lucide-react";
+import image from "@/../assets/image.svg";
 
 export default function QuicksaveMenu() {
   const {
@@ -37,7 +38,7 @@ export default function QuicksaveMenu() {
         <DropdownMenuTrigger asChild>
           <Button variant={"ghost"} className="group hover:bg-transparent px-2">
             <img
-              src={"./assets/image.svg"}
+              src={image}
               className="group-hover:scale-110 text-leftbarIcons"
               width={32}
               height={32}

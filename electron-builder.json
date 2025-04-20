@@ -6,7 +6,7 @@
   "directories": {
     "output": "release/${version}"
   },
-  "files": ["dist-electron", "dist"],
+  "files": ["dist-electron", "dist", "assets"],
   "extraFiles": [
     {
       "from": "backend/thismodule.exe",
@@ -30,7 +30,7 @@
     ],
     "defaultArch": "x64",
     "artifactName": "${productName}.${ext}",
-    "icon": "assets/image.ico"
+    "icon": "assets/icon.ico"
   },
   "publish": {
     "provider": "github",
