@@ -108,14 +108,6 @@ func createTables(db *sql.DB) {
 	PRIMARY KEY("UID")
 	);`,
 
-		`CREATE TABLE IF NOT EXISTS "ScreenShots" (
-	"UUID"	INTEGER NOT NULL UNIQUE,
-	"UID"	TEXT NOT NULL,
-	"ScreenshotPath"	TEXT NOT NULL,
-	"ScreenshotType"	TEXT NOT NULL,
-	PRIMARY KEY("UUID")
-	);`,
-
 		`CREATE TABLE IF NOT EXISTS "SortState" (
 	"Type"	TEXT,
 	"Value"	TEXT

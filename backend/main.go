@@ -71,6 +71,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not connect to DB %v", err)
 	}
+	handleDBVersion()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go handleShutdown(cancel)

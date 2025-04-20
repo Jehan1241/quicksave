@@ -139,3 +139,34 @@ func txBatchUpdate(tx *sql.Tx, query string, values [][]any) error {
 	}
 	return nil
 }
+
+func handleDBVersion() {
+	var version int
+	err := readDB.QueryRow("SELECT version FROM DBVersion").Scan(&version)
+	if err != nil {
+		log.Fatal("error querying db version :", err)
+	}
+
+	switch version {
+	case 1:
+		log.Println("migrating from db v1 to v2")
+
+		err = txWrite(func(tx *sql.Tx) error {
+			_, err := tx.Exec("DROP TABLE IF EXISTS ScreenShots")
+			if err != nil {
+				return (fmt.Errorf("failed to drop screenshots table: %w", err))
+			}
+
+			_, err = tx.Exec(`UPDATE DBVersion SET version = 2`)
+			if err != nil {
+				return (fmt.Errorf("failed to update DB version: %w", err))
+			}
+			return nil
+
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Migration to v2 complete.")
+	}
+}
