@@ -11,6 +11,7 @@ import {
 import { Input } from "../ui/input";
 import { Loader2 } from "lucide-react";
 import { showErrorToast } from "@/lib/toastService";
+import React from "react";
 
 interface GoogleImage {
   ImageUrl: string;
@@ -116,12 +117,75 @@ export default function ImageSearchDialog({
     if (nearBottom) loadMoreImages();
   };
 
-  const ImageWithFallback = ({
+  return (
+    <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
+      <DialogContent className="h-2/3 max-w-none w-2/3 flex flex-col justify-between">
+        <DialogHeader>
+          <DialogTitle>Search Images</DialogTitle>
+          <DialogDescription>
+            Left click on an image to set it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div
+          className="h-full w-full flex flex-wrap overflow-auto justify-center"
+          onScroll={handleScroll}
+        >
+          {loading && allImages.length === 0 ? (
+            <div className="flex justify-center items-center">
+              <Loader2 size={50} className="animate-spin" />
+            </div>
+          ) : (
+            allImages.map((img, index) => (
+              <ImageWithFallback
+                key={`${img.ImageUrl}-${index}`}
+                image={img}
+                index={index}
+                onImageSelect={onImageSelect}
+                setSearchDialogOpen={setSearchDialogOpen}
+                getProxiedImageUrl={getProxiedImageUrl}
+              />
+            ))
+          )}
+        </div>
+
+        {loading && allImages.length > 0 && (
+          <div className="m-4 flex w-full justify-center items-center">
+            <Loader2 className="animate-spin" size={30} />
+          </div>
+        )}
+
+        {error && (
+          <div className="text-destructive text-center p-2">{error}</div>
+        )}
+
+        <DialogFooter>
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search for images"
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+          <Button onClick={() => handleSearch()}>Search</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const ImageWithFallback = React.memo(
+  ({
     image,
     index,
+    onImageSelect,
+    setSearchDialogOpen,
+    getProxiedImageUrl,
   }: {
     image: GoogleImage;
     index: number;
+    onImageSelect: (url: string) => void;
+    setSearchDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    getProxiedImageUrl: (url: string) => string;
   }) => {
     const [url, setUrl] = useState(image.ImageUrl);
     const [hasError, setHasError] = useState(false);
@@ -168,57 +232,5 @@ export default function ImageSearchDialog({
         )}
       </div>
     );
-  };
-
-  return (
-    <Dialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen}>
-      <DialogContent className="h-2/3 max-w-none w-2/3 flex flex-col justify-between">
-        <DialogHeader>
-          <DialogTitle>Search Images</DialogTitle>
-          <DialogDescription>
-            Left click on an image to set it.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div
-          className="h-full w-full flex flex-wrap overflow-auto justify-center"
-          onScroll={handleScroll}
-        >
-          {loading && allImages.length === 0 ? (
-            <div className="flex justify-center items-center">
-              <Loader2 size={50} className="animate-spin" />
-            </div>
-          ) : (
-            allImages.map((img, index) => (
-              <ImageWithFallback
-                key={`${img.ImageUrl}-${index}`}
-                image={img}
-                index={index}
-              />
-            ))
-          )}
-        </div>
-
-        {loading && allImages.length > 0 && (
-          <div className="m-4 flex w-full justify-center items-center">
-            <Loader2 className="animate-spin" size={30} />
-          </div>
-        )}
-
-        {error && (
-          <div className="text-destructive text-center p-2">{error}</div>
-        )}
-
-        <DialogFooter>
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for images"
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
-          <Button onClick={() => handleSearch()}>Search</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+  }
+);
