@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { promptUpdate } from "./github-updater";
 const require = createRequire(import.meta.url);
+import { Tray, nativeImage, Menu } from "electron";
 const { globalShortcut } = require("electron");
 
 process.env.ELECTRON_ENABLE_LOGGING = "1";
@@ -51,6 +52,8 @@ let goServer: any;
 const { spawn } = require("child_process");
 const isDev = !app.isPackaged;
 const fs = require("fs");
+
+let tray: Tray | null = null;
 
 async function createWindow() {
   let mainWindowState = windowStateKeeper({
@@ -186,8 +189,25 @@ async function createWindow() {
     }
   });
 
+  let minimizeToTray = true;
+
+  // Add this to initialize when the window is created
+  win.webContents.on("did-finish-load", () => {
+    win.webContents.send("request-minimize-setting");
+  });
+
+  ipcMain.on("send-minimize-setting", (event: any, value: boolean) => {
+    minimizeToTray = value;
+    console.log("Minimize to Tray initialized:", value);
+  });
+
+  ipcMain.handle("update-minimize-setting", (event: any, value: any) => {
+    minimizeToTray = value;
+  });
+
   ipc.on("closeApp", () => {
-    win.close();
+    if (minimizeToTray) win.hide();
+    else win.close();
   });
   ipc.on("minimize", () => {
     win.minimize();
@@ -245,6 +265,34 @@ async function createWindow() {
     }
   });
   if (app.isPackaged) promptUpdate(win, app.getVersion());
+
+  const iconPath = path.join(__dirname, "/../../assets/image.png");
+  const trayIcon = nativeImage.createFromPath(iconPath);
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip("quicksave");
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Show App",
+      click: () => win.show(),
+    },
+    {
+      label: "Quit",
+      click: () => {
+        tray?.destroy();
+        app.quit();
+      },
+    },
+  ]);
+
+  // Assign context menu to tray
+  tray.setContextMenu(contextMenu);
+
+  // Left click to show (existing code)
+  tray.on("click", () => {
+    win.show();
+  });
 }
 
 app.whenReady().then(() => {

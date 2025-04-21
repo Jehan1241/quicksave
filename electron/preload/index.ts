@@ -32,6 +32,17 @@ contextBridge.exposeInMainWorld("electron", {
   fetchImageBuffer: async (url: string): Promise<string | null> => {
     return await ipcRenderer.invoke("fetch-image-buffer", url);
   },
+  updateMinimizeSetting: (value: boolean) =>
+    ipcRenderer.invoke("update-minimize-setting", value),
+  onRequestMinimizeSetting: (callback: (value: boolean) => void) => {
+    ipcRenderer.on("request-minimize-setting", () => {
+      const value = localStorage.getItem("minimize-on-quit") === "true";
+      callback(value);
+    });
+  },
+  sendMinimizeSetting: (value: boolean) => {
+    ipcRenderer.send("send-minimize-setting", value);
+  },
 });
 
 const exePath = process.env.PORTABLE_EXECUTABLE_DIR;

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import ScreenshotsTab from "./ScreenshotsTab";
 import Integrations from "../Integrations";
 import { IntegrationsTab } from "./IntegrationsTab";
+import { GeneralTab } from "./GeneralTab";
 
 export default function Settings() {
   const { settingsDialogOpen, setSettingsDialogOpen } = useSortContext();
@@ -23,8 +24,9 @@ export default function Settings() {
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="theme">
+        <Tabs defaultValue="general">
           <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="theme">Theme</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="screenshots">Screenshots</TabsTrigger>
@@ -32,6 +34,7 @@ export default function Settings() {
           <ThemeTab />
           <ScreenshotsTab />
           <IntegrationsTab />
+          <GeneralTab />
         </Tabs>
         <DialogFooter className="mt-auto"></DialogFooter>
       </DialogContent>

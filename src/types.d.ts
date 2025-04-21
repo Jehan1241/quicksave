@@ -23,6 +23,9 @@ declare interface Window {
     onProgress: (callback: (progress: number) => void) => void;
     imageSearch: (query: string, page: number) => Promise<GoogleImage[]>;
     fetchImageBuffer: (url: string) => Promise<string | null>;
+    updateMinimizeSetting: (value: boolean) => void;
+    onRequestMinimizeSetting: (callback: (value: boolean) => void) => void;
+    sendMinimizeSetting: (value: boolean) => void;
   };
   themeMode: {
     toggle: () => Promise<boolean>;

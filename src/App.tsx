@@ -31,6 +31,7 @@ import { toast } from "./hooks/use-toast";
 import Settings from "./components/Dialogs/settings/Settings";
 import { useScreenshotAndPlayingGame } from "./hooks/useScreenshotAndPlayingGame";
 import { getIntegrateOnLaunchEnabled } from "./lib/integrationSettings";
+import { getMinimizedToTray } from "./lib/generalSettings";
 function App() {
   const {
     sortType,
@@ -73,6 +74,17 @@ function App() {
       setInstalledArray
     );
   };
+
+  useEffect(() => {
+    // Initialize from localStorage
+    const stored = getMinimizedToTray(); // Use your settings.ts function
+    window.electron.updateMinimizeSetting(stored);
+
+    // Set up handler for main process requests
+    window.electron.onRequestMinimizeSetting((value: boolean) => {
+      window.electron.sendMinimizeSetting(value);
+    });
+  }, []);
 
   useEffect(() => {
     if (hideFilterGames === null) return;
