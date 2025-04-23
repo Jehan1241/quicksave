@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"image"
 	"io"
@@ -135,25 +134,7 @@ func takeScreenshot(uid string) error {
 	if err != nil {
 		return fmt.Errorf("error creating screenshot file: %w", err)
 	}
-
-	pathToInsert := fmt.Sprintf("/%s/%s", uid, fileName)
-	err = insertScreenshotRecord(uid, pathToInsert)
-	if err != nil {
-		return fmt.Errorf("error inserting screenshot record: %w", err)
-	}
-
 	return nil
-}
-
-func insertScreenshotRecord(uid string, path string) error {
-	err := txWrite(func(tx *sql.Tx) error {
-		_, err := tx.Exec("INSERT INTO ScreenShots (UID, ScreenshotPath, ScreenshotType) VALUES (?, ?, ?)", uid, path, "user")
-		if err != nil {
-			return fmt.Errorf("tx write error to screenshots: %w", err)
-		}
-		return nil
-	})
-	return err
 }
 
 func getNextScreenshotIndex(uid string) (int, error) {
