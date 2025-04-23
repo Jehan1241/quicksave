@@ -50,9 +50,11 @@ export default function ImageSearchDialog({
       setHasMore(true);
       setQuery("");
     } else {
-      const initialQuery = String(title + " " + defaultSearchSuffix);
-      setQuery(initialQuery);
-      handleSearch(initialQuery);
+      if (title != "") {
+        const initialQuery = String(title + " " + defaultSearchSuffix);
+        setQuery(initialQuery);
+        handleSearch(initialQuery);
+      }
     }
   }, [searchDialogOpen]);
 
@@ -220,7 +222,7 @@ const ImageWithFallback = React.memo(
             <img
               src={url}
               alt={`Image ${index}`}
-              className={`cursor-pointer object-contain w-full rounded-md ${isLoading ? "opacity-0" : "opacity-100"}`}
+              className={`cursor-pointer object-contain w-full h-full rounded-md ${isLoading ? "opacity-0" : "opacity-100"}`}
               onClick={() => {
                 onImageSelect(image.ImageUrl);
                 setSearchDialogOpen(false);

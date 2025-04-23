@@ -42,6 +42,7 @@ import {
   sendGameToDB,
 } from "@/lib/api/addGameManuallyAPI";
 import { DateTimePicker } from "../ui/datetime-picker";
+import ImageSearchDialog from "./ImageSearchDialog";
 
 export default function AddGameManuallyDialog() {
   const { isAddGameDialogOpen, setIsAddGameDialogOpen } = useSortContext();
@@ -94,7 +95,7 @@ function MetaDataView() {
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [ssImage, setSsImage] = useState<(string | null)[]>([null]);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null); // To track selected carousel item
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(0); // To track selected carousel item
   const [coverArtLinkClicked, setCoverArtLinkClicked] =
     useState<boolean>(false);
   const [ssLinkClicked, setSSLinkClicked] = useState<number | null>(null);
@@ -212,429 +213,462 @@ function MetaDataView() {
 
   const { toast } = useToast();
 
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [selectingForCover, setSelectingForCover] = useState(false);
+
+  const searchCoverClickHandler = () => {
+    setSelectingForCover(true);
+    setSearchDialogOpen(true);
+  };
+
+  const searchScreenshotClickHandler = () => {
+    setSelectingForCover(false);
+    setSearchDialogOpen(true);
+  };
+
   return (
-    <div className="flex overflow-hidden gap-4 w-full h-full max-h-full">
-      <div className="flex flex-col w-full h-full">
-        <DialogDescription
-          className={`${
-            titleEmpty || platformEmpty || releaseDateEmpty
-              ? "text-destructive"
-              : null
-          }`}
-        >
-          {titleEmpty || platformEmpty || releaseDateEmpty
-            ? "Please fill all required fields"
-            : "  Enter the game metadata manually or download it from IGDB."}
-        </DialogDescription>
-        <div className="grid overflow-y-auto grid-cols-1 gap-4 p-2 py-4 mb-2 2xl:grid-cols-2">
-          <div className="flex gap-4 items-center text-sm">
-            <label
-              className={`min-w-24 ${titleEmpty ? "text-destructive" : null}`}
-            >
-              {titleEmpty && "*"}
-              Title
-            </label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                setTitleEmpty(false);
-              }}
-              placeholder={"Enter Title"}
-              className="col-span-3"
-              spellCheck={false}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  SearchGameClicked();
-                }
-              }}
-            />
-            <Button
-              disabled={loading}
-              type="submit"
-              variant={"dialogSaveButton"}
-              onClick={SearchGameClicked}
-              className="h-10"
-            >
-              {loading && <Loader2 className="animate-spin" />}
-              Search Game
-            </Button>
-          </div>
-
-          <div className="flex gap-4 items-center text-sm">
-            <label
-              className={`min-w-24 ${
-                releaseDateEmpty ? "text-destructive" : null
-              }`}
-            >
-              {titleEmpty && "*"}
-              Release Date
-            </label>
-            <DateTimePicker
-              hideTime={true}
-              value={releaseDate}
-              onChange={setReleaseDate}
-            />
-          </div>
-          <div className="flex gap-4 items-center text-sm">
-            <label
-              className={`min-w-24 ${
-                platformEmpty ? "text-destructive" : null
-              }`}
-            >
-              {platformEmpty && "*"}
-              Platform
-            </label>
-            <MultipleSelector
-              maxSelected={1}
-              options={platformOptions}
-              placeholder="Select Platforms"
-              creatable
-              className="overflow-y-scroll max-h-40"
-              hidePlaceholderWhenSelected={true}
-              value={selectedPlatforms}
-              onChange={(e: any) => {
-                setSelectedPlatforms(e);
-                setPlatformEmpty(false);
-              }}
-              emptyIndicator={
-                <p className="text-sm text-center">no results found.</p>
-              }
-            />
-          </div>
-          <div className="flex gap-4 items-center text-sm">
-            <label className="min-w-24">Rating</label>
-            <Input
-              type="text"
-              value={rating}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                // If the value is 100, don't allow a decimal point to be added
-                if (value === "100") {
-                  setRating(value); // Keep it as "100" without a decimal point
-                } else {
-                  // Allow only digits with at most two decimal places and ensure the value is between 0 and 100
-                  if (
-                    /^\d*\.?\d{0,2}$/.test(value) &&
-                    parseFloat(value) <= 100 &&
-                    parseFloat(value) >= 0
-                  ) {
-                    setRating(value);
-                  } else if (value === "") {
-                    setRating(""); // Allow clearing the input
-                  }
-                }
-              }}
-              placeholder="Rating"
-              className="col-span-3"
-              inputMode="decimal" // Use the numeric keypad with decimal point on mobile devices
-            />
-          </div>
-          <div className="flex gap-4 items-center text-sm">
-            <label className="min-w-24">Developers</label>
-            <MultipleSelector
-              options={devOptions}
-              placeholder="Select Developers"
-              creatable
-              className="overflow-y-scroll max-h-40"
-              hidePlaceholderWhenSelected={true}
-              value={selectedDevs}
-              onChange={(e: any) => {
-                setSelectedDevs(e);
-              }}
-              emptyIndicator={
-                <p className="text-sm text-center">no results found.</p>
-              }
-            />
-          </div>
-          <div className="flex row-span-2 gap-4 items-start w-full h-full text-sm grow-0">
-            <label className="min-w-24">Tags</label>
-            <div className="flex-1 h-full max-h-24">
-              <MultipleSelector
-                options={tagOptions}
-                placeholder="Select Tags"
-                creatable
-                className="overflow-y-scroll w-full h-full max-h-full"
-                hidePlaceholderWhenSelected={true}
-                onChange={(e: any) => {
-                  setSelectedTags(e);
+    <>
+      {searchDialogOpen && (
+        <ImageSearchDialog
+          searchDialogOpen={searchDialogOpen}
+          setSearchDialogOpen={setSearchDialogOpen}
+          title={title}
+          defaultSearchSuffix={selectingForCover ? "cover" : "1080p"}
+          onImageSelect={(url) => {
+            if (selectingForCover) {
+              setCoverImage(url); // Set as cover image
+            } else if (selectedIndex !== null) {
+              const updatedScreenshots = [...ssImage];
+              updatedScreenshots[selectedIndex] = url;
+              setSsImage(updatedScreenshots); // Set as screenshot
+            }
+          }}
+        />
+      )}
+      <div className="flex overflow-hidden gap-4 w-full h-full max-h-full">
+        <div className="flex flex-col w-full h-full">
+          <DialogDescription
+            className={`${
+              titleEmpty || platformEmpty || releaseDateEmpty
+                ? "text-destructive"
+                : null
+            }`}
+          >
+            {titleEmpty || platformEmpty || releaseDateEmpty
+              ? "Please fill all required fields"
+              : "  Enter the game metadata manually or download it from IGDB."}
+          </DialogDescription>
+          <div className="grid overflow-y-auto grid-cols-1 gap-4 p-2 py-4 mb-2 2xl:grid-cols-2">
+            <div className="flex gap-4 items-center text-sm">
+              <label
+                className={`min-w-24 ${titleEmpty ? "text-destructive" : null}`}
+              >
+                {titleEmpty && "*"}
+                Title
+              </label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setTitleEmpty(false);
                 }}
-                value={selectedTags}
+                placeholder={"Enter Title"}
+                className="col-span-3"
+                spellCheck={false}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    SearchGameClicked();
+                  }
+                }}
+              />
+              <Button
+                disabled={loading}
+                type="submit"
+                variant={"dialogSaveButton"}
+                onClick={SearchGameClicked}
+                className="h-10"
+              >
+                {loading && <Loader2 className="animate-spin" />}
+                Search Game
+              </Button>
+            </div>
+
+            <div className="flex gap-4 items-center text-sm">
+              <label
+                className={`min-w-24 ${
+                  releaseDateEmpty ? "text-destructive" : null
+                }`}
+              >
+                {titleEmpty && "*"}
+                Release Date
+              </label>
+              <DateTimePicker
+                hideTime={true}
+                value={releaseDate}
+                onChange={setReleaseDate}
+              />
+            </div>
+            <div className="flex gap-4 items-center text-sm">
+              <label
+                className={`min-w-24 ${
+                  platformEmpty ? "text-destructive" : null
+                }`}
+              >
+                {platformEmpty && "*"}
+                Platform
+              </label>
+              <MultipleSelector
+                maxSelected={1}
+                options={platformOptions}
+                placeholder="Select Platforms"
+                creatable
+                className="overflow-y-scroll max-h-40"
+                hidePlaceholderWhenSelected={true}
+                value={selectedPlatforms}
+                onChange={(e: any) => {
+                  setSelectedPlatforms(e);
+                  setPlatformEmpty(false);
+                }}
                 emptyIndicator={
                   <p className="text-sm text-center">no results found.</p>
                 }
               />
             </div>
-          </div>
+            <div className="flex gap-4 items-center text-sm">
+              <label className="min-w-24">Rating</label>
+              <Input
+                type="text"
+                value={rating}
+                onChange={(e) => {
+                  const value = e.target.value;
 
-          <div className="flex gap-4 items-center text-sm">
-            <label className="min-w-24">Hours Played</label>
-            <Input
-              value={timePlayed}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                // Allow only positive numbers with up to two decimal points
-                if (/^\d*\.?\d{0,2}$/.test(value) && parseFloat(value) >= 0) {
-                  setTimePlayed(value);
-                } else if (value === "") {
-                  setTimePlayed(""); // Allow clearing the input
-                }
-              }}
-              id="username"
-              placeholder="Enter time played in hours"
-              className="col-span-3"
-              inputMode="decimal"
-            />
-          </div>
-          <div className="flex gap-4 items-start text-sm 2xl:col-span-2">
-            <label className="mt-2 min-w-24">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description"
-              spellCheck={false}
-            ></Textarea>
-          </div>
-
-          <div className="flex gap-4 items-start text-sm">
-            <label className="mt-2 min-w-24">Cover Art</label>
-            <div className="flex gap-2 w-full">
-              <input
-                hidden
-                id="cover-picture"
-                type="file"
-                onChange={handleCoverImageChange}
+                  // If the value is 100, don't allow a decimal point to be added
+                  if (value === "100") {
+                    setRating(value); // Keep it as "100" without a decimal point
+                  } else {
+                    // Allow only digits with at most two decimal places and ensure the value is between 0 and 100
+                    if (
+                      /^\d*\.?\d{0,2}$/.test(value) &&
+                      parseFloat(value) <= 100 &&
+                      parseFloat(value) >= 0
+                    ) {
+                      setRating(value);
+                    } else if (value === "") {
+                      setRating(""); // Allow clearing the input
+                    }
+                  }
+                }}
+                placeholder="Rating"
+                className="col-span-3"
+                inputMode="decimal" // Use the numeric keypad with decimal point on mobile devices
               />
-
-              <label htmlFor="cover-picture" className="w-60 cursor-pointer">
-                <Card className="flex h-[calc(15rem*4/3)] w-60 select-none items-center justify-center overflow-hidden">
-                  <CardContent className="p-0 m-0 h-full w-full flex">
-                    {coverImage ? (
-                      <img
-                        draggable={false}
-                        src={coverImage}
-                        className="object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="text-sm m-auto text-muted-foreground">
-                        Choose an Image
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </label>
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant={"outline"}
-                  className="w-8 h-8 rounded-full"
-                  onClick={() => setCoverImage(null)}
-                >
-                  <Trash2 size={18} />
-                </Button>
-                <div className="flex gap-1">
-                  <Button
-                    variant={"outline"}
-                    onClick={() => {
-                      setCoverArtLinkClicked(!coverArtLinkClicked);
-                    }}
-                    className="w-8 h-8 rounded-full"
-                  >
-                    <Link size={18} />
-                  </Button>
-                  {coverArtLinkClicked && (
-                    <Input
-                      placeholder="Paste link and press Enter"
-                      className="h-8 rounded-full"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const inputElement = e.target as HTMLInputElement; // Type cast to HTMLInputElement
-                          setCoverImage(inputElement.value); // Access value
-                        }
-                      }}
-                    ></Input>
-                  )}
-                </div>
-                <Button
-                  variant={"outline"}
-                  className="w-8 h-8 rounded-full"
-                  onClick={addScreenshot}
-                  disabled
-                >
-                  <Globe size={18} />
-                </Button>
+            </div>
+            <div className="flex gap-4 items-center text-sm">
+              <label className="min-w-24">Developers</label>
+              <MultipleSelector
+                options={devOptions}
+                placeholder="Select Developers"
+                creatable
+                className="overflow-y-scroll max-h-40"
+                hidePlaceholderWhenSelected={true}
+                value={selectedDevs}
+                onChange={(e: any) => {
+                  setSelectedDevs(e);
+                }}
+                emptyIndicator={
+                  <p className="text-sm text-center">no results found.</p>
+                }
+              />
+            </div>
+            <div className="flex row-span-2 gap-4 items-start w-full h-full text-sm grow-0">
+              <label className="min-w-24">Tags</label>
+              <div className="flex-1 h-full max-h-24">
+                <MultipleSelector
+                  options={tagOptions}
+                  placeholder="Select Tags"
+                  creatable
+                  className="overflow-y-scroll w-full h-full max-h-full"
+                  hidePlaceholderWhenSelected={true}
+                  onChange={(e: any) => {
+                    setSelectedTags(e);
+                  }}
+                  value={selectedTags}
+                  emptyIndicator={
+                    <p className="text-sm text-center">no results found.</p>
+                  }
+                />
               </div>
             </div>
-          </div>
 
-          <div className="flex gap-4 items-start text-sm">
-            <label className="mt-2 min-w-24">Screenshots</label>
-            <div className="flex flex-col w-full">
-              <Carousel
-                setApi={setApi}
-                className="flex justify-center max-w-lg"
-              >
-                <CarouselContent className="w-full h-full">
-                  {ssImage?.map((image, index) => (
-                    <CarouselItem key={index} className="w-full h-full">
-                      <input
-                        hidden
-                        id={`ss-picture-${index}`} // Unique ID for each screenshot input
-                        type="file"
-                        onChange={(e) => handleScreenshotImageChange(index, e)}
-                      />
-                      <div
-                        className="w-full h-full cursor-pointer"
-                        onClick={() => {
-                          const fileInput = document.getElementById(
-                            `ss-picture-${index}`
-                          ) as HTMLInputElement | null;
-                          if (fileInput) {
-                            fileInput.click();
+            <div className="flex gap-4 items-center text-sm">
+              <label className="min-w-24">Hours Played</label>
+              <Input
+                value={timePlayed}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  // Allow only positive numbers with up to two decimal points
+                  if (/^\d*\.?\d{0,2}$/.test(value) && parseFloat(value) >= 0) {
+                    setTimePlayed(value);
+                  } else if (value === "") {
+                    setTimePlayed(""); // Allow clearing the input
+                  }
+                }}
+                id="username"
+                placeholder="Enter time played in hours"
+                className="col-span-3"
+                inputMode="decimal"
+              />
+            </div>
+            <div className="flex gap-4 items-start text-sm 2xl:col-span-2">
+              <label className="mt-2 min-w-24">Description</label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description"
+                spellCheck={false}
+              ></Textarea>
+            </div>
+
+            <div className="flex gap-4 items-start text-sm">
+              <label className="mt-2 min-w-24">Cover Art</label>
+              <div className="flex gap-2 w-full">
+                <input
+                  hidden
+                  id="cover-picture"
+                  type="file"
+                  onChange={handleCoverImageChange}
+                />
+
+                <label htmlFor="cover-picture" className="w-60 cursor-pointer">
+                  <Card className="flex h-[calc(15rem*4/3)] w-60 select-none items-center justify-center overflow-hidden">
+                    <CardContent className="p-0 m-0 h-full w-full flex">
+                      {coverImage ? (
+                        <img
+                          draggable={false}
+                          src={coverImage}
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <div className="text-sm m-auto text-muted-foreground">
+                          Choose an Image
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant={"outline"}
+                    className="w-8 h-8 rounded-full"
+                    onClick={() => setCoverImage(null)}
+                  >
+                    <Trash2 size={18} />
+                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={"outline"}
+                      onClick={() => {
+                        setCoverArtLinkClicked(!coverArtLinkClicked);
+                      }}
+                      className="w-8 h-8 rounded-full"
+                    >
+                      <Link size={18} />
+                    </Button>
+                    {coverArtLinkClicked && (
+                      <Input
+                        placeholder="Paste link and press Enter"
+                        className="h-8 rounded-full"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const inputElement = e.target as HTMLInputElement; // Type cast to HTMLInputElement
+                            setCoverImage(inputElement.value); // Access value
                           }
                         }}
+                      ></Input>
+                    )}
+                  </div>
+                  <Button
+                    variant={"outline"}
+                    className="w-8 h-8 rounded-full"
+                    onClick={searchCoverClickHandler}
+                  >
+                    <Globe size={18} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 items-start text-sm">
+              <label className="mt-2 min-w-24">Screenshots</label>
+              <div className="flex flex-col w-full">
+                <Carousel
+                  setApi={setApi}
+                  className="flex justify-center max-w-lg"
+                >
+                  <CarouselContent className="w-full h-full">
+                    {ssImage?.map((image, index) => (
+                      <CarouselItem key={index} className="w-full h-full">
+                        <input
+                          hidden
+                          id={`ss-picture-${index}`} // Unique ID for each screenshot input
+                          type="file"
+                          onChange={(e) =>
+                            handleScreenshotImageChange(index, e)
+                          }
+                        />
+                        <div
+                          className="w-full h-full cursor-pointer"
+                          onClick={() => {
+                            const fileInput = document.getElementById(
+                              `ss-picture-${index}`
+                            ) as HTMLInputElement | null;
+                            if (fileInput) {
+                              fileInput.click();
+                            }
+                          }}
+                        >
+                          <Card className="w-full h-full">
+                            <CardContent className="flex justify-center items-center p-0 w-full h-full select-none">
+                              <AspectRatio
+                                ratio={16 / 9}
+                                className="flex justify-center items-center rounded-md border-b border-border"
+                              >
+                                {image ? (
+                                  <img
+                                    draggable={false}
+                                    src={image}
+                                    alt="Broken Image"
+                                    className="h-full rounded-md"
+                                  />
+                                ) : (
+                                  <div className="text-muted-foreground">
+                                    Click to choose image
+                                  </div>
+                                )}
+                              </AspectRatio>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <div className="flex gap-2 justify-between mt-1">
+                    <div className="flex gap-2">
+                      <Button
+                        variant={"outline"}
+                        onClick={addScreenshot}
+                        className="w-8 h-8 rounded-full"
                       >
-                        <Card className="w-full h-full">
-                          <CardContent className="flex justify-center items-center p-0 w-full h-full select-none">
-                            <AspectRatio
-                              ratio={16 / 9}
-                              className="flex justify-center items-center rounded-md border-b border-border"
-                            >
-                              {image ? (
-                                <img
-                                  draggable={false}
-                                  src={image}
-                                  alt="Broken Image"
-                                  className="h-full rounded-md"
-                                />
-                              ) : (
-                                <div className="text-muted-foreground">
-                                  Click to choose image
-                                </div>
-                              )}
-                            </AspectRatio>
-                          </CardContent>
-                        </Card>
+                        <Plus size={18} />
+                      </Button>
+                      <Button
+                        variant={"outline"}
+                        onClick={handleDeleteScreenshot}
+                        className="w-8 h-8 rounded-full"
+                      >
+                        <Trash2 size={18} />
+                      </Button>
+                      <Button
+                        variant={"outline"}
+                        onClick={searchScreenshotClickHandler}
+                        className="w-8 h-8 rounded-full"
+                      >
+                        <Globe size={18} />
+                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant={"outline"}
+                          onClick={() => {
+                            const scrollpoint = api?.selectedScrollSnap();
+                            if (scrollpoint != null) {
+                              setSSLinkClicked(scrollpoint);
+                              if (scrollpoint == ssLinkClicked) {
+                                setSSLinkClicked(null);
+                              }
+                            }
+                          }}
+                          className="w-8 h-8 rounded-full"
+                        >
+                          <Link size={18} />
+                        </Button>
+                        {ssLinkClicked != null ? (
+                          <Input
+                            className="mx-2 h-8 rounded-full"
+                            placeholder="Paste link and press Enter"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && selectedIndex !== null) {
+                                const link = (e.target as HTMLInputElement)
+                                  .value; // Typecast to HTMLInputElement
+
+                                // Ensure it's a valid link before updating
+                                const updatedScreenshots = [...ssImage];
+                                updatedScreenshots[selectedIndex] = link; // Set the link at the selected index
+                                console.log(updatedScreenshots);
+                                setSsImage(updatedScreenshots); // Update the state with the new array
+                                setSSLinkClicked(null);
+                              }
+                            }}
+                          />
+                        ) : null}
                       </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <div className="flex gap-2 justify-between mt-1">
-                  <div className="flex gap-2">
-                    <Button
-                      variant={"outline"}
-                      onClick={addScreenshot}
-                      className="w-8 h-8 rounded-full"
-                    >
-                      <Plus size={18} />
-                    </Button>
-                    <Button
-                      variant={"outline"}
-                      onClick={handleDeleteScreenshot}
-                      className="w-8 h-8 rounded-full"
-                    >
-                      <Trash2 size={18} />
-                    </Button>
-                    <Button
-                      variant={"outline"}
-                      onClick={addScreenshot}
-                      className="w-8 h-8 rounded-full"
-                      disabled
-                    >
-                      <Globe size={18} />
-                    </Button>
-                    <div className="flex gap-1">
+                    </div>
+                    <div className="flex gap-2 mr-4">
                       <Button
                         variant={"outline"}
                         onClick={() => {
-                          const scrollpoint = api?.selectedScrollSnap();
-                          if (scrollpoint != null) {
-                            setSSLinkClicked(scrollpoint);
-                            if (scrollpoint == ssLinkClicked) {
-                              setSSLinkClicked(null);
-                            }
-                          }
+                          api?.scrollPrev();
+                          setSSLinkClicked(null);
                         }}
                         className="w-8 h-8 rounded-full"
                       >
-                        <Link size={18} />
+                        <LucideArrowLeft size={18} />
                       </Button>
-                      {ssLinkClicked != null ? (
-                        <Input
-                          className="mx-2 h-8 rounded-full"
-                          placeholder="Paste link and press Enter"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && selectedIndex !== null) {
-                              const link = (e.target as HTMLInputElement).value; // Typecast to HTMLInputElement
-
-                              // Ensure it's a valid link before updating
-                              const updatedScreenshots = [...ssImage];
-                              updatedScreenshots[selectedIndex] = link; // Set the link at the selected index
-                              console.log(updatedScreenshots);
-                              setSsImage(updatedScreenshots); // Update the state with the new array
-                              setSSLinkClicked(null);
-                            }
-                          }}
-                        />
-                      ) : null}
+                      <Button
+                        variant={"outline"}
+                        onClick={() => {
+                          api?.scrollNext();
+                          setSSLinkClicked(null);
+                        }}
+                        className="w-8 h-8 rounded-full"
+                      >
+                        <LucideArrowRight size={18} />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2 mr-4">
-                    <Button
-                      variant={"outline"}
-                      onClick={() => {
-                        api?.scrollPrev();
-                        setSSLinkClicked(null);
-                      }}
-                      className="w-8 h-8 rounded-full"
-                    >
-                      <LucideArrowLeft size={18} />
-                    </Button>
-                    <Button
-                      variant={"outline"}
-                      onClick={() => {
-                        api?.scrollNext();
-                        setSSLinkClicked(null);
-                      }}
-                      className="w-8 h-8 rounded-full"
-                    >
-                      <LucideArrowRight size={18} />
-                    </Button>
-                  </div>
-                </div>
-              </Carousel>
+                </Carousel>
+              </div>
             </div>
           </div>
+          <div className="flex justify-end mt-auto">
+            <Button
+              type="submit"
+              onClick={addGameClickHandler}
+              variant={"dialogSaveButton"}
+            >
+              Add Game {addGameLoading && <Loader2 className="animate-spin" />}
+            </Button>
+          </div>
         </div>
-        <div className="flex justify-end mt-auto">
-          <Button
-            type="submit"
-            onClick={addGameClickHandler}
-            variant={"dialogSaveButton"}
-          >
-            Add Game {addGameLoading && <Loader2 className="animate-spin" />}
-          </Button>
+        <div className="flex h-full max-h-full 2xl:max-w-none">
+          <FoundGames
+            data={data}
+            setData={setData}
+            setTitle={setTitle}
+            setReleaseDate={setReleaseDate}
+            setRating={setRating}
+            setTimePlayed={setTimePlayed}
+            setDescription={setDescription}
+            setTagOptions={setTagOptions}
+            setSelectedTags={setSelectedTags}
+            setSelectedDevs={setSelectedDevs}
+            setCoverImage={setCoverImage}
+            setSsImage={setSsImage}
+          />
         </div>
       </div>
-      <div className="flex h-full max-h-full 2xl:max-w-none">
-        <FoundGames
-          data={data}
-          setData={setData}
-          setTitle={setTitle}
-          setReleaseDate={setReleaseDate}
-          setRating={setRating}
-          setTimePlayed={setTimePlayed}
-          setDescription={setDescription}
-          setTagOptions={setTagOptions}
-          setSelectedTags={setSelectedTags}
-          setSelectedDevs={setSelectedDevs}
-          setCoverImage={setCoverImage}
-          setSsImage={setSsImage}
-        />
-      </div>
-    </div>
+    </>
   );
 }
 
