@@ -3,6 +3,7 @@
   "appId": "gg.quicksave.app",
   "productName": "quicksave",
   "asar": true,
+  "asarUnpack": ["assets"],
   "directories": {
     "output": "release/${version}"
   },

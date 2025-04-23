@@ -123,7 +123,7 @@ function GameView() {
       return `./backend/screenshots/${screenshot}?t=${cacheBuster}`;
     }
   });
-  screenshotsArray = screenshotsArray;
+  screenshotsArray = screenshotsArray.reverse();
   console.log("ccc", screenshotsArray);
   let timePlayed = metadata?.TimePlayed?.toFixed(1);
   if (timePlayed < 0) timePlayed = "0.0";

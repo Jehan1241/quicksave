@@ -428,11 +428,14 @@ function registerScreenshotShortcut(uid: string, screenshotBind: string) {
     }
 
     try {
+      playShutterSound();
+
       const response = await fetch(
         `http://localhost:8080/takeScreenshot?uid=${uid}`
       );
       const data = await response.text();
       console.log("Screenshot request sent, response:", data);
+      showScreenshotOverlay();
     } catch (error) {
       console.error("Error sending screenshot request:", error);
     }
@@ -652,3 +655,148 @@ ipcMain.handle("image-search", async (_event, query, page) => {
     return []; // Return empty array instead of throwing error
   }
 });
+
+import { screen } from "electron";
+let overlayWindow: BrowserWindow | null = null;
+const sound = require("sound-play");
+
+async function showScreenshotOverlay() {
+  // Close existing overlay if any
+  if (overlayWindow) {
+    overlayWindow.close();
+    overlayWindow = null;
+  }
+
+  // Create window with all possible optimizations
+  overlayWindow = new BrowserWindow({
+    width: 220,
+    height: 60,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    focusable: false,
+    fullscreenable: false,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+    show: true, // Show immediately
+    thickFrame: false,
+    titleBarStyle: "hidden",
+    backgroundColor: "#00000000",
+    visualEffectState: "active",
+    ...(process.platform === "win32" && {
+      type: "toolbar",
+      acceptFirstMouse: true,
+    }),
+    ...(process.platform === "darwin" && {
+      hasShadow: false,
+      vibrancy: "hud",
+    }),
+  });
+
+  // Position at bottom right with margin first
+  const display = screen.getPrimaryDisplay();
+  const margin = 20;
+  overlayWindow.setBounds({
+    x: display.bounds.width - 220 - margin,
+    y: display.bounds.height - 60 - margin,
+    width: 220,
+    height: 60,
+  });
+
+  // Critical steps for fullscreen visibility
+  overlayWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+    skipTransformProcessType: true,
+  });
+
+  if (process.platform === "win32") {
+    overlayWindow.setAlwaysOnTop(true, "screen-saver");
+    // Windows-specific fullscreen workaround
+    setTimeout(() => {
+      overlayWindow?.setAlwaysOnTop(true, "floating");
+      overlayWindow?.setAlwaysOnTop(true, "normal");
+    }, 50);
+  }
+
+  // Load optimized overlay content (after window is already shown)
+  overlayWindow.loadURL(`data:text/html,
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(10px); }
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          background: rgba(30,30,30,0.85);
+          color: white;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+          font-size: 14px;
+          border-radius: 8px;
+          opacity: 1; /* Start visible */
+          -webkit-app-region: no-drag;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .content {
+          display: flex;
+          align-items: center;
+          padding: 0 16px;
+          height: 100%;
+        }
+        .message {
+          font-weight: 500;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="content">
+        <div class="message">Screenshot saved</div>
+      </div>
+      <script>
+        // Start fade out slightly before the window closes
+        setTimeout(() => {
+          document.body.style.animation = 'fadeOut 0.2s forwards';
+        }, 1800);
+      </script>
+    </body>
+    </html>
+  `);
+
+  // Auto-close after 2 seconds
+  setTimeout(() => {
+    overlayWindow?.close();
+    overlayWindow = null;
+  }, 2000);
+}
+
+export function playShutterSound() {
+  const soundPath = path.join(
+    app.isPackaged
+      ? path.join(
+          process.resourcesPath,
+          "app.asar.unpacked",
+          "assets",
+          "shutter.mp3"
+        )
+      : path.join(__dirname, "..", "assets", "shutter.mp3")
+  );
+
+  sound.play(soundPath).catch((err: any) => {
+    console.error("Error playing sound:", err);
+  });
+}
