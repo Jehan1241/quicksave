@@ -76,11 +76,9 @@ function App() {
   };
 
   useEffect(() => {
-    // Initialize from localStorage
-    const stored = getMinimizedToTray(); // Use your settings.ts function
+    const stored = getMinimizedToTray();
     window.electron.updateMinimizeSetting(stored);
 
-    // Set up handler for main process requests
     window.electron.onRequestMinimizeSetting((value: boolean) => {
       window.electron.sendMinimizeSetting(value);
     });
