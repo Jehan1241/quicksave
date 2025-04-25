@@ -1,3 +1,8 @@
+import {
+  getBackupFreq,
+  getLastBackupTime,
+  shouldBackupNow,
+} from "../generalSettings";
 import { showErrorToast } from "../toastService";
 import { handleApiError } from "./apiErrors";
 
@@ -49,5 +54,24 @@ export const fetchData = async (
   } catch (error) {
     console.error(error);
     showErrorToast("Failed to load filters!", String(error));
+  }
+};
+
+export const checkBackup = async ({ setBackingUp }: any) => {
+  const freq = getBackupFreq();
+  const last = getLastBackupTime();
+  console.log("freq", freq, last);
+  if (shouldBackupNow(freq, last)) {
+    setBackingUp(true);
+    console.log("inside");
+    try {
+      const resp = await fetch(`http://localhost:8080/backupNow`);
+      if (!resp.ok) await handleApiError(resp);
+    } catch (error) {
+      console.error(error);
+      showErrorToast("Failed to backup!", String(error));
+    } finally {
+      setBackingUp(false);
+    }
   }
 };

@@ -12,7 +12,7 @@ import WishlistDialog from "./components/Dialogs/WishListDialog";
 import { useSortContext } from "./hooks/useSortContex";
 import BackButtonListener from "./hooks/BackButtonListener";
 import { attachSSEListener } from "./lib/attachSSEListener";
-import { fetchData } from "./lib/api/fetchBasicInfo";
+import { checkBackup, fetchData } from "./lib/api/fetchBasicInfo";
 import { initTileSize, setLastPath } from "./lib/initTileSize";
 import { pickRandomGame } from "./lib/pickRandomGame";
 import { useNavigationContext } from "./hooks/useNavigationContext";
@@ -49,6 +49,7 @@ function App() {
     setDeleteFilterGames,
     hideFilterGames,
     setHideFilterGames,
+    setBackingUp,
   } = useSortContext();
   const location = useLocation();
   const [dataArray, setDataArray] = useState<any[]>([]);
@@ -135,6 +136,7 @@ function App() {
     setTheme();
     const initFunc = async () => {
       await updateData();
+      await checkBackup({ setBackingUp });
       if (
         import.meta.env.MODE === "production" &&
         getIntegrateOnLaunchEnabled()
