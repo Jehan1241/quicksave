@@ -275,7 +275,6 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 		varr++
 	}
 
-	// Query 5: ScreenShots
 	screenshots := make(map[string]map[int]string)
 	screenshots[UID] = make(map[int]string)
 
