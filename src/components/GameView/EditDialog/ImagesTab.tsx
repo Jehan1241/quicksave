@@ -38,8 +38,11 @@ export function ImagesTab({
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [coverArtLinkClicked, setCoverArtLinkClicked] = useState(false);
+  const exePath = window.appPaths.exePath;
   const [currentCover, setCurrentCover] = useState<string | null>(
-    `./backend/coverArt${coverArtPath}?t=${cacheBuster}`
+    import.meta.env.MODE === "production"
+      ? `${exePath}/backend/coverArt${coverArtPath}?t=${cacheBuster}`
+      : `./backend/coverArt${coverArtPath}?t=${cacheBuster}`
   );
 
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,12 +64,27 @@ export function ImagesTab({
     setCurrentCover(null);
   };
 
+  const cleanPath = (input: string | null): string => {
+    if (!input) return "";
+    let normalized = input.split("?")[0].replace(/\\/g, "/");
+    const backendIndex = normalized.indexOf("backend/");
+    if (backendIndex !== -1) {
+      return "./" + normalized.slice(backendIndex);
+    }
+    return normalized;
+  };
+
   const saveClickHandler = () => {
+    const cleanedCover = currentCover ? cleanPath(currentCover) : null;
+    const cleanedSsImages = ssImage.map(cleanPath);
+
+    console.log("Images", cleanedCover, cleanedSsImages);
+
     saveCustomImage(
       uid,
       setLoading,
-      currentCover,
-      ssImage,
+      cleanedCover,
+      cleanedSsImages,
       navigate,
       setCacheBuster,
       fetchData

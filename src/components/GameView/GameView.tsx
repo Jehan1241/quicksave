@@ -22,6 +22,47 @@ import { platform } from "node:os";
 
 export default React.memo(GameView);
 
+function enhancedSort(a: string, b: string): number {
+  // Extract the part after the last slash
+  const getSortablePart = (path: string) => {
+    const parts = path.split("/");
+    return parts[parts.length - 1].toLowerCase(); // Make comparison case-insensitive
+  };
+
+  const partA = getSortablePart(a);
+  const partB = getSortablePart(b);
+
+  const isUserA = partA.startsWith("user-");
+  const isUserB = partB.startsWith("user-");
+  const isGenericA = partA.startsWith("generic-");
+  const isGenericB = partB.startsWith("generic-");
+
+  // Both are user files
+  if (isUserA && isUserB) {
+    const numA = parseInt(partA.match(/user-(\d+)/i)?.[1] || "0");
+    const numB = parseInt(partB.match(/user-(\d+)/i)?.[1] || "0");
+    return numB - numA; // Higher numbers first
+  }
+
+  // Both are generic files
+  if (isGenericA && isGenericB) {
+    const numA = parseInt(partA.match(/generic-(\d+)/i)?.[1] || "0");
+    const numB = parseInt(partB.match(/generic-(\d+)/i)?.[1] || "0");
+    return numA - numB; // Lower numbers first for generic
+  }
+
+  // One is user, one is generic
+  if (isUserA && isGenericB) return -1; // user comes first
+  if (isGenericA && isUserB) return 1; // user comes first
+
+  // One is user/generic, the other is neither (shouldn't happen in your case)
+  if (isUserA || isGenericA) return -1;
+  if (isUserB || isGenericB) return 1;
+
+  // Default alphabetical sort (as fallback)
+  return partA.localeCompare(partB);
+}
+
 function GameView() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -115,6 +156,7 @@ function GameView() {
   const tagsArray = Object.values(tags);
   const companiesArray = Object.values(companies);
   let screenshotsArray = Object.values(screenshots);
+  screenshotsArray = screenshotsArray.sort(enhancedSort);
   const { cacheBuster } = useSortContext();
   screenshotsArray = screenshotsArray.map((screenshot) => {
     if (import.meta.env.MODE === "production") {
@@ -123,7 +165,6 @@ function GameView() {
       return `./backend/screenshots/${screenshot}?t=${cacheBuster}`;
     }
   });
-  screenshotsArray = screenshotsArray.reverse();
   console.log("ccc", screenshotsArray);
   let timePlayed = metadata?.TimePlayed?.toFixed(1);
   if (timePlayed < 0) timePlayed = "0.0";
