@@ -43,6 +43,8 @@ func main() {
 
 	defer keepWindowOpen()
 
+	logger.Printf("NEW UPDATER")
+
 	if len(os.Args) < 3 {
 		showError("Missing arguments\nUsage: updater <source-dir> <target-dir>")
 	}
