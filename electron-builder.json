@@ -23,15 +23,9 @@
     "target": ["dmg", "zip"]
   },
   "win": {
-    "target": [
-      {
-        "target": "portable",
-        "arch": "x64"
-      }
-    ],
-    "defaultArch": "x64",
     "artifactName": "${productName}.${ext}",
-    "icon": "assets/icon.ico"
+    "icon": "assets/icon.ico",
+    "target": ["dir"]
   },
   "publish": {
     "provider": "github",

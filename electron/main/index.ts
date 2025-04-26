@@ -93,6 +93,10 @@ async function createWindow() {
   const path = require("path");
   const ws = require("windows-shortcuts");
 
+  ipcMain.handle("get-exe-path", () => {
+    return path.dirname(process.execPath); // Return the exe path
+  });
+
   ipcMain.handle(
     "browseFileHandler",
     async (_: any, options: Electron.OpenDialogOptions) => {
@@ -240,7 +244,7 @@ async function createWindow() {
   ipcMain.handle("open-folder", (event: any, folderPath: string) => {
     const exePath = isDev
       ? path.resolve(__dirname, "../..")
-      : String(process.env.PORTABLE_EXECUTABLE_DIR);
+      : path.dirname(process.execPath);
     shell
       .openPath(path.join(exePath, folderPath))
       .catch((err) => console.error("Error opening folder:", err));
@@ -310,7 +314,7 @@ app.whenReady().then(() => {
 
 function ensureBackend() {
   const exeDest = path.join(
-    String(process.env.PORTABLE_EXECUTABLE_DIR),
+    path.dirname(process.execPath),
     "backend",
     "thismodule.exe"
   );

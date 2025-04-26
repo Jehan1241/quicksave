@@ -37,7 +37,7 @@ export async function checkForUpdates(currentVersion: any) {
 }
 
 async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
-  const appDir = String(process.env.PORTABLE_EXECUTABLE_DIR);
+  const appDir = path.dirname(process.execPath);
   const tempZip = path.join(app.getPath("temp"), "quicksave-update.zip");
   console.log(`Temp ZIP path: ${tempZip}`);
   const tempExtract = path.join(app.getPath("temp"), "quicksave-extracted");
@@ -105,7 +105,7 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
       "updater.exe"
     );
     const oldUpdaterPath = path.join(
-      String(process.env.PORTABLE_EXECUTABLE_DIR),
+      path.dirname(process.execPath),
       "backend",
       "updater.exe"
     );

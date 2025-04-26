@@ -1,4 +1,5 @@
 import { ipcRenderer, contextBridge } from "electron";
+import path from "path";
 
 contextBridge.exposeInMainWorld("windowFunctions", {
   nukeCache: () => ipcRenderer.send("nukeCache"),
@@ -44,11 +45,8 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.send("send-minimize-setting", value);
   },
 });
-
-const exePath = process.env.PORTABLE_EXECUTABLE_DIR;
-
 contextBridge.exposeInMainWorld("appPaths", {
-  exePath: exePath,
+  exePath: async () => ipcRenderer.invoke("get-exe-path"),
 });
 
 // --------- Expose some API to the Renderer process ---------
