@@ -39,10 +39,10 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 // // Set application name for Windows 10+ notifications
 // if (process.platform === "win32") app.setAppUserModelId(app.getName());
 
-// if (!app.requestSingleInstanceLock()) {
-//   app.quit();
-//   process.exit(0);
-// }
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
 
 let win: BrowserWindow | null = null;
 const preload = path.join(__dirname, "../preload/index.mjs");
@@ -56,12 +56,17 @@ const fs = require("fs");
 let tray: Tray | null = null;
 
 async function createWindow() {
+  if (win) {
+    win.show();
+    return;
+  }
+
   let mainWindowState = windowStateKeeper({
     defaultWidth: 1080,
     defaultHeight: 550,
   });
 
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     x: mainWindowState.x,
     y: mainWindowState.y,
     width: mainWindowState.width,
@@ -193,7 +198,7 @@ async function createWindow() {
 
   // Add this to initialize when the window is created
   win.webContents.on("did-finish-load", () => {
-    win.webContents.send("request-minimize-setting");
+    win?.webContents.send("request-minimize-setting");
   });
 
   ipcMain.on("send-minimize-setting", (event: any, value: boolean) => {
@@ -206,17 +211,17 @@ async function createWindow() {
   });
 
   ipc.on("closeApp", () => {
-    if (minimizeToTray) win.hide();
-    else win.close();
+    if (minimizeToTray) win?.hide();
+    else win?.close();
   });
   ipc.on("minimize", () => {
-    win.minimize();
+    win?.minimize();
   });
   ipc.on("maximize", () => {
-    if (win.isMaximized()) {
+    if (win?.isMaximized()) {
       win.restore();
     } else {
-      win.maximize();
+      win?.maximize();
     }
   });
 
@@ -275,7 +280,7 @@ async function createWindow() {
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "Show App",
-      click: () => win.show(),
+      click: () => win?.show(),
     },
     {
       label: "Quit",
@@ -291,7 +296,7 @@ async function createWindow() {
 
   // Left click to show (existing code)
   tray.on("click", () => {
-    win.show();
+    win?.show();
   });
 }
 
@@ -390,6 +395,7 @@ app.on("second-instance", () => {
   if (win) {
     // Focus on the main window if the user tried to open another
     if (win.isMinimized()) win.restore();
+    win.show();
     win.focus();
   }
 });

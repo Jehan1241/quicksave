@@ -86,13 +86,32 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     await extract(tempZip, { dir: tempExtract });
 
     // 3. Verify critical files
-    const requiredFiles = ["quicksave.exe", "backend/thismodule.exe"];
+    const requiredFiles = [
+      "quicksave.exe",
+      "backend/thismodule.exe,",
+      "backend/updater.exe",
+    ];
 
     for (const file of requiredFiles) {
       if (!fs.existsSync(path.join(tempExtract, file))) {
         throw new Error(`Update package missing required file: ${file}`);
       }
     }
+
+    //4. update the updater
+    const extractedUpdaterPath = path.join(
+      tempExtract,
+      "backend",
+      "updater.exe"
+    );
+    const oldUpdaterPath = path.join(
+      String(process.env.PORTABLE_EXECUTABLE_DIR),
+      "backend",
+      "updater.exe"
+    );
+
+    await fs.ensureDir(path.dirname(oldUpdaterPath));
+    await fs.copy(extractedUpdaterPath, oldUpdaterPath, { overwrite: true });
 
     try {
       const response = await fetch("http://localhost:8080/updateApp", {
