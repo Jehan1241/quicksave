@@ -149,6 +149,7 @@ func createBackup(target string) (string, error) {
 }
 
 func performUpdate(source, target string) error {
+
 	backendTarget := filepath.Join(target, "backend")
 	if err := os.MkdirAll(backendTarget, 0755); err != nil {
 		logger.Printf("Failed to create backend directory %s: %v\n", backendTarget, err)

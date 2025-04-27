@@ -11,11 +11,11 @@
   "extraFiles": [
     {
       "from": "backend/quicksaveService.exe",
-      "to": "../backend/quicksaveService.exe"
+      "to": "../win-unpacked/backend/quicksaveService.exe"
     },
     {
       "from": "backend/updater/updater.exe",
-      "to": "../backend/updater.exe"
+      "to": "../win-unpacked/backend/updater.exe"
     }
   ],
   "mac": {

@@ -5,6 +5,11 @@ import { spawn, exec } from "child_process";
 import extract from "extract-zip";
 import { version } from "os";
 
+import { promisify } from "util";
+
+// Properly declare execAsync
+const execAsync = promisify(exec);
+
 const REPO = "Jehan1241/quicksave";
 const BACKUP_DIR = "backend-backup";
 
@@ -83,13 +88,19 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
 
     // 2. Extract to temp directory first
     await fs.ensureDir(tempExtract);
-    await extract(tempZip, { dir: tempExtract });
+    if (process.platform === "win32") {
+      await execAsync(
+        `powershell Expand-Archive -Path "${tempZip}" -DestinationPath "${tempExtract}" -Force`
+      );
+    } else {
+      await execAsync(`unzip -o "${tempZip}" -d "${tempExtract}"`);
+    }
 
     // 3. Verify critical files
     const requiredFiles = [
-      "quicksave.exe",
-      "backend/quicksaveService.exe",
-      "backend/updater.exe",
+      "quicksave/quicksave.exe",
+      "quicksave/backend/quicksaveService.exe",
+      "quicksave/backend/updater.exe",
     ];
 
     for (const file of requiredFiles) {
@@ -101,6 +112,7 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     //4. update the updater
     const extractedUpdaterPath = path.join(
       tempExtract,
+      "quicksave",
       "backend",
       "updater.exe"
     );
@@ -113,12 +125,14 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     await fs.ensureDir(path.dirname(oldUpdaterPath));
     await fs.copy(extractedUpdaterPath, oldUpdaterPath, { overwrite: true });
 
+    const source = path.join(tempExtract, "quicksave");
+
     try {
       const response = await fetch("http://localhost:8080/updateApp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: tempExtract,
+          source: source,
           target: appDir,
         }),
       });
