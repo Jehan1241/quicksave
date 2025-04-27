@@ -9,7 +9,7 @@ if (Test-Path .env) {
 }
 
 # Set output filename
-$OUTPUT = "thismodule.exe"
+$OUTPUT = "quicksaveService.exe"
 
 # Read environment variables
 $clientID = [System.Environment]::GetEnvironmentVariable("IGDB_API_KEY")

@@ -10,8 +10,8 @@
   "files": ["dist-electron", "dist", "assets"],
   "extraFiles": [
     {
-      "from": "backend/thismodule.exe",
-      "to": "../backend/thismodule.exe"
+      "from": "backend/quicksaveService.exe",
+      "to": "../backend/quicksaveService.exe"
     },
     {
       "from": "backend/updater/updater.exe",

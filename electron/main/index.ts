@@ -316,10 +316,10 @@ function ensureBackend() {
   const exeDest = path.join(
     path.dirname(process.execPath),
     "backend",
-    "thismodule.exe"
+    "quicksaveService.exe"
   );
   if (!fs.existsSync(exeDest)) {
-    console.error("Go server (thismodule.exe) not found");
+    console.error("Go server (quicksaveService.exe) not found");
   }
   return exeDest;
 }
@@ -328,7 +328,7 @@ app.on("ready", () => {
   let serverPath;
 
   if (isDev) {
-    serverPath = path.join(__dirname, "../../backend", "thismodule.exe");
+    serverPath = path.join(__dirname, "../../backend", "quicksaveService.exe");
   } else {
     serverPath = ensureBackend();
   }

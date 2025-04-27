@@ -98,7 +98,7 @@ func createBackup(target string) (string, error) {
 		src string
 		dst string
 	}{
-		{filepath.Join(target, "backend", "thismodule.exe"), filepath.Join(backendBackup, "thismodule.exe")},
+		{filepath.Join(target, "backend", "quicksaveService.exe"), filepath.Join(backendBackup, "quicksaveService.exe")},
 		{filepath.Join(target, "quicksave.exe"), filepath.Join(backupDir, "quicksave.exe")},
 	}
 
@@ -132,7 +132,7 @@ func performUpdate(source, target string) error {
 		src string
 		dst string
 	}{
-		{filepath.Join(source, "backend", "thismodule.exe"), filepath.Join(backendTarget, "thismodule.exe")},
+		{filepath.Join(source, "backend", "quicksaveService.exe"), filepath.Join(backendTarget, "quicksaveService.exe")},
 		{filepath.Join(source, "quicksave.exe"), filepath.Join(target, "quicksave.exe")},
 	}
 

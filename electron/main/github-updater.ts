@@ -88,7 +88,7 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     // 3. Verify critical files
     const requiredFiles = [
       "quicksave.exe",
-      "backend/thismodule.exe",
+      "backend/quicksaveService.exe",
       "backend/updater.exe",
     ];
 

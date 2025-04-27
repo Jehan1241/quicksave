@@ -1,4 +1,4 @@
-module thismodule
+module quicksaveService
 
 go 1.22.3
 
