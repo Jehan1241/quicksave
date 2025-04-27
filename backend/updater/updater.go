@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -26,7 +28,6 @@ func initLogger() error {
 		return fmt.Errorf("failed to open log file: %v", err)
 	}
 
-	// Log to both file and stdout
 	mw := io.MultiWriter(os.Stdout, logFile)
 	logger = log.New(mw, "", log.LstdFlags)
 	return nil
@@ -36,17 +37,13 @@ func main() {
 	// Initialize logger
 	if err := initLogger(); err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
-		keepWindowOpen()
 		os.Exit(1)
 	}
 	defer logFile.Close()
 
-	defer keepWindowOpen()
-
-	logger.Printf("NEW UPDATER")
-
 	if len(os.Args) < 3 {
-		showError("Missing arguments\nUsage: updater <source-dir> <target-dir>")
+		logger.Println("Missing arguments\nUsage: updater <source-dir> <target-dir>")
+		return
 	}
 
 	source := os.Args[1]
@@ -57,29 +54,33 @@ func main() {
 	// 1. Create backup
 	backupDir, err := createBackup(target)
 	if err != nil {
-		showError(fmt.Sprintf("Backup failed: %v", err))
+		logger.Println("Backup failed: ", err)
+		return
 	}
 	logger.Printf("Backup created at: %s\n", backupDir)
 
 	// 2. Terminate processes
 	killProcesses()
 
-	// 3. Perform atomic update
-	if err := performUpdate(source, target); err != nil {
-		// 4. Rollback if update fails
-		logger.Printf("Update failed, initiating rollback: %v\n", err)
-		if rbErr := rollback(target, backupDir); rbErr != nil {
-			showError(fmt.Sprintf("UPDATE FAILED: %v\nROLLBACK FAILED: %v", err, rbErr))
+	// 3. Perform update
+	err = performUpdate(source, target)
+	if err != nil {
+		logger.Println("update failed, initiating rollback: ", err)
+		err = rollback(target, backupDir)
+		if err != nil {
+			logger.Println("rollback failed: ", err)
+			return
 		}
-		showError(fmt.Sprintf("UPDATE FAILED: %v\nSystem restored from backup", err))
 	}
 
 	// 5. Cleanup and restart
-	logger.Printf("Cleaning up backup at: %s\n", backupDir)
-	os.RemoveAll(backupDir)
+	err = os.RemoveAll(backupDir)
+	if err != nil {
+		logger.Println("Error removing backup files")
+	}
 
-	restartApp(filepath.Join(target, "quicksave.exe"))
 	logger.Println("Update completed successfully!")
+	restartApp(filepath.Join(target, "quicksave.exe"))
 }
 
 func createBackup(target string) (string, error) {
@@ -87,63 +88,97 @@ func createBackup(target string) (string, error) {
 	logger.Printf("Creating backup in: %s\n", backupDir)
 
 	// Create backup directory structure
-	backendBackup := filepath.Join(backupDir, "backend")
-	if err := os.MkdirAll(backendBackup, 0755); err != nil {
-		logger.Printf("Failed to create backup directory %s: %v\n", backendBackup, err)
+	if err := os.MkdirAll(filepath.Join(backupDir, "backend"), 0755); err != nil {
+		logger.Printf("Failed to create backup directory %s: %v\n", backupDir, err)
 		return "", err
 	}
 
-	// Files to backup
+	//backup electron exe and files
+	err := filepath.Walk(target, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if strings.Contains(path, "backend") || strings.Contains(path, "quicksaveBackup") {
+			return filepath.SkipDir
+		}
+
+		relPath, err := filepath.Rel(target, path)
+		if err != nil {
+			return fmt.Errorf("failed to calculate relative path for %s: %v", path, err)
+		}
+
+		dstPath := filepath.Join(backupDir, relPath)
+
+		if !info.IsDir() {
+			err = copyFile(path, dstPath)
+			if err != nil {
+				log.Println("failed to backup: ", path)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return backupDir, err
+	}
+
+	log.Println("Successfully backed up all electron files")
+
+	// backend files
 	filesToBackup := []struct {
 		src string
 		dst string
 	}{
-		{filepath.Join(target, "backend", "quicksaveService.exe"), filepath.Join(backendBackup, "quicksaveService.exe")},
-		{filepath.Join(target, "quicksave.exe"), filepath.Join(backupDir, "quicksave.exe")},
+		{filepath.Join(target, "backend", "quicksaveService.exe"), filepath.Join(backupDir, "backend", "quicksaveService.exe")},
+		{filepath.Join(target, "backend", "updater.exe"), filepath.Join(backupDir, "backend", "updater.exe")},
 	}
 
 	// Perform backups
 	for _, file := range filesToBackup {
-		if _, err := os.Stat(file.src); err == nil {
-			logger.Printf("Backing up: %s -> %s\n", file.src, file.dst)
-			if err := copyFile(file.src, file.dst); err != nil {
-				logger.Printf("Failed to backup %s: %v\n", file.src, err)
-				return "", fmt.Errorf("failed to backup %s: %v", file.src, err)
-			}
-			logger.Printf("Successfully backed up: %s\n", file.src)
-		} else {
-			logger.Printf("File not found for backup: %s\n", file.src)
+
+		err := copyFile(file.src, file.dst)
+		if err != nil {
+			logger.Printf("Failed to backup %s: %v\n", file.src, err)
+			return "", fmt.Errorf("failed to backup %s: %v", file.src, err)
 		}
 	}
-
+	logger.Println("Successfully backed up backend files")
 	return backupDir, nil
 }
 
 func performUpdate(source, target string) error {
-	// Ensure target backend exists
 	backendTarget := filepath.Join(target, "backend")
 	if err := os.MkdirAll(backendTarget, 0755); err != nil {
 		logger.Printf("Failed to create backend directory %s: %v\n", backendTarget, err)
 		return fmt.Errorf("failed to create backend directory: %v", err)
 	}
 
-	// Files to update
-	filesToUpdate := []struct {
-		src string
-		dst string
-	}{
-		{filepath.Join(source, "backend", "quicksaveService.exe"), filepath.Join(backendTarget, "quicksaveService.exe")},
-		{filepath.Join(source, "quicksave.exe"), filepath.Join(target, "quicksave.exe")},
-	}
-
-	// Perform updates
-	for _, file := range filesToUpdate {
-		logger.Printf("Updating: %s -> %s\n", file.src, file.dst)
-		if err := atomicMove(file.src, file.dst); err != nil {
-			logger.Printf("Failed to update %s: %v\n", file.dst, err)
-			return fmt.Errorf("failed to update %s: %v", file.dst, err)
+	err := filepath.Walk(source, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
+
+		relPath, err := filepath.Rel(source, path)
+		if err != nil {
+			return fmt.Errorf("failed to calculate relative path for %s: %v", path, err)
+		}
+
+		dstPath := filepath.Join(target, relPath)
+
+		if !info.IsDir() {
+			err := copyFile(path, dstPath)
+			if err != nil {
+				logger.Println("error ", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+	logger.Println("Updated files")
 
 	return nil
 }
@@ -151,27 +186,38 @@ func performUpdate(source, target string) error {
 func rollback(target, backupDir string) error {
 	logger.Println("Initiating rollback...")
 
-	// Files to restore
-	filesToRestore := []struct {
-		src string
-		dst string
-	}{
-		{filepath.Join(backupDir, "backend", "thismodule.exe"), filepath.Join(target, "backend", "thismodule.exe")},
-		{filepath.Join(backupDir, "quicksave.exe"), filepath.Join(target, "quicksave.exe")},
-	}
-
-	// Perform restoration
-	for _, file := range filesToRestore {
-		if _, err := os.Stat(file.src); err == nil {
-			logger.Printf("Restoring: %s -> %s\n", file.src, file.dst)
-			if err := atomicMove(file.src, file.dst); err != nil {
-				logger.Printf("Failed to restore %s: %v\n", file.dst, err)
-				return fmt.Errorf("failed to restore %s: %v", file.dst, err)
-			}
-			logger.Printf("Successfully restored: %s\n", file.dst)
-		} else {
-			logger.Printf("Backup file not found: %s\n", file.src)
+	err := filepath.Walk(backupDir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(backupDir, path)
+		if err != nil {
+			return fmt.Errorf("failed to calculate relative path for %s: %v", path, err)
+		}
+
+		dstPath := filepath.Join(target, relPath)
+
+		logger.Printf("Restoring: %s -> %s\n", path, dstPath)
+
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", filepath.Dir(dstPath), err)
+		}
+
+		// Move the file from backup back to target
+		if err := copyFile(path, dstPath); err != nil {
+			return fmt.Errorf("failed to restore %s: %v", dstPath, err)
+		}
+
+		logger.Printf("Successfully restored: %s\n", dstPath)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -179,52 +225,49 @@ func rollback(target, backupDir string) error {
 
 // Helper functions
 func killProcesses() {
-	killProcess("thismodule.exe")
+	killProcess("quicksaveService.exe")
 	killProcess("quicksave.exe")
 	time.Sleep(2 * time.Second)
 }
 
 func copyFile(src, dst string) error {
-	input, err := os.ReadFile(src)
+	srcInfo, err := os.Stat(src)
 	if err != nil {
-		logger.Printf("Error reading source file %s: %v\n", src, err)
-		return err
+		return fmt.Errorf("failed to stat source file %s: %v", src, err)
 	}
-	return os.WriteFile(dst, input, 0755)
-}
 
-func atomicMove(src, dst string) error {
-	logger.Printf("Attempting to move (with copy/delete): %s -> %s\n", src, dst)
-
-	for i := 0; i < 5; i++ {
-		err := copyFile(src, dst)
-		if err == nil {
-			if removeErr := os.Remove(src); removeErr != nil {
-				logger.Printf("Copied %s but failed to delete original: %v\n", src, removeErr)
-				return fmt.Errorf("copy succeeded but failed to remove original: %v", removeErr)
-			}
-			logger.Printf("Successfully moved (via copy/delete): %s\n", filepath.Base(src))
-			return nil
-		}
-		logger.Printf("Attempt %d failed for %s: %v\n", i+1, filepath.Base(src), err)
-		time.Sleep(1 * time.Second)
+	if srcInfo.IsDir() {
+		return fmt.Errorf("source %s is a directory, not a file", src)
 	}
-	return fmt.Errorf("failed to move %s after 5 attempts", filepath.Base(src))
-}
 
-func keepWindowOpen() {
-	if runtime.GOOS == "windows" {
-		fmt.Println("\nPress any key to exit...")
-		var b [1]byte
-		os.Stdin.Read(b[:])
+	dstDir := filepath.Dir(dst)
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory %s: %v", dstDir, err)
 	}
-}
 
-func showError(msg string) {
-	logger.Printf("ERROR: %s\n", msg)
-	fmt.Printf("\nERROR: %s\n", msg)
-	keepWindowOpen()
-	os.Exit(1)
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file %s: %v", src, err)
+	}
+	defer sourceFile.Close()
+
+	destinationFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file %s: %v", dst, err)
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy file from %s to %s: %v", src, dst, err)
+	}
+
+	err = os.Chmod(dst, srcInfo.Mode()) // <<< Add this
+	if err != nil {
+		return fmt.Errorf("failed to set permissions on %s: %v", dst, err)
+	}
+
+	return nil
 }
 
 func killProcess(name string) {
@@ -243,4 +286,5 @@ func restartApp(exePath string) {
 	if err := cmd.Start(); err != nil {
 		logger.Printf("Error starting application %s: %v\n", exePath, err)
 	}
+	os.Exit(0)
 }
