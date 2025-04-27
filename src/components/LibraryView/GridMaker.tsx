@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
+import { useExePathContext } from "@/hooks/useExePathContext";
 
 interface GridMakerProps {
   data: any;
@@ -82,8 +83,10 @@ export default function GridMaker({
 
   const { cacheBuster } = useSortContext();
 
-  const exePath = window.appPaths.exePath;
+  const { exePath } = useExePathContext();
+
   let imageUrl = `${exePath}/backend/coverArt${cover}`;
+  console.log("Image Url", imageUrl);
   if (import.meta.env.MODE !== "production") {
     imageUrl = `./backend/coverArt${cover}`;
   }
@@ -205,7 +208,7 @@ export default function GridMaker({
             ) : (
               <div
                 draggable={false}
-                className="flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-${tileRoundness} border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow"
+                className={`flex items-center text-emptyGameTileText justify-center bg-emptyGameTile rounded-${roundness} border border-border w-full p-2 text-center text-sm hover:shadow-xl hover:shadow-border hover:transition-shadow`}
               >
                 {Name}
               </div>

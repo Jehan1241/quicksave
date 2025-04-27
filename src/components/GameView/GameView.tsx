@@ -19,6 +19,7 @@ import { time } from "node:console";
 import { Download, Loader2 } from "lucide-react";
 import { importSteamLibrary } from "@/lib/api/libraryImports";
 import { platform } from "node:os";
+import { useExePathContext } from "@/hooks/useExePathContext";
 
 export default React.memo(GameView);
 
@@ -158,9 +159,10 @@ function GameView() {
   let screenshotsArray = Object.values(screenshots);
   screenshotsArray = screenshotsArray.sort(enhancedSort);
   const { cacheBuster } = useSortContext();
+  const { exePath } = useExePathContext();
   screenshotsArray = screenshotsArray.map((screenshot) => {
     if (import.meta.env.MODE === "production") {
-      return `${window.appPaths.exePath}/backend/screenshots/${screenshot}?t=${cacheBuster}`;
+      return `${exePath}/backend/screenshots/${screenshot}?t=${cacheBuster}`;
     } else {
       return `./backend/screenshots/${screenshot}?t=${cacheBuster}`;
     }

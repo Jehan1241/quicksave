@@ -26,6 +26,7 @@ import { useSortContext } from "@/hooks/useSortContex";
 import { saveCustomImage } from "@/lib/api/GameViewAPI";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ImageSearchDialog from "@/components/Dialogs/ImageSearchDialog";
+import { useExePathContext } from "@/hooks/useExePathContext";
 
 export function ImagesTab({
   coverArtPath,
@@ -38,7 +39,7 @@ export function ImagesTab({
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [coverArtLinkClicked, setCoverArtLinkClicked] = useState(false);
-  const exePath = window.appPaths.exePath;
+  const { exePath } = useExePathContext();
   const [currentCover, setCurrentCover] = useState<string | null>(
     import.meta.env.MODE === "production"
       ? `${exePath}/backend/coverArt${coverArtPath}?t=${cacheBuster}`

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import GridMaker from "./GridMaker";
 import { useSortContext } from "@/hooks/useSortContex";
 
