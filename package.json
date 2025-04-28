@@ -1,6 +1,6 @@
 {
   "name": "quicksave",
-  "version": "1.0.0",
+  "version": "0.7.0",
   "main": "dist-electron/main/index.js",
   "description": "quicksave",
   "author": "Jehan",
