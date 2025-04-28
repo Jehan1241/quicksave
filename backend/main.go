@@ -281,7 +281,11 @@ func getGameDetails(UID string) (map[string]interface{}, error) {
 	screenshotDir := filepath.Join("screenshots", UID)
 	entries, err := os.ReadDir(screenshotDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read screenshots dirr: %w", err)
+		if os.IsNotExist(err) {
+			entries = []os.DirEntry{}
+		} else {
+			return nil, fmt.Errorf("failed to read screenshots dirr: %w", err)
+		}
 	}
 
 	index := 0
