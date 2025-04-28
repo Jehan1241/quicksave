@@ -88,12 +88,16 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
 
     // 2. Extract to temp directory first
     await fs.ensureDir(tempExtract);
-    if (process.platform === "win32") {
-      await execAsync(
-        `powershell Expand-Archive -Path "${tempZip}" -DestinationPath "${tempExtract}" -Force`
-      );
-    } else {
-      await execAsync(`unzip -o "${tempZip}" -d "${tempExtract}"`);
+    try {
+      if (process.platform === "win32") {
+        await execAsync(
+          `powershell Expand-Archive -Path "${tempZip}" -DestinationPath "${tempExtract}" -Force`
+        );
+      } else {
+        await execAsync(`unzip -o "${tempZip}" -d "${tempExtract}"`);
+      }
+    } catch (error) {
+      console.log("Extraction Error: ", error);
     }
 
     // 3. Verify critical files
