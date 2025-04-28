@@ -121,8 +121,6 @@ export default function GridMaker({
 
   const { setPlayingGame } = useSortContext();
 
-  const playGame = async () => {};
-
   const playClickHandler = () => {
     if (installed) {
       launchGame(
