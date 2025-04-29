@@ -14,8 +14,9 @@
 
 ## Important
 
-This project is still in beta — you may encounter bugs.  
-Make sure to use the **backup feature** to preserve user data.
+- This project is still in beta — you may encounter bugs.
+- Make sure to use the **backup feature** to preserve user data.
+- As of right now only windows is supported, Linux support soon.
 
 ## Features
 
