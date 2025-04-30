@@ -18,6 +18,11 @@ import { useSortContext } from "@/hooks/useSortContex";
 import { useNavigate } from "react-router-dom";
 import { FolderDown, Plus, Settings } from "lucide-react";
 import image from "@/../assets/image.svg";
+import {
+  DiscordLogoIcon,
+  GitHubLogoIcon,
+  QuestionMarkCircledIcon,
+} from "@radix-ui/react-icons";
 
 export default function QuicksaveMenu() {
   const {
@@ -95,6 +100,25 @@ export default function QuicksaveMenu() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <QuestionMarkCircledIcon />
+                Help
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem>
+                    <GitHubLogoIcon />
+                    <a href="https://github.com/Jehan1241/quicksave">Github</a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <DiscordLogoIcon />
+                    <a href="https://discord.gg/jYTmYM6YmG">Discord</a>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
             <DropdownMenuItem onClick={() => setSettingsDialogOpen(true)}>
               <Settings /> Settings
             </DropdownMenuItem>
