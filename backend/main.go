@@ -2079,5 +2079,5 @@ func routing() {
 	// r.StaticFS("/cover-art", http.Dir("./coverArt"))
 	// r.StaticFS("/screenshots", http.Dir("./screenshots"))
 
-	r.Run("127.0.0.1:8080")
+	r.Run("localhost:50001")
 }
