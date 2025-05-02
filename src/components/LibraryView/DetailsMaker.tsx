@@ -55,7 +55,7 @@ export default function DetialsMaker({
     try {
       console.log("Sending Get Game Details");
       const response = await fetch(
-        `http://localhost:8080/GameDetails?uid=${uid}`
+        `http://localhost:50001/GameDetails?uid=${uid}`
       );
       const json = await response.json();
       console.log(json);

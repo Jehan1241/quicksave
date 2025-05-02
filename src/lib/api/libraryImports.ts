@@ -20,7 +20,7 @@ export const importSteamLibrary = async (
       title: "Steam Integration Started!",
       description: "You can safely leave this page now.",
     });
-    const response = await fetch("http://localhost:8080/SteamImport", {
+    const response = await fetch("http://localhost:50001/SteamImport", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,7 +77,7 @@ export const importPlaystationLibrary = async (
       title: "PSN Integration Started!",
       description: "You can safely leave this page now.",
     });
-    const response = await fetch("http://localhost:8080/PlayStationImport", {
+    const response = await fetch("http://localhost:50001/PlayStationImport", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

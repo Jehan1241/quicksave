@@ -132,7 +132,7 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     const source = path.join(tempExtract, "quicksave");
 
     try {
-      const response = await fetch("http://localhost:8080/updateApp", {
+      const response = await fetch("http://localhost:50001/updateApp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -706,7 +706,7 @@ function FoundGames({
   const IgdbGameClicked = async (appid: any) => {
     try {
       setLoadingAppId(appid);
-      const response = await fetch("http://localhost:8080/GetIgdbInfo", {
+      const response = await fetch("http://localhost:50001/GetIgdbInfo", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -19,7 +19,7 @@ export const loadFilterState = async (
   setIsLoaded(false);
   try {
     console.log("Sending Load Filters");
-    const response = await fetch("http://localhost:8080/LoadFilters");
+    const response = await fetch("http://localhost:50001/LoadFilters");
     if (!response.ok) await handleApiError(response);
     const data = await response.json();
     if (data.developers) {
@@ -91,7 +91,7 @@ export const handleFilterChange = async (
 
   try {
     console.log("Sending Set Filter");
-    const response = await fetch("http://localhost:8080/setFilter", {
+    const response = await fetch("http://localhost:50001/setFilter", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export const clearAllFilters = async (
   try {
     console.log("Sending Clear All Filters");
     // Send the filter as a POST request
-    const response = await fetch("http://localhost:8080/clearAllFilters");
+    const response = await fetch("http://localhost:50001/clearAllFilters");
 
     if (!response.ok) await handleApiError(response);
   } catch (error: any) {
@@ -131,7 +131,7 @@ export const deleteCurrentlyFiltered = async (games: any[]) => {
   const uids = games.map((game) => game.UID);
   try {
     const response = await fetch(
-      `http://localhost:8080/deleteCurrentlyFiltered`,
+      `http://localhost:50001/deleteCurrentlyFiltered`,
       {
         method: "POST",
         headers: {
@@ -152,7 +152,7 @@ export const hideCurrentlyFiltered = async (games: any[]) => {
   const uids = games.map((game) => game.UID);
   try {
     const response = await fetch(
-      `http://localhost:8080/hideCurrentlyFiltered`,
+      `http://localhost:50001/hideCurrentlyFiltered`,
       {
         method: "POST",
         headers: {
@@ -172,7 +172,7 @@ export const unHideCurrentlyFiltered = async (games: any[]) => {
   const uids = games.map((game) => game.UID);
   try {
     const response = await fetch(
-      `http://localhost:8080/unHideCurrentlyFiltered`,
+      `http://localhost:50001/unHideCurrentlyFiltered`,
       {
         method: "POST",
         headers: {

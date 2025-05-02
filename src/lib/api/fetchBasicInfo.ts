@@ -20,7 +20,7 @@ export const fetchData = async (
   console.log("Sending Get Basic Info");
   try {
     const response = await fetch(
-      `http://localhost:8080/getBasicInfo?type=${sortType}&order=${sortOrder}`
+      `http://localhost:50001/getBasicInfo?type=${sortType}&order=${sortOrder}`
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
@@ -65,7 +65,7 @@ export const checkBackup = async ({ setBackingUp }: any) => {
     setBackingUp(true);
     console.log("inside");
     try {
-      const resp = await fetch(`http://localhost:8080/backupNow`);
+      const resp = await fetch(`http://localhost:50001/backupNow`);
       if (!resp.ok) await handleApiError(resp);
     } catch (error) {
       console.error(error);

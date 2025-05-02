@@ -24,7 +24,7 @@ export const getGameDetails = async (
   console.log("Sending Get Game Details");
   try {
     const response = await fetch(
-      `http://localhost:8080/GameDetails?uid=${uid}`
+      `http://localhost:50001/GameDetails?uid=${uid}`
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
@@ -45,7 +45,7 @@ export const doDataPreload = async (
 ) => {
   try {
     const response = await fetch(
-      `http://localhost:8080/GameDetails?uid=${uid}`
+      `http://localhost:50001/GameDetails?uid=${uid}`
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
@@ -66,7 +66,9 @@ export const doDataPreload = async (
 export const hardDelete = async (uid: string, navigate: any) => {
   console.log("Sending Delete Game");
   try {
-    const response = await fetch(`http://localhost:8080/DeleteGame?uid=${uid}`);
+    const response = await fetch(
+      `http://localhost:50001/DeleteGame?uid=${uid}`
+    );
     if (!response.ok) await handleApiError(response);
   } catch (error) {
     console.error(error);
@@ -78,7 +80,7 @@ export const hardDelete = async (uid: string, navigate: any) => {
 export const hideGame = async (uid: string, navigate: any) => {
   console.log("Sending Hide Game");
   try {
-    const response = await fetch(`http://localhost:8080/HideGame?uid=${uid}`);
+    const response = await fetch(`http://localhost:50001/HideGame?uid=${uid}`);
     if (!response.ok) await handleApiError(response);
   } catch (error) {
     console.error(error);
@@ -90,7 +92,9 @@ export const hideGame = async (uid: string, navigate: any) => {
 export const unhideGame = async (uid: string, navigate: any) => {
   try {
     console.log("Sending unhide game");
-    const response = await fetch(`http://localhost:8080/unhideGame?uid=${uid}`);
+    const response = await fetch(
+      `http://localhost:50001/unhideGame?uid=${uid}`
+    );
     if (!response.ok) await handleApiError(response);
   } catch (error) {
     console.error(error);
@@ -109,7 +113,9 @@ export const launchGame = async (
 ) => {
   setPlayingGame(uid);
   try {
-    const response = await fetch(`http://localhost:8080/LaunchGame?uid=${uid}`);
+    const response = await fetch(
+      `http://localhost:50001/LaunchGame?uid=${uid}`
+    );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
     const launchStatus = json.LaunchStatus;
@@ -128,7 +134,7 @@ export const sendSteamInstallReq = async (uid: string) => {
   console.log("Play Game Clicked");
   try {
     const response = await fetch(
-      `http://localhost:8080/steamInstallReq?uid=${uid}`
+      `http://localhost:50001/steamInstallReq?uid=${uid}`
     );
     if (!response.ok) await handleApiError(response);
   } catch (error) {
@@ -141,7 +147,7 @@ export const gamePathSaveHandler = async (uid: string, gamePath: string) => {
   console.log("Saving Game Path", gamePath);
   try {
     const response = await fetch(
-      `http://localhost:8080/setGamePath?uid=${uid}&path=${gamePath}`
+      `http://localhost:50001/setGamePath?uid=${uid}&path=${gamePath}`
     );
     if (!response.ok) await handleApiError(response);
   } catch (error) {
@@ -157,7 +163,7 @@ export const getGamePath = async (
   console.log("Loading Game Path");
   try {
     const response = await fetch(
-      `http://localhost:8080/getGamePath?uid=${uid}`
+      `http://localhost:50001/getGamePath?uid=${uid}`
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
@@ -179,7 +185,7 @@ export const saveCustomImage = async (
 ) => {
   setLoading(true);
   try {
-    const response = await fetch(`http://localhost:8080/setCustomImage`, {
+    const response = await fetch(`http://localhost:50001/setCustomImage`, {
       method: "POST",
       headers: { "Content-type": "application/json" },
       body: JSON.stringify({
@@ -236,7 +242,7 @@ export const loadPreferences = async (
 ) => {
   try {
     const response = await fetch(
-      `http://localhost:8080/LoadPreferences?uid=${uid}`
+      `http://localhost:50001/LoadPreferences?uid=${uid}`
     );
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
@@ -277,7 +283,7 @@ export const loadPreferences = async (
     showErrorToast("Failed to load preferences!", String(error));
   }
   try {
-    const tagsResponse = await fetch("http://localhost:8080/getAllTags");
+    const tagsResponse = await fetch("http://localhost:50001/getAllTags");
     if (!tagsResponse.ok) await handleApiError(tagsResponse);
     const tagsData = await tagsResponse.json();
 
@@ -292,7 +298,7 @@ export const loadPreferences = async (
     showErrorToast("Failed to load preferences!", String(error));
   }
   try {
-    const devsResponse = await fetch("http://localhost:8080/getAllDevelopers");
+    const devsResponse = await fetch("http://localhost:50001/getAllDevelopers");
     if (!devsResponse.ok) await handleApiError(devsResponse);
     const devsData = await devsResponse.json();
     console.log(devsData);

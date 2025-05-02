@@ -62,9 +62,9 @@ export default function ImageSearchDialog({
     if (!originalUrl) return "";
     try {
       const decoded = decodeURIComponent(originalUrl);
-      return `http://localhost:8080/image-proxy?url=${encodeURIComponent(decoded)}`;
+      return `http://localhost:50001/image-proxy?url=${encodeURIComponent(decoded)}`;
     } catch {
-      return `http://localhost:8080/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+      return `http://localhost:50001/image-proxy?url=${encodeURIComponent(originalUrl)}`;
     }
   };
 

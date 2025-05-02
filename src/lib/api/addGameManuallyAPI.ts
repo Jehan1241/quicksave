@@ -19,7 +19,7 @@ export const sendGameToDB = async (
 ) => {
   try {
     setAddGameLoading(true);
-    const response = await fetch(`http://localhost:8080/addGameToDB`, {
+    const response = await fetch(`http://localhost:50001/addGameToDB`, {
       method: "POST",
       headers: { "Content-type": "application/json" },
       body: JSON.stringify({
@@ -76,7 +76,7 @@ export const searchGame = async (
 
   setLoading(true);
   try {
-    const response = await fetch(`http://localhost:8080/IGDBsearch`, {
+    const response = await fetch(`http://localhost:50001/IGDBsearch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ NameToSearch: title }),
@@ -100,7 +100,7 @@ export const fetchTagsDevsPlatforms = async (
   setPlatformOptions: React.Dispatch<React.SetStateAction<any>>
 ) => {
   try {
-    const response = await fetch("http://localhost:8080/getAllTags");
+    const response = await fetch("http://localhost:50001/getAllTags");
     if (!response.ok) await handleApiError(response);
     const resp = await response.json();
 
@@ -117,7 +117,7 @@ export const fetchTagsDevsPlatforms = async (
     showErrorToast("Failed to get tags!", String(error));
   }
   try {
-    const response = await fetch("http://localhost:8080/getAllDevelopers");
+    const response = await fetch("http://localhost:50001/getAllDevelopers");
     if (!response.ok) await handleApiError(response);
     const resp = await response.json();
     console.log(resp);
@@ -134,7 +134,7 @@ export const fetchTagsDevsPlatforms = async (
     showErrorToast("Failed to get developers!", String(error));
   }
   try {
-    const response = await fetch("http://localhost:8080/getAllPlatforms");
+    const response = await fetch("http://localhost:50001/getAllPlatforms");
     if (!response.ok) await handleApiError(response);
     const resp = await response.json();
     console.log(resp);

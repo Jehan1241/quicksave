@@ -441,7 +441,7 @@ function registerScreenshotShortcut(uid: string, screenshotBind: string) {
       playShutterSound();
 
       const response = await fetch(
-        `http://localhost:8080/takeScreenshot?uid=${uid}`
+        `http://localhost:50001/takeScreenshot?uid=${uid}`
       );
       const data = await response.text();
       console.log("Screenshot request sent, response:", data);

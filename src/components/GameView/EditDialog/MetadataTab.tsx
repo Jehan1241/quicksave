@@ -150,7 +150,7 @@ export function MetadataTab({ uid, fetchData, tags, companies }: any) {
   const savePreferences = async (postData: any) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8080/SavePreferences`, {
+      const response = await fetch(`http://localhost:50001/SavePreferences`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

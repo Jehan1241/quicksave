@@ -5,7 +5,7 @@ export const getSteamCreds = async () => {
   console.log("Getting Steam Creds");
 
   try {
-    const response = await fetch(`http://localhost:8080/SteamCreds`);
+    const response = await fetch(`http://localhost:50001/SteamCreds`);
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
 
@@ -23,7 +23,7 @@ export const getSteamCreds = async () => {
 export const getNpsso = async () => {
   console.log("Getting Npsso");
   try {
-    const response = await fetch(`http://localhost:8080/Npsso`);
+    const response = await fetch(`http://localhost:50001/Npsso`);
     if (!response.ok) await handleApiError(response);
     const json = await response.json();
     console.log(json.Npsso);

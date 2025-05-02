@@ -1,6 +1,6 @@
 export function attachSSEListener(fetchData: () => void) {
   const eventSource = new EventSource(
-    "http://localhost:8080/sse-steam-updates"
+    "http://localhost:50001/sse-steam-updates"
   );
 
   eventSource.onmessage = (event) => {
