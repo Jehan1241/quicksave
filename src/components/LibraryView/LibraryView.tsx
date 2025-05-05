@@ -3,6 +3,7 @@ import useIntersectionObserver from "@/hooks/useIntersectionObserver";
 import GridView from "./GridView";
 import ListView from "./ListView";
 import ViewHeader from "./ViewHeader";
+import { getScreenshotBind } from "@/lib/screeenshots";
 interface libraryViewProps {
   data: any[];
   hidden: boolean;
@@ -15,6 +16,8 @@ export function LibraryView({ data, hidden, viewText }: libraryViewProps) {
   const listScrollRef = useRef<HTMLDivElement | null>(null);
   const [view, setView] = useState<string | null>(null);
   const { visibleItems, gridScrollRef } = useIntersectionObserver(data, view);
+
+  const ssBind = getScreenshotBind();
 
   const scrollHandler = () => {
     if (gridScrollRef.current) {
@@ -75,25 +78,54 @@ export function LibraryView({ data, hidden, viewText }: libraryViewProps) {
   }, [view, viewText]); // View Text is a dependency as that determines data source
 
   return (
-    <div className="absolute flex h-full w-full flex-col justify-center select-none">
-      <ViewHeader view={view} setView={setView} text={viewText} />
-      {view === "grid" && (
-        <GridView
-          data={data}
-          scrollHandler={scrollHandler}
-          gridScrollRef={gridScrollRef}
-          visibleItems={visibleItems}
-          hidden={hidden}
-        />
+    <>
+      {!data ? (
+        <div className="absolute flex h-full w-full flex-col justify-center select-none">
+          <ViewHeader view={view} setView={setView} text={viewText} />
+          {view === "grid" && (
+            <GridView
+              data={data}
+              scrollHandler={scrollHandler}
+              gridScrollRef={gridScrollRef}
+              visibleItems={visibleItems}
+              hidden={hidden}
+            />
+          )}
+          {view === "list" && (
+            <ListView
+              data={data}
+              scrollHandler={scrollHandler}
+              listScrollRef={listScrollRef}
+              hidden={hidden}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="m-5 text-muted-foreground select-none">
+          <div className="flex flex-col text-sm gap-4">
+            <p className="text-lg">Welcome to quicksave!</p>
+            <p>
+              <strong>
+                - The app is currently in beta, please report any bugs you may
+                experience in the discord.
+              </strong>
+            </p>
+            <p> - To get started add a game through the quicksave icon menu.</p>
+            <p>
+              - You can also confiugre library integrations to automatically
+              sync.
+            </p>
+            <p>
+              - quicksave also features a screenshot manager, bound to "{" "}
+              {ssBind} " change this from the settings menu.
+            </p>
+            <p>
+              - The app will periodically backup data in the root directory
+              /quicksaveBackup folder to ensure user data is never lost.
+            </p>
+          </div>
+        </div>
       )}
-      {view === "list" && (
-        <ListView
-          data={data}
-          scrollHandler={scrollHandler}
-          listScrollRef={listScrollRef}
-          hidden={hidden}
-        />
-      )}
-    </div>
+    </>
   );
 }
