@@ -79,7 +79,7 @@ export function LibraryView({ data, hidden, viewText }: libraryViewProps) {
 
   return (
     <>
-      {!data ? (
+      {data ? (
         <div className="absolute flex h-full w-full flex-col justify-center select-none">
           <ViewHeader view={view} setView={setView} text={viewText} />
           {view === "grid" && (
@@ -102,11 +102,13 @@ export function LibraryView({ data, hidden, viewText }: libraryViewProps) {
         </div>
       ) : (
         <div className="m-5 text-muted-foreground select-none">
-          <div className="flex flex-col text-sm gap-4">
-            <p className="text-lg">Welcome to quicksave!</p>
+          <div className="flex flex-col text-sm gap-4 tracking-wider">
+            <p className="text-lg tracking-wide">
+              <b>Welcome to quicksave!</b>
+            </p>
             <p>
-              <strong>
-                - The app is currently in beta, please report any bugs you may
+              <strong className="text-base">
+                -The app is currently in beta, please report any bugs you may
                 experience in the discord.
               </strong>
             </p>
