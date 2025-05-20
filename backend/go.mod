@@ -7,15 +7,14 @@ require (
 	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
+	github.com/joho/godotenv v1.5.1
+	github.com/vova616/screenshot v0.0.0-20220801010501-56c10359473c
 	modernc.org/sqlite v1.29.10
 )
 
 require (
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/vova616/screenshot v0.0.0-20220801010501-56c10359473c // indirect
 )
 
 require (

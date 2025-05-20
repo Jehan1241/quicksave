@@ -1,9 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import fs from "fs-extra";
-import { spawn, exec } from "child_process";
-import extract from "extract-zip";
-import { version } from "os";
+import { exec } from "child_process";
 
 import { promisify } from "util";
 
@@ -11,7 +9,18 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 const REPO = "Jehan1241/quicksave";
-const BACKUP_DIR = "backend-backup";
+
+const appPrefix =
+  process.platform === "win32" ? "quicksave-windows-" : "quicksave-linux-";
+
+const requiredFiles =
+  process.platform === "win32"
+    ? [
+        "quicksave/quicksave.exe",
+        "quicksave/backend/quicksaveService.exe",
+        "quicksave/backend/updater.exe",
+      ]
+    : ["quicksave/quicksave", "quicksaveService", "updater"];
 
 export async function checkForUpdates(currentVersion: any) {
   try {
@@ -25,9 +34,16 @@ export async function checkForUpdates(currentVersion: any) {
     if (release.tag_name === `v${currentVersion}`) return null;
 
     // 2. Find the portable ZIP asset
-    const zipAsset = release.assets.find(
-      (a: any) => a.name.startsWith("quicksave-") && a.name.endsWith(".zip")
+    let zipAsset;
+    zipAsset = release.assets.find(
+      (a: any) => a.name.startsWith(appPrefix) && a.name.endsWith(".zip")
     );
+    if (!zipAsset) {
+      zipAsset = release.assets.find(
+        //for legacy support
+        (a: any) => a.name.startsWith("quicksave-") && a.name.endsWith(".zip")
+      );
+    }
     if (!zipAsset) throw new Error("No portable ZIP found in release");
 
     console.log("RELEASE", zipAsset.browser_download_url);
@@ -94,19 +110,13 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
           `powershell Expand-Archive -Path "${tempZip}" -DestinationPath "${tempExtract}" -Force`
         );
       } else {
-        await execAsync(`unzip -o "${tempZip}" -d "${tempExtract}"`);
+        await execAsync(`bsdtar -xf "${tempZip}" -C "${tempExtract}"`);
       }
     } catch (error) {
       console.log("Extraction Error: ", error);
     }
 
     // 3. Verify critical files
-    const requiredFiles = [
-      "quicksave/quicksave.exe",
-      "quicksave/backend/quicksaveService.exe",
-      "quicksave/backend/updater.exe",
-    ];
-
     for (const file of requiredFiles) {
       if (!fs.existsSync(path.join(tempExtract, file))) {
         throw new Error(`Update package missing required file: ${file}`);
@@ -118,14 +128,14 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
       tempExtract,
       "quicksave",
       "backend",
-      "updater.exe"
+      process.platform === "win32" ? "updater.exe" : "updater"
     );
+
     const oldUpdaterPath = path.join(
       path.dirname(process.execPath),
       "backend",
-      "updater.exe"
+      process.platform === "win32" ? "updater.exe" : "updater"
     );
-
     await fs.ensureDir(path.dirname(oldUpdaterPath));
     await fs.copy(extractedUpdaterPath, oldUpdaterPath, { overwrite: true });
 

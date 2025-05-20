@@ -13,6 +13,9 @@ console.log("=== MAIN PROCESS STARTED ===");
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ipc = ipcMain;
 
+const exeName =
+  process.platform === "win32" ? "quicksaveService.exe" : "quicksaveService";
+
 // The built directory structure
 //
 // ├─┬ dist-electron
@@ -154,10 +157,17 @@ async function createWindow() {
             // Check if the executable exists
             if (fs.existsSync(targetPath)) {
               const fileExtension = path.extname(targetPath).toLowerCase();
-              const validExtensions = [".exe", ".bin", ".app", ".sh", ".jar"];
+              const validExtensions = [
+                ".exe",
+                ".bin",
+                ".app",
+                ".sh",
+                ".jar",
+                ".desktop",
+                ".AppImage",
+              ];
 
               if (validExtensions.includes(fileExtension)) {
-                console.log("In here");
                 resolve({ isValid: true, message: targetPath }); // Valid game path with exe path from shortcut
               } else {
                 reject({
@@ -185,7 +195,15 @@ async function createWindow() {
       // Step 5: If it's not a shortcut, proceed with the regular file validation
       if (fs.existsSync(gamePath)) {
         const fileExtension = path.extname(gamePath).toLowerCase();
-        const validExtensions = [".exe", ".bin", ".app", ".sh", ".jar"];
+        const validExtensions = [
+          ".exe",
+          ".bin",
+          ".app",
+          ".sh",
+          ".jar",
+          ".desktop",
+          ".AppImage",
+        ];
 
         if (validExtensions.includes(fileExtension)) {
           return { isValid: true, message: gamePath }; // Valid game path
@@ -313,13 +331,9 @@ app.whenReady().then(() => {
 });
 
 function ensureBackend() {
-  const exeDest = path.join(
-    path.dirname(process.execPath),
-    "backend",
-    "quicksaveService.exe"
-  );
+  const exeDest = path.join(path.dirname(process.execPath), "backend", exeName);
   if (!fs.existsSync(exeDest)) {
-    console.error("Go server (quicksaveService.exe) not found");
+    console.error("Go server " + exeName + " not found");
   }
   return exeDest;
 }
@@ -328,7 +342,7 @@ app.on("ready", () => {
   let serverPath;
 
   if (isDev) {
-    serverPath = path.join(__dirname, "../../backend", "quicksaveService.exe");
+    serverPath = path.join(__dirname, "../../backend", exeName);
   } else {
     serverPath = ensureBackend();
   }
@@ -337,6 +351,7 @@ app.on("ready", () => {
   goServer = spawn(serverPath, [], {
     cwd: path.dirname(serverPath),
     shell: false,
+    detached: true,
     stdio: ["ignore", "pipe", "pipe"], // Capture stdout and stderr
   });
 
@@ -364,6 +379,7 @@ app.on("ready", () => {
 const killGoServer = () => {
   if (goServer && !goServer.killed) {
     console.log("Attempting to kill Go server...");
+    process.kill(-goServer.pid, "SIGTERM");
     goServer.kill("SIGTERM");
 
     setTimeout(() => {
@@ -373,7 +389,11 @@ const killGoServer = () => {
         if (process.platform === "win32") {
           require("child_process").exec(`taskkill /PID ${goServer.pid} /F`);
         } else {
-          process.kill(-goServer.pid, "SIGKILL"); // Kill entire process group
+          try {
+            process.kill(-goServer.pid, "SIGKILL"); // Negative PID = process group
+          } catch (err) {
+            console.error("Failed to force kill Go server:", err);
+          }
         }
       }
     }, 2000);

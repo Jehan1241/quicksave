@@ -84,8 +84,8 @@ func main() {
 	if err != nil {
 		log.Printf("error checking manual installed validity %v", err)
 	}
-	startSSEListener()
-	routing()
+	go startSSEListener()
+	go routing()
 
 	<-ctx.Done()
 	closeDB()

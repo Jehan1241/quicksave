@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"database/sql"
 	"fmt"
 	"os"
@@ -11,9 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
 )
 
 func getGamePath(uid string) (string, error) {
@@ -56,33 +55,117 @@ func setInstallPath(uid string, path string) error {
 func launchGameFromPath(path string, uid string) error {
 	switch runtime.GOOS {
 	case "windows":
-		gameDir := filepath.Dir(path)
+		return launchWindowsGame(path, uid)
 
-		cmd := exec.Command(path)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		cmd.Dir = gameDir // Set correct working directory
+	case "linux":
+		gameDir := filepath.Dir(path)
+		ext := strings.ToLower(filepath.Ext(path))
+
+		var cmd *exec.Cmd
+		var flatpakAppID string
+		shouldPollForFlatpak := false
+
+		switch ext {
+		case ".exe":
+			cmd = exec.Command("wine", path)
+
+		case ".desktop":
+			file, err := os.Open(path)
+			if err != nil {
+				return fmt.Errorf("failed to open .desktop file: %w", err)
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if strings.HasPrefix(line, "X-Flatpak=") {
+					flatpakAppID = strings.TrimPrefix(line, "X-Flatpak=")
+					break
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				return fmt.Errorf("error reading .desktop file: %w", err)
+			}
+
+			if flatpakAppID != "" {
+				cmd = exec.Command("flatpak", "run", flatpakAppID)
+				shouldPollForFlatpak = true
+			} else {
+				file.Seek(0, 0)
+				scanner = bufio.NewScanner(file)
+				for scanner.Scan() {
+					line := strings.TrimSpace(scanner.Text())
+					if strings.HasPrefix(line, "Exec=") {
+						execLine := strings.TrimPrefix(line, "Exec=")
+						parts := strings.Fields(execLine)
+						var cleaned []string
+						for _, part := range parts {
+							if !strings.HasPrefix(part, "%") {
+								cleaned = append(cleaned, part)
+							}
+						}
+						if len(cleaned) == 0 {
+							return fmt.Errorf("no valid command in Exec line")
+						}
+						cmd = exec.Command(cleaned[0], cleaned[1:]...)
+						break
+					}
+				}
+			}
+
+		case ".AppImage", ".bin", ".sh":
+			if ext == ".sh" {
+				cmd = exec.Command("bash", path)
+			} else {
+				cmd = exec.Command(path)
+			}
+
+		default:
+			cmd = exec.Command(path)
+		}
+
+		if cmd == nil {
+			return fmt.Errorf("could not construct command to launch game")
+		}
+
+		cmd.Dir = gameDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
 		startTime := time.Now()
-		err := cmd.Run()
-		if err != nil {
-			fmt.Println("Normal launch failed, trying with admin privileges...")
-			cmd := exec.Command("powershell", "-Command",
-				fmt.Sprintf("Start-Process -FilePath '%s' -Verb RunAs -Wait", path))
-			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			cmd.Dir = gameDir // Set correct working directory
+
+		if shouldPollForFlatpak {
+			err := cmd.Start()
+			if err != nil {
+				return fmt.Errorf("failed to start flatpak app: %w", err)
+			}
+
+			fmt.Printf("Flatpak app %s started, polling for exit...\n", flatpakAppID)
+			for {
+				running, err := isFlatpakAppRunning(flatpakAppID)
+				if err != nil {
+					return fmt.Errorf("failed to check flatpak status: %w", err)
+				}
+				if !running {
+					break
+				}
+				time.Sleep(2 * time.Second)
+			}
+
+			cmd.Process.Wait() // ensure cleanup
+		} else {
 			err := cmd.Run()
 			if err != nil {
-				return fmt.Errorf("error launching game: %w", err)
+				return fmt.Errorf("error launching game on Linux: %w", err)
 			}
 		}
 
-		fmt.Println("Game launched successfully on Windows!")
-
-		// Calculate playtime
 		playTime := time.Since(startTime)
-		fmt.Printf("Game exited. Total playtime: %.4f hours\n", playTime.Hours())
+		fmt.Println("Game exited. Total playtime:", playTime)
 
-		err = txWrite(func(tx *sql.Tx) error {
-			_, err = tx.Exec(
+		err := txWrite(func(tx *sql.Tx) error {
+			_, err := tx.Exec(
 				"UPDATE GameMetaData SET TimePlayed = COALESCE(TimePlayed, 0) + ? WHERE UID = ?",
 				playTime.Hours(), uid)
 			return err
@@ -91,42 +174,29 @@ func launchGameFromPath(path string, uid string) error {
 			return fmt.Errorf("error updating playtime: %w", err)
 		}
 
-	case "linux":
-		// On Linux, we assume it might be a shell script or other executable
-		// Check if the file is an executable (e.g., .sh or a native binary)
-		if path[len(path)-4:] == ".exe" {
-			// If it's a .exe file, try to run it using Wine (or similar)
-			err := exec.Command("wine", path).Start()
-			if err != nil {
-				fmt.Printf("Error launching Windows game on Linux with Wine: %s\n", err)
-			} else {
-				fmt.Println("Game launched successfully on Linux with Wine!")
-			}
-		} else {
-			// Try to run it as a native Linux executable
-			err := exec.Command(path).Start()
-			if err != nil {
-				fmt.Printf("Error launching game on Linux: %s\n", err)
-			} else {
-				fmt.Println("Game launched successfully on Linux!")
-			}
-		}
+		return nil
 
 	default:
 		fmt.Println("Unsupported platform:", runtime.GOOS)
+		return nil
 	}
-	return nil
+}
+
+func isFlatpakAppRunning(appID string) (bool, error) {
+	out, err := exec.Command("ps", "aux").Output()
+	if err != nil {
+		return false, err
+	}
+	return bytes.Contains(out, []byte(appID)), nil
 }
 
 func sendSteamInstallReq(appid int) error {
-	// Get the current OS
 	currentOS := runtime.GOOS
 	fmt.Println("Launching Steam Game", appid)
 
 	var command string
 	var cmd *exec.Cmd
 
-	// Check the OS and run command
 	if currentOS == "linux" {
 		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
 		cmd = exec.Command("bash", "-c", command)
@@ -136,7 +206,6 @@ func sendSteamInstallReq(appid int) error {
 		return fmt.Errorf("error launching game: unsupported OS")
 	}
 
-	// Execute the command
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error launching game: %w", err)
@@ -145,30 +214,113 @@ func sendSteamInstallReq(appid int) error {
 }
 
 func launchSteamGame(appid int) error {
-	// Get the current OS
 	currentOS := runtime.GOOS
 	fmt.Println("Launching Steam Game", appid)
 
-	var command string
-	var cmd *exec.Cmd
-
-	// Check the OS and run command
 	if currentOS == "linux" {
-		command = fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid)
-		cmd = exec.Command("bash", "-c", command)
+		fmt.Println("Launching Steam game with app ID:", appid)
+
+		beforePIDs, err := getAllPIDs()
+		if err != nil {
+			return fmt.Errorf("failed to get PIDs before launch: %w", err)
+		}
+
+		cmd := exec.Command("bash", "-c", fmt.Sprintf(`flatpak run com.valvesoftware.Steam steam://rungameid/%d`, appid))
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to start Steam: %w", err)
+		}
+
+		// Give it time to spawn game processes
+		time.Sleep(12 * time.Second)
+
+		afterPIDs, err := getAllPIDs()
+		if err != nil {
+			return fmt.Errorf("failed to get PIDs after launch: %w", err)
+		}
+
+		newPIDs := diffPIDs(beforePIDs, afterPIDs)
+
+		for _, pid := range newPIDs {
+			cmdline, err := getCmdline(pid)
+			if err != nil || cmdline == "" {
+				continue
+			}
+			if looksLikeGameProcess(cmdline) {
+				return monitorProcessLinux(pid)
+			}
+		}
+
+		return fmt.Errorf("could not detect game process after launch")
 	} else if currentOS == "windows" {
-		//return launchWindowsSteamGame(appid)
 		return launchAndMonitorSteamGame(appid)
 	} else {
 		return fmt.Errorf("error launching game: unsupported OS")
 	}
+}
 
-	// Execute the command
-	err := cmd.Run()
+func getAllPIDs() (map[int]struct{}, error) {
+	out, err := exec.Command("ps", "-eo", "pid").Output()
 	if err != nil {
-		return fmt.Errorf("error launching game: %w", err)
+		return nil, err
 	}
-	return nil
+	lines := strings.Split(string(out), "\n")[1:] // skip header
+	pids := make(map[int]struct{})
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if pid, err := strconv.Atoi(line); err == nil {
+			pids[pid] = struct{}{}
+		}
+	}
+	return pids, nil
+}
+
+func diffPIDs(before, after map[int]struct{}) []int {
+	var diff []int
+	for pid := range after {
+		if _, exists := before[pid]; !exists {
+			diff = append(diff, pid)
+		}
+	}
+	return diff
+}
+
+func getCmdline(pid int) (string, error) {
+	out, err := exec.Command("ps", "-p", fmt.Sprint(pid), "-o", "cmd", "--no-headers").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func looksLikeGameProcess(cmdline string) bool {
+	isGameBinary := strings.Contains(cmdline, ".x86_64") ||
+		strings.Contains(cmdline, ".exe") ||
+		strings.Contains(cmdline, "proton") ||
+		strings.Contains(cmdline, "scout-on-soldier-entry-point")
+
+	if isGameBinary &&
+		!strings.Contains(cmdline, "steamwebhelper") &&
+		!strings.Contains(cmdline, "gameoverlayui") &&
+		!strings.Contains(cmdline, "pressure-vessel") {
+		return true
+	}
+	return false
+}
+
+func monitorProcessLinux(pid int) error {
+	for {
+		if _, err := os.FindProcess(pid); err != nil {
+			return nil // Process exited
+		}
+		time.Sleep(2 * time.Second)
+
+		// Check if the process is still alive
+		cmd := exec.Command("ps", "-p", fmt.Sprint(pid))
+		output, _ := cmd.CombinedOutput()
+		if !strings.Contains(string(output), fmt.Sprint(pid)) {
+			return nil // Process exited
+		}
+	}
 }
 
 func launchAndMonitorSteamGame(appid int) error {
@@ -324,47 +476,22 @@ func checkSteamInstalledValidity() error {
 func getSteamPath() (string, error) {
 	switch runtime.GOOS {
 	case "windows":
-		keyPath, err := syscall.UTF16PtrFromString(`SOFTWARE\WOW6432Node\Valve\Steam`)
+		path, err := getSteamPathWindows()
 		if err != nil {
-			return "", fmt.Errorf("windows reg error %w", err)
+			return path, fmt.Errorf("error finding path, %v", err)
 		}
-
-		var hKey syscall.Handle
-		err = syscall.RegOpenKeyEx(syscall.HKEY_LOCAL_MACHINE, keyPath, 0, syscall.KEY_READ, &hKey)
-		if err != nil {
-			return "", fmt.Errorf("windows reg open key error %w", err)
-		}
-		defer syscall.RegCloseKey(hKey)
-
-		var buf [256]uint16
-		var bufSize uint32 = uint32(len(buf) * 2)
-
-		valueName, err := syscall.UTF16PtrFromString("InstallPath")
-		if err != nil {
-			return "", fmt.Errorf("windows install path error %w", err)
-		}
-
-		err = syscall.RegQueryValueEx(hKey, valueName, nil, nil, (*byte)(unsafe.Pointer(&buf[0])), &bufSize)
-		if err != nil {
-			return "", fmt.Errorf("windows query error %w", err)
-		}
-
-		steamPath := syscall.UTF16ToString(buf[:])
-
-		return steamPath, nil
+		return path, nil
 	case "linux":
-		// Check common Steam installation paths
 		paths := []string{
+			os.ExpandEnv("$HOME/.var/app/com.valvesoftware.Steam/data/Steam"),
 			os.ExpandEnv("$HOME/.steam/steam"),
 			os.ExpandEnv("$HOME/.local/share/Steam"),
-			os.ExpandEnv("$HOME/.var/app/com.valvesoftware.Steam/.steam"),
 		}
 		for _, path := range paths {
-			_, err := os.Stat(path)
-			bail(err)
-			return path, nil
+			if _, err := os.Stat(path); err == nil {
+				return path, nil
+			}
 		}
-
 	}
 	return "no steam", nil
 }

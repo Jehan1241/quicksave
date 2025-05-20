@@ -16,6 +16,24 @@ import (
 var logger *log.Logger
 var logFile *os.File
 
+var updaterName string
+var serverName string
+var appName string
+
+func initExeNames() {
+	os := runtime.GOOS
+	switch os {
+	case "windows":
+		updaterName = "updater.exe"
+		serverName = "quicksaveService.exe"
+		appName = "quicksave.exe"
+	case "linux":
+		updaterName = "updater"
+		serverName = "quicksaveService"
+		appName = "quicksave"
+	}
+}
+
 func initLogger() error {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -34,7 +52,7 @@ func initLogger() error {
 }
 
 func main() {
-	// Initialize logger
+	initExeNames()
 	if err := initLogger(); err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
 		os.Exit(1)
@@ -80,7 +98,7 @@ func main() {
 	}
 
 	logger.Println("Update completed successfully!")
-	restartApp(filepath.Join(target, "quicksave.exe"))
+	restartApp(filepath.Join(target, appName))
 }
 
 func createBackup(target string) (string, error) {
@@ -131,8 +149,8 @@ func createBackup(target string) (string, error) {
 		src string
 		dst string
 	}{
-		{filepath.Join(target, "backend", "quicksaveService.exe"), filepath.Join(backupDir, "backend", "quicksaveService.exe")},
-		{filepath.Join(target, "backend", "updater.exe"), filepath.Join(backupDir, "backend", "updater.exe")},
+		{filepath.Join(target, "backend", serverName), filepath.Join(backupDir, "backend", serverName)},
+		{filepath.Join(target, "backend", updaterName), filepath.Join(backupDir, "backend", updaterName)},
 	}
 
 	// Perform backups
@@ -226,8 +244,8 @@ func rollback(target, backupDir string) error {
 
 // Helper functions
 func killProcesses() {
-	killProcess("quicksaveService.exe")
-	killProcess("quicksave.exe")
+	killProcess(serverName)
+	killProcess(appName)
 	time.Sleep(2 * time.Second)
 }
 

@@ -27,6 +27,12 @@
     "icon": "assets/icon.ico",
     "target": ["dir"]
   },
+  "linux": {
+    "target": ["AppImage"],
+    "icon": "assets/icon.png",
+    "category": "Game",
+    "artifactName": "${productName}.${ext}"
+  },
   "publish": {
     "provider": "github",
     "owner": "Jehan1241",
