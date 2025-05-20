@@ -379,8 +379,8 @@ app.on("ready", () => {
 const killGoServer = () => {
   if (goServer && !goServer.killed) {
     console.log("Attempting to kill Go server...");
-    process.kill(-goServer.pid, "SIGTERM");
     goServer.kill("SIGTERM");
+    if (process.platform === "linux") process.kill(-goServer.pid, "SIGTERM");
 
     setTimeout(() => {
       if (!goServer.killed) {
