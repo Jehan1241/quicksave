@@ -15,12 +15,8 @@ const appPrefix =
 
 const requiredFiles =
   process.platform === "win32"
-    ? [
-        "quicksave/quicksave.exe",
-        "quicksave/backend/quicksaveService.exe",
-        "quicksave/backend/updater.exe",
-      ]
-    : ["quicksave/quicksave", "quicksaveService", "updater"];
+    ? ["quicksave.exe", "backend/quicksaveService.exe", "backend/updater.exe"]
+    : ["quicksave", "backend/quicksaveService", "backend/updater"];
 
 export async function checkForUpdates(currentVersion: any) {
   try {
@@ -110,23 +106,54 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
           `powershell Expand-Archive -Path "${tempZip}" -DestinationPath "${tempExtract}" -Force`
         );
       } else {
-        await execAsync(`bsdtar -xf "${tempZip}" -C "${tempExtract}"`);
+        let extracted = false;
+
+        if (await commandExists("bsdtar")) {
+          await execAsync(`bsdtar -xf "${tempZip}" -C "${tempExtract}"`);
+          extracted = true;
+        } else if (await commandExists("unzip")) {
+          await execAsync(`unzip -o "${tempZip}" -d "${tempExtract}"`);
+          extracted = true;
+        }
+
+        if (!extracted) {
+          throw new Error(
+            "No supported extraction tool found (need 'bsdtar' or 'unzip')."
+          );
+        }
       }
     } catch (error) {
       console.log("Extraction Error: ", error);
+      throw new Error("Failed to extract update archive.");
     }
 
-    // 3. Verify critical files
+    // 3. Dynamically resolve where 'quicksave' is located
+    let rootDir = path.join(tempExtract, "quicksave");
+    if (!fs.existsSync(rootDir)) {
+      const subdirs = await fs.readdir(tempExtract);
+      for (const sub of subdirs) {
+        const candidate = path.join(tempExtract, sub, "quicksave");
+        if (await fs.pathExists(candidate)) {
+          rootDir = candidate;
+          break;
+        }
+      }
+
+      if (!fs.existsSync(rootDir)) {
+        throw new Error("Update package is missing the 'quicksave' folder.");
+      }
+    }
+
+    // 3. Verify required files inside the resolved root
     for (const file of requiredFiles) {
-      if (!fs.existsSync(path.join(tempExtract, file))) {
+      if (!fs.existsSync(path.join(rootDir, file))) {
         throw new Error(`Update package missing required file: ${file}`);
       }
     }
 
     //4. update the updater
     const extractedUpdaterPath = path.join(
-      tempExtract,
-      "quicksave",
+      rootDir,
       "backend",
       process.platform === "win32" ? "updater.exe" : "updater"
     );
@@ -139,7 +166,7 @@ async function downloadUpdate(zipUrl: string, win: BrowserWindow) {
     await fs.ensureDir(path.dirname(oldUpdaterPath));
     await fs.copy(extractedUpdaterPath, oldUpdaterPath, { overwrite: true });
 
-    const source = path.join(tempExtract, "quicksave");
+    const source = rootDir;
 
     try {
       const response = await fetch("http://localhost:50001/updateApp", {
@@ -181,5 +208,14 @@ export async function promptUpdate(win: BrowserWindow, currentVersion: any) {
 
   if (response) {
     await downloadUpdate(update.zipUrl, win);
+  }
+}
+
+async function commandExists(cmd: string): Promise<boolean> {
+  try {
+    await execAsync(`command -v ${cmd}`);
+    return true;
+  } catch {
+    return false;
   }
 }

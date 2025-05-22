@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -2022,7 +2023,16 @@ func setupRouter() *gin.Engine {
 		fmt.Println("Received Update App", data.Source, data.Target)
 
 		// Get updater path (same directory as main exe)
-		updaterPath := filepath.Join(filepath.Dir(os.Args[0]), "updater.exe")
+
+		var updaterName string
+
+		if runtime.GOOS == "windows" {
+			updaterName = "updater.exe"
+		} else {
+			updaterName = "updater"
+		}
+
+		updaterPath := filepath.Join(filepath.Dir(os.Args[0]), updaterName)
 
 		// Verify updater exists
 		if _, err := os.Stat(updaterPath); os.IsNotExist(err) {

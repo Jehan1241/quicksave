@@ -9,7 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -52,6 +55,13 @@ func initLogger() error {
 }
 
 func main() {
+
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Printf("Recovered from panic: %v\n", r)
+		}
+	}()
+
 	initExeNames()
 	if err := initLogger(); err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
@@ -167,7 +177,7 @@ func createBackup(target string) (string, error) {
 }
 
 func performUpdate(source, target string) error {
-
+	logger.Println("Starting performUpdate")
 	backendTarget := filepath.Join(target, "backend")
 	if err := os.MkdirAll(backendTarget, 0755); err != nil {
 		logger.Printf("Failed to create backend directory %s: %v\n", backendTarget, err)
@@ -187,9 +197,14 @@ func performUpdate(source, target string) error {
 		dstPath := filepath.Join(target, relPath)
 
 		if !info.IsDir() {
+			if filepath.Base(dstPath) == "updater" {
+				logger.Println("Skipping updater binary to avoid overwrite of running executable")
+				return nil
+			}
 			err := copyFile(path, dstPath)
 			if err != nil {
 				logger.Println("error ", err)
+				return err
 			}
 		}
 		return nil
@@ -290,13 +305,81 @@ func copyFile(src, dst string) error {
 }
 
 func killProcess(name string) {
-	cmd := exec.Command("taskkill", "/F", "/IM", name)
-	if runtime.GOOS != "windows" {
-		cmd = exec.Command("pkill", "-f", name)
+	if runtime.GOOS == "windows" {
+		if err := exec.Command("taskkill", "/F", "/IM", name).Run(); err != nil {
+			logger.Printf("Error killing process %s: %v\n", name, err)
+		}
+		return
 	}
-	if err := cmd.Run(); err != nil {
-		logger.Printf("Error killing process %s: %v\n", name, err)
+
+	out, err := exec.Command("pgrep", "-x", name).Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			logger.Printf("No processes found for %s\n", name)
+			return
+		}
+		logger.Printf("pgrep failed for %s: %v\n", name, err)
+		return
 	}
+
+	selfPID := os.Getpid()
+	pids := strings.Fields(string(out))
+	if len(pids) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(pids))
+
+	for _, pidStr := range pids {
+		go func(pidStr string) {
+			defer wg.Done()
+
+			pid, err := strconv.Atoi(pidStr)
+			if err != nil {
+				logger.Printf("Invalid PID %s: %v\n", pidStr, err)
+				return
+			}
+			if pid == selfPID {
+				logger.Printf("Skipping killing own process pid %d\n", pid)
+				return
+			}
+
+			proc, err := os.FindProcess(pid)
+			if err != nil {
+				logger.Printf("Failed to find process %d: %v\n", pid, err)
+				return
+			}
+
+			logger.Printf("Sending SIGTERM to process %d (%s)\n", pid, name)
+			if err := proc.Signal(syscall.SIGTERM); err != nil {
+				logger.Printf("Failed to send SIGTERM to process %d: %v\n", pid, err)
+				return
+			}
+
+			// Poll every 100ms for 2 seconds to check if process is gone
+			for i := 0; i < 20; i++ {
+				time.Sleep(100 * time.Millisecond)
+				// Check if process is still alive by sending signal 0 (no-op)
+				err := proc.Signal(syscall.Signal(0))
+				if err != nil {
+					logger.Printf("Process %d exited gracefully\n", pid)
+					return
+				}
+			}
+
+			// Timeout expired, force kill
+			logger.Printf("Timeout expired, sending SIGKILL to process %d (%s)\n", pid, name)
+			if err := proc.Signal(syscall.SIGKILL); err != nil {
+				logger.Printf("Failed to send SIGKILL to process %d: %v\n", pid, err)
+			} else {
+				logger.Printf("SIGKILL sent successfully to %d\n", pid)
+			}
+		}(pidStr)
+	}
+
+	wg.Wait()
+	logger.Printf("killProcess finished for %s\n", name)
 }
 
 func restartApp(exePath string) {
