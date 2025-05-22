@@ -197,10 +197,13 @@ func performUpdate(source, target string) error {
 		dstPath := filepath.Join(target, relPath)
 
 		if !info.IsDir() {
-			if filepath.Base(dstPath) == "updater" {
-				logger.Println("Skipping updater binary to avoid overwrite of running executable")
-				return nil
+			if runtime.GOOS == "linux" {
+				if filepath.Base(dstPath) == "updater" {
+					logger.Println("Skipping updater binary to avoid overwrite of running executable")
+					return nil
+				}
 			}
+
 			err := copyFile(path, dstPath)
 			if err != nil {
 				logger.Println("error ", err)
