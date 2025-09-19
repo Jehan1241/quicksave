@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -361,6 +362,7 @@ func getSteamPIDWithRetry() (int, error) {
 
 func getProcessIDWMIC(name string) (int, error) {
 	cmd := exec.Command("wmic", "process", "where", fmt.Sprintf("name='%s'", name), "get", "processid")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("wmic failed: %w", err)
@@ -417,7 +419,9 @@ func findValidChildProcess(parentPID int) (int, error) {
         if ($game) { $game.ProcessId } else { 0 }
     `, parentPID)
 
-	output, err := exec.Command("powershell", "-Command", psCmd).Output()
+	cmd := exec.Command("powershell", "-Command", psCmd)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	output, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("powershell error: %w", err)
 	}
@@ -445,6 +449,7 @@ func monitorProcess(pid int) error {
 
 func isProcessRunning(pid int) (bool, error) {
 	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid))
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := cmd.Output()
 	return err == nil && strings.Contains(string(output), fmt.Sprintf("%d", pid)), nil
 }
