@@ -383,24 +383,76 @@ func getProcessIDWMIC(name string) (int, error) {
 }
 
 func waitForSteamChildProcess(parentPID int, timeout time.Duration) (int, error) {
-	startTime := time.Now()
-	checkInterval := 2 * time.Second
-	initialDelay := 5 * time.Second
-
-	// Initial waiting period
-	if time.Since(startTime) < initialDelay {
-		time.Sleep(initialDelay - time.Since(startTime))
+	initialPIDs, err := getPotentialGamePIDs()
+	if err != nil {
+		return 0, fmt.Errorf("could not get initial process snapshot: %w", err)
 	}
 
-	for time.Since(startTime) < timeout {
-		childPID, err := findValidChildProcess(parentPID)
-		if err == nil && childPID != 0 {
-			return childPID, nil
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	timeoutChan := time.After(timeout)
+
+	fallbackDelay := 15 * time.Second
+	fallbackTime := time.Now().Add(fallbackDelay)
+
+	for {
+		select {
+		case <-timeoutChan:
+			return 0, fmt.Errorf("timeout: timed out waiting for game process")
+		case <-ticker.C:
+			// --- STRATEGY 1: FAST PATH (Direct Child Check) ---
+			// This is always attempted first on every tick.
+			if pid, err := findValidChildProcess(parentPID); err == nil {
+				fmt.Println("Success! Found process via Direct Child method.")
+				return pid, nil
+			}
+
+			// --- STRATEGY 2: ROBUST FALLBACK (Snapshot Comparison) ---
+			// This check is activated only after the initial delay has passed.
+			if time.Now().After(fallbackTime) {
+				currentPIDs, err := getPotentialGamePIDs()
+				if err != nil {
+					continue // Ignore transient error and try again
+				}
+
+				// Compare current processes against the initial snapshot.
+				for pid := range currentPIDs {
+					if !initialPIDs[pid] {
+						// Found a new process that wasn't there at the start!
+						fmt.Println("Success! Found process via Snapshot Fallback method.")
+						return pid, nil
+					}
+				}
+			}
 		}
-
-		time.Sleep(checkInterval)
 	}
-	return 0, fmt.Errorf("timeout waiting for game process")
+}
+
+func getPotentialGamePIDs() (map[int]bool, error) {
+	psCmd := `
+		Get-CimInstance Win32_Process |
+		Where-Object { $_.ExecutablePath -like '*steamapps*common*' } |
+		Select-Object -ExpandProperty ProcessId
+	`
+	cmd := exec.Command("powershell", "-Command", psCmd)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("powershell error during snapshot: %w", err)
+	}
+
+	pids := make(map[int]bool)
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		pidStr := strings.TrimSpace(line)
+		if pidStr == "" {
+			continue
+		}
+		if pid, err := strconv.Atoi(pidStr); err == nil {
+			pids[pid] = true
+		}
+	}
+	return pids, nil
 }
 
 func findValidChildProcess(parentPID int) (int, error) {
